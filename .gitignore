@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build output
+dist/
+build/
+bin/
+obj/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and OS
+.vs/
+.idea/
+*.user
+Thumbs.db
+Desktop.ini
