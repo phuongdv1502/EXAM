@@ -7,6 +7,8 @@ dist/
 build/
 bin/
 obj/
+publish/
+publish.zip
 
 # Ảnh phiếu OMR, không đưa vào git
 storage/
