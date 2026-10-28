@@ -12,7 +12,6 @@ obj/
 .env
 .env.*
 !.env.example
-appsettings.Development.json
 
 # IDE and OS
 .vs/
