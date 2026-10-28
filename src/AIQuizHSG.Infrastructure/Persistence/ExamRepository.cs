@@ -20,9 +20,29 @@ public sealed class ExamRepository(AiQuizDbContext db) : IExamRepository
 
     public async Task<List<ExamSummary>> ListOpenForStudentAsync(long userId, CancellationToken ct)
     {
+        // Học sinh chỉ thấy đề được chỉ đích danh, hoặc đề giao cho lớp mình đang học.
+        var studentIds = await db.Students.AsNoTracking()
+            .Where(student => student.UserId == userId)
+            .Select(student => student.Id)
+            .ToListAsync(ct);
+        var classIds = await db.StudentEnrollments.AsNoTracking()
+            .Where(item => studentIds.Contains(item.StudentId)
+                && item.Status == EnrollmentStatus.Active
+                && item.LeaveDate == null)
+            .Select(item => item.ClassroomId)
+            .ToListAsync(ct);
+        var assignedExamIds = await db.ExamAssignments.AsNoTracking()
+            .Where(item => item.Status == AssignmentStatus.Active
+                && ((item.StudentId != null && studentIds.Contains(item.StudentId.Value))
+                    || (item.ClassroomId != null && classIds.Contains(item.ClassroomId.Value))))
+            .Select(item => item.ExamId)
+            .Distinct()
+            .ToListAsync(ct);
+
         var rows = await Project(db.Exams.AsNoTracking()
                 .Where(exam => exam.Status == ExamStatus.Published
-                    && (!exam.Participants.Any() || exam.Participants.Any(participant => participant.UserId == userId)))
+                    && (exam.Participants.Any(participant => participant.UserId == userId)
+                        || (!exam.Participants.Any() && assignedExamIds.Contains(exam.Id))))
                 .OrderBy(exam => exam.OpensAtUtc)
                 .ThenBy(exam => exam.Id))
             .ToListAsync(ct);

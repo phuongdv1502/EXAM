@@ -1,0 +1,63 @@
+<div class="page-head">
+  <div>
+    <h1>Mẫu phiếu OMR</h1>
+    <p>Mỗi mẫu gắn số câu và số lựa chọn. Tọa độ ô tô được sinh theo lưới chuẩn.</p>
+  </div>
+  <div class="page-actions">
+    <a pButton severity="secondary" [outlined]="true" routerLink="/omr"><i class="pi pi-arrow-left"></i><span>Đợt chấm</span></a>
+  </div>
+</div>
+<div class="split">
+  <p-card header="Thêm mẫu">
+    @if (error) { <p-message severity="error">{{ error }}</p-message> }
+    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+    <form (ngSubmit)="save()">
+      <div class="field">
+        <label for="code">Mã mẫu</label>
+        <input pInputText id="code" name="code" [(ngModel)]="code" />
+      </div>
+      <div class="form-grid">
+        <div class="field span-4">
+          <label for="version">Phiên bản</label>
+          <p-inputnumber inputId="version" name="version" [(ngModel)]="version" [min]="1" [max]="99" />
+        </div>
+        <div class="field span-4">
+          <label for="questionCount">Số câu</label>
+          <p-inputnumber inputId="questionCount" name="questionCount" [(ngModel)]="questionCount" [min]="1" [max]="60" />
+        </div>
+        <div class="field span-4">
+          <label for="choiceCount">Số lựa chọn</label>
+          <p-inputnumber inputId="choiceCount" name="choiceCount" [(ngModel)]="choiceCount" [min]="2" [max]="6" />
+        </div>
+      </div>
+      <div class="choice" style="margin: 1rem 0">
+        <p-toggleswitch inputId="templateActive" name="isActive" [(ngModel)]="isActive" />
+        <label for="templateActive">Đang dùng</label>
+      </div>
+      <p-button label="Lưu mẫu" icon="pi pi-check" type="submit" [loading]="loading" />
+    </form>
+  </p-card>
+  <p-card>
+    <p-table [value]="items" [paginator]="items.length > 8" [rows]="8">
+      <ng-template #header>
+        <tr>
+          <th>Mẫu</th>
+          <th>Câu</th>
+          <th>Lựa chọn</th>
+          <th>Trạng thái</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-item>
+        <tr>
+          <td>{{ item.code }} <span class="muted">v{{ item.version }}</span></td>
+          <td>{{ item.questionCount }}</td>
+          <td>{{ item.choiceCount }}</td>
+          <td><p-tag [value]="item.isActive ? 'Đang dùng' : 'Ẩn'" [severity]="item.isActive ? 'success' : 'secondary'" /></td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr><td colspan="4" class="muted">Chưa có mẫu phiếu.</td></tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+</div>

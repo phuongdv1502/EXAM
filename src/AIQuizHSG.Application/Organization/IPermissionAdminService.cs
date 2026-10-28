@@ -11,4 +11,6 @@ public interface IPermissionAdminService
     Task<OperationResult<IReadOnlyList<RoleResponse>>> ListRolesAsync(Actor actor, CancellationToken ct);
     Task<OperationResult<IReadOnlyList<RoleResponse>>> ListUserRolesAsync(long userId, Actor actor, CancellationToken ct);
     Task<OperationResult<IReadOnlyList<RoleResponse>>> ReplaceUserRolesAsync(long userId, ReplaceUserRolesRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<IReadOnlyList<UserPermissionGrantResponse>>> ListGrantsAsync(long userId, Actor actor, CancellationToken ct);
+    Task<OperationResult<IReadOnlyList<UserPermissionGrantResponse>>> ReplaceUserGrantsAsync(long userId, ReplaceUserPermissionsRequest request, Actor actor, CancellationToken ct);
 }

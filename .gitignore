@@ -8,6 +8,9 @@ build/
 bin/
 obj/
 
+# Ảnh phiếu OMR, không đưa vào git
+storage/
+
 # Environment and secrets
 .env
 .env.*

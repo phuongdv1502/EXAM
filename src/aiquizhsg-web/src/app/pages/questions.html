@@ -1,0 +1,96 @@
+<div class="page-head">
+  <div>
+    <h1>Câu hỏi</h1>
+    <p>{{ total }} câu. Câu mới ở nháp, gửi duyệt rồi mới được phê duyệt.</p>
+  </div>
+  <div class="page-actions">
+    <a pButton routerLink="/questions/new"><i class="pi pi-plus"></i><span>Thêm câu</span></a>
+    <p-button label="Tải mẫu Excel" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="downloadTemplate()" />
+    <p-button label="Nhập Excel" icon="pi pi-upload" severity="secondary" [outlined]="true" (onClick)="excel.click()" />
+    <input #excel type="file" accept=".xlsx" hidden (change)="importFile($event)" />
+  </div>
+</div>
+
+<p-card>
+  <div class="stack">
+    @if (error) { <p-message severity="error">{{ error }}</p-message> }
+    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+    @if (importErrors.length) {
+      <p-message severity="warn">
+        <div>
+          <strong>Một số dòng không nhập được</strong>
+          @for (item of importErrors; track item.row + item.message) {
+            <div>Dòng {{ item.row }}: {{ item.message }}</div>
+          }
+        </div>
+      </p-message>
+    }
+    <form class="filters" (ngSubmit)="search()">
+      <div class="field span-3">
+        <p-select [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" (ngModelChange)="loadTopics()" name="subjectId" placeholder="Mọi môn" [showClear]="true" appendTo="body" />
+      </div>
+      <div class="field span-3">
+        <p-select [options]="topics" optionLabel="name" optionValue="id" [(ngModel)]="topicId" name="topicId" placeholder="Mọi chuyên đề" [showClear]="true" appendTo="body" />
+      </div>
+      <div class="field span-3">
+        <p-select [options]="choices.questionStatus" optionLabel="label" optionValue="value" [(ngModel)]="status" name="status" placeholder="Trạng thái" [showClear]="true" appendTo="body" />
+      </div>
+      <div class="field span-3">
+        <p-select [options]="choices.level" optionLabel="label" optionValue="value" [(ngModel)]="level" name="level" placeholder="Mức" [showClear]="true" appendTo="body" />
+      </div>
+      <div class="field span-6">
+        <div class="search-line">
+          <input pInputText name="keyword" [(ngModel)]="keyword" placeholder="Tìm nội dung" />
+          <p-button icon="pi pi-search" type="submit" aria-label="Lọc" />
+        </div>
+      </div>
+    </form>
+
+    <p-table [value]="items">
+      <ng-template #header>
+        <tr>
+          <th>Nội dung</th>
+          <th>Phân loại</th>
+          <th>Trạng thái</th>
+          <th></th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-item>
+        <tr>
+          <td>
+            {{ item.content }}
+            <div class="muted">{{ item.subjectName }} · {{ item.topicName }}</div>
+          </td>
+          <td>
+            {{ label(labels.level, item.level) }}
+            <div class="muted">{{ label(labels.type, item.type) }}</div>
+            @if (item.difficultyName) { <div class="muted">{{ item.difficultyName }}</div> }
+          </td>
+          <td><p-tag [value]="label(labels.questionStatus, item.status)" [severity]="tagColor(item.status)" /></td>
+          <td>
+            <div class="row-actions" style="justify-content: flex-end">
+              <a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/questions', item.id]">Sửa</a>
+              @if (item.status === 'Draft' || item.status === 'Rejected') {
+                <p-button label="Gửi duyệt" size="small" (onClick)="submit(item)" />
+              }
+              @if (item.status === 'PendingReview') {
+                <p-button label="Duyệt" size="small" (onClick)="approve(item)" />
+                <p-button label="Từ chối" size="small" severity="danger" [outlined]="true" (onClick)="rejectingId = item.id" />
+              }
+            </div>
+            @if (rejectingId === item.id) {
+              <div class="row-actions" style="margin-top: 0.5rem; justify-content: flex-end">
+                <input pInputText [(ngModel)]="rejectReason" name="rejectReason{{ item.id }}" placeholder="Lý do từ chối" />
+                <p-button label="Xác nhận" size="small" severity="danger" (onClick)="reject(item)" />
+              </div>
+            }
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr><td colspan="4" class="muted">Không có câu hỏi khớp bộ lọc.</td></tr>
+      </ng-template>
+    </p-table>
+    <p-paginator [first]="(page - 1) * pageSize" [rows]="pageSize" [totalRecords]="total" (onPageChange)="turn($event)" />
+  </div>
+</p-card>

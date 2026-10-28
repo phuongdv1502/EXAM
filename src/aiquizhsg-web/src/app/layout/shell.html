@@ -1,0 +1,31 @@
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">HSG</span>
+      <div>
+        <strong>AI Quiz</strong>
+        <small>Tin học THCS</small>
+      </div>
+    </div>
+    <nav>
+      @for (item of visible(); track item.path) {
+        <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.exact }">
+          <i [class]="item.icon"></i>
+          <span>{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="me">
+        <strong>{{ store.user()?.fullName }}</strong>
+      </div>
+      <p-tag [value]="roleText()" severity="secondary" />
+      <p-button label="Đăng xuất" icon="pi pi-sign-out" severity="secondary" [outlined]="true" (onClick)="logout()" />
+    </header>
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

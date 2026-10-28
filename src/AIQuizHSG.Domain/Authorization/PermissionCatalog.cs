@@ -38,6 +38,12 @@ public static class PermissionCatalog
         Item("result.regrade", "Chấm lại", "Làm bài"),
         Item("report.view", "Xem báo cáo", "Báo cáo"),
         Item("report.export", "Xuất báo cáo", "Báo cáo"),
+        Item("omr.template.manage", "Quản lý mẫu phiếu OMR", "Chấm phiếu OMR"),
+        Item("omr.batch.manage", "Tạo đợt nhập phiếu", "Chấm phiếu OMR"),
+        Item("omr.review", "Kiểm duyệt phiếu", "Chấm phiếu OMR"),
+        Item("omr.grade", "Chấm phiếu OMR", "Chấm phiếu OMR"),
+        Item("omr.publish", "Duyệt và công bố điểm phiếu", "Chấm phiếu OMR"),
+        Item("omr.export", "Xuất bảng điểm phiếu", "Chấm phiếu OMR"),
         Item("system.config.view", "Xem cấu hình", "Cấu hình hệ thống"),
         Item("system.config.update", "Sửa cấu hình", "Cấu hình hệ thống")
     ];
@@ -58,7 +64,8 @@ public static class PermissionCatalog
             "class.view",
             "question.view", "question.create", "question.update", "question.approve",
             "exam.create", "exam.generate", "exam.update", "exam.publish", "exam.assign",
-            "attempt.view", "result.view", "report.view"
+            "attempt.view", "result.view", "report.view",
+            "omr.template.manage", "omr.batch.manage", "omr.review", "omr.grade", "omr.publish", "omr.export"
         ],
         RoleCodes.Student => ["attempt.view", "attempt.submit", "result.view"],
         _ => []

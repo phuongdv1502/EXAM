@@ -1,0 +1,99 @@
+<div class="page-head omr-page">
+  <div>
+    <h1>Chấm phiếu OMR</h1>
+    <p>Mỗi đợt gắn một đề đã phát hành và một mã đề in trên phiếu.</p>
+  </div>
+  <div class="page-actions">
+    <a pButton severity="secondary" [outlined]="true" routerLink="/omr/templates"><i class="pi pi-th-large"></i><span>Mẫu phiếu</span></a>
+  </div>
+</div>
+<div class="split omr-page">
+  <p-card>
+    <form class="batch-form" (ngSubmit)="save()">
+      <div class="batch-form-head">
+        <span class="batch-form-icon"><i class="pi pi-qrcode"></i></span>
+        <div>
+          <h2>Tạo đợt</h2>
+          <p>Chọn đề, mẫu cùng số câu, rồi mã in trên phiếu.</p>
+        </div>
+      </div>
+      @if (error) { <p-message severity="error">{{ error }}</p-message> }
+      @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+      <div class="field">
+        <label for="examId">Đề thi</label>
+        <p-select inputId="examId" name="examId" [options]="exams" optionLabel="title" optionValue="id" [(ngModel)]="examId" (ngModelChange)="templateId = matchingTemplates()[0]?.id ?? null" placeholder="Chọn đề đã phát hành hoặc đã đóng" appendTo="body" />
+        @if (selectedExam(); as exam) {
+          <div class="pick-preview">
+            <i class="pi pi-file"></i>
+            <div>
+              <strong>{{ exam.title }}</strong>
+              <span>{{ exam.subjectName }} · {{ exam.questionCount }} câu · {{ exam.durationMinutes }} phút</span>
+            </div>
+            <p-tag [value]="label(labels.examStatus, exam.status)" [severity]="tagColor(exam.status)" />
+          </div>
+        }
+      </div>
+      <div class="field">
+        <label for="templateId">Mẫu phiếu</label>
+        <p-select inputId="templateId" name="templateId" [options]="matchingTemplates()" optionLabel="code" optionValue="id" [(ngModel)]="templateId" placeholder="Mẫu cùng số câu với đề" appendTo="body" />
+        @if (selectedTemplate(); as template) {
+          <div class="pick-preview">
+            <i class="pi pi-table"></i>
+            <div>
+              <strong>{{ template.code }}</strong>
+              <span>Phiên bản {{ template.version }} · {{ template.questionCount }} câu · {{ template.choiceCount }} lựa chọn</span>
+            </div>
+          </div>
+        } @else if (examId && matchingTemplates().length === 0) {
+          <p class="muted pick-empty">Chưa có mẫu đang dùng với cùng số câu.</p>
+        }
+      </div>
+      <div class="field">
+        <label for="examCode">Mã đề trên phiếu</label>
+        <input pInputText id="examCode" class="code-input" name="examCode" [(ngModel)]="examCode" placeholder="VD: DE01" autocomplete="off" />
+      </div>
+      <div class="field">
+        <span class="field-label">Nguồn phiếu</span>
+        <div class="source-pills">
+          @for (source of choices.omrSource; track source.value) {
+            <button type="button" class="source-pill" [class.on]="sourceType === source.value" (click)="sourceType = source.value">
+              <i [class]="sourceIcon(source.value)"></i>
+              {{ source.label }}
+            </button>
+          }
+        </div>
+      </div>
+      <p-button styleClass="batch-submit" label="Tạo đợt" icon="pi pi-plus" type="submit" [loading]="loading" />
+    </form>
+  </p-card>
+  <p-card>
+    <p-table [value]="items" [paginator]="items.length > 8" [rows]="8">
+      <ng-template #header>
+        <tr>
+          <th>Đợt</th>
+          <th>Phiếu</th>
+          <th>Trạng thái</th>
+          <th></th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-item>
+        <tr>
+          <td>
+            {{ item.examTitle }}
+            <div class="muted">{{ item.examCode }} · {{ item.templateCode }} · {{ formatDateTime(item.createdAtUtc) }}</div>
+          </td>
+          <td>
+            {{ item.processedSheets }}/{{ item.totalSheets }}
+            <div class="sheet-meter" aria-hidden="true"><span [style.width.%]="sheetPercent(item)"></span></div>
+            @if (item.needsReviewSheets) { <div class="muted">{{ item.needsReviewSheets }} cần đối soát</div> }
+          </td>
+          <td><p-tag [value]="label(labels.omrBatch, item.status)" [severity]="tagColor(item.status)" /></td>
+          <td><a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/omr/batches', item.id]">Mở</a></td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr><td colspan="4" class="muted">Chưa có đợt chấm.</td></tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+</div>

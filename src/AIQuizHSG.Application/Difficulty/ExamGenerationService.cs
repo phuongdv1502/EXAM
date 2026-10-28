@@ -39,6 +39,31 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
         return OperationResult<AvailabilityResponse>.Ok(planned.Availability!);
     }
 
+    // Chọn câu theo ma trận để đổ vào form, chưa tạo đề.
+    public async Task<OperationResult<DrawQuestionsResponse>> DrawAsync(AvailabilityRequest request, CancellationToken ct)
+    {
+        request.TopicIds ??= [];
+        if (await availabilityValidator.FirstErrorAsync(request, ct) is { } inputError)
+            return OperationResult<DrawQuestionsResponse>.Invalid(inputError);
+
+        var planned = await PlanAsync(request.ProfileId, request.SubjectId, request.QuestionCount, request.TopicIds, request.QuestionType, ct);
+        if (planned.Availability is { CanGenerate: false })
+            return OperationResult<DrawQuestionsResponse>.Invalid(planned.Availability.Errors[0].Message);
+        if (planned.Error is not null || planned.Selected is null)
+            return OperationResult<DrawQuestionsResponse>.Invalid(planned.Error ?? Messages.ProfileNotFound);
+
+        var selected = Pick(planned.Selected, planned.Required, Random.Shared.Next(1, int.MaxValue));
+        var questions = selected
+            .Select(question => new DrawnQuestionResponse(
+                question.Id,
+                question.Content,
+                question.Topic?.Name ?? string.Empty,
+                question.Level.ToString(),
+                question.Type.ToString()))
+            .ToList();
+        return OperationResult<DrawQuestionsResponse>.Ok(new DrawQuestionsResponse(questions));
+    }
+
     public async Task<OperationResult<ExamResponse>> GenerateAsync(GenerateExamRequest request, Actor actor, CancellationToken ct)
     {
         request.TopicIds ??= [];

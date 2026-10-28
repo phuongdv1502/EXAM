@@ -189,6 +189,7 @@ public class OrganizationTests
         public IExamRepository Exams => throw new NotSupportedException();
         public IAttemptRepository Attempts => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
+        public IOmrRepository Omr => throw new NotSupportedException();
         public IAuditLogRepository AuditLogs { get; } = new AuditRepo();
 
         public Task<int> SaveChangesAsync(CancellationToken ct)
@@ -229,6 +230,7 @@ public class OrganizationTests
             public Task<User?> FindForUpdateAsync(long id, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<User>> ListByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<User>> ListByRoleAsync(string roleCode, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<User>> ListAsync(CancellationToken ct) => throw new NotSupportedException();
             public Task AddAsync(User user, CancellationToken ct) => throw new NotSupportedException();
         }
 
@@ -244,6 +246,9 @@ public class OrganizationTests
             public Task<List<Permission>> ListForRoleAsync(long roleId, CancellationToken ct) => throw new NotSupportedException();
             public Task ReplaceRoleAsync(long roleId, IReadOnlyCollection<long> permissionIds, long? actorId, DateTime now, CancellationToken ct) => throw new NotSupportedException();
             public Task AddRoleLinksAsync(IEnumerable<RolePermission> links, CancellationToken ct) => throw new NotSupportedException();
+            public Task AddMissingRoleLinksAsync(IEnumerable<RolePermission> links, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<UserPermission>> ListGrantsAsync(long userId, CancellationToken ct) => throw new NotSupportedException();
+            public Task ReplaceUserGrantsAsync(long userId, IReadOnlyCollection<UserGrant> grants, long? actorId, DateTime now, CancellationToken ct) => throw new NotSupportedException();
         }
 
         private sealed class SchoolRepo(OrgStore owner) : ISchoolRepository
@@ -313,6 +318,8 @@ public class OrganizationTests
                 Task.FromResult(owner.Students.FirstOrDefault(student => student.Id == id));
             public Task<StudentProfile?> FindByCodeAsync(long schoolId, string code, CancellationToken ct) =>
                 Task.FromResult(owner.Students.FirstOrDefault(student => student.SchoolId == schoolId && student.StudentCode == code));
+            public Task<List<StudentProfile>> FindAllByCodeAsync(string code, CancellationToken ct) =>
+                Task.FromResult(owner.Students.Where(student => student.StudentCode == code).ToList());
             public Task AddAsync(StudentProfile student, CancellationToken ct)
             {
                 owner.Students.Add(student);

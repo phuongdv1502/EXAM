@@ -1,0 +1,86 @@
+@if (paper) {
+  <div class="page-head">
+    <div>
+      <h1>{{ paper.title }}</h1>
+      <p>Lượt {{ paper.attemptNumber }} · Đã chọn {{ answeredCount() }}/{{ paper.questions.length }} câu</p>
+    </div>
+    @if (taking) {
+      <div class="clock" [class.warn]="remainingSeconds < 300">
+        <span class="muted">Thời gian còn</span>
+        <strong>{{ clock() }}</strong>
+      </div>
+    } @else {
+      <p-tag [value]="label(labels.attemptStatus, paper.status)" [severity]="tagColor(paper.status)" />
+    }
+  </div>
+  <p-card>
+    <div class="stack">
+      @if (error) { <p-message severity="error">{{ error }}</p-message> }
+      <div class="question-nav">
+        @for (question of paper.questions; track question.examQuestionId; let i = $index) {
+          <p-button
+            [label]="'' + (i + 1) + (answered(question) ? ' ✓' : '')"
+            [severity]="i === index ? 'primary' : 'secondary'"
+            [outlined]="i !== index"
+            (onClick)="index = i"
+          />
+        }
+      </div>
+      @if (current; as question) {
+        <div>
+          <h2 style="margin-bottom: 0.35rem">Câu {{ index + 1 }}. {{ question.points }} điểm · {{ label(labels.type, question.type) }}</h2>
+          <p style="white-space: pre-wrap">{{ question.content }}</p>
+          <div class="choice-list">
+            @if (question.type === 'SingleChoice') {
+              @for (option of question.options; track option.id) {
+                <div class="choice">
+                  <p-radiobutton
+                    [name]="'q' + question.examQuestionId"
+                    [value]="option.id"
+                    [inputId]="'opt' + option.id"
+                    [ngModel]="question.selectedOptionIds[0] ?? null"
+                    (ngModelChange)="choose(option.id, true)"
+                    [disabled]="!taking"
+                  />
+                  <label [for]="'opt' + option.id">{{ option.content }}</label>
+                </div>
+              }
+            } @else {
+              @for (option of question.options; track option.id) {
+                <div class="choice">
+                  <p-checkbox
+                    [binary]="true"
+                    [inputId]="'opt' + option.id"
+                    [name]="'opt' + option.id"
+                    [ngModel]="selected(option.id)"
+                    (ngModelChange)="choose(option.id, $event)"
+                    [disabled]="!taking"
+                  />
+                  <label [for]="'opt' + option.id">{{ option.content }}</label>
+                </div>
+              }
+            }
+          </div>
+        </div>
+      }
+      <div class="page-head" style="margin-bottom: 0">
+        <div class="row-actions">
+          <p-button label="Câu trước" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" [disabled]="index === 0" (onClick)="index = index - 1" />
+          <p-button label="Câu sau" icon="pi pi-arrow-right" iconPos="right" severity="secondary" [outlined]="true" [disabled]="index >= paper.questions.length - 1" (onClick)="index = index + 1" />
+        </div>
+        @if (taking) {
+          <p-button label="Nộp bài" icon="pi pi-check" [loading]="loading" (onClick)="submit()" />
+        } @else {
+          <a pButton severity="secondary" [outlined]="true" routerLink="/attempts">Về danh sách lượt làm</a>
+        }
+      </div>
+    </div>
+  </p-card>
+} @else if (error) {
+  <p-message severity="error">{{ error }}</p-message>
+} @else {
+  <div class="row-actions">
+    <p-progressspinner strokeWidth="4" [style]="{ width: '32px', height: '32px' }" />
+    <span class="muted">Đang mở đề...</span>
+  </div>
+}

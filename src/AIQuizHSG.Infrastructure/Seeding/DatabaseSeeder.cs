@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIQuizHSG.Infrastructure.Seeding;
 
-// Mỗi nhóm chỉ tạo khi bảng còn trống, nên chạy lại không ghi đè dữ liệu đã có.
+// Dữ liệu khởi tạo chỉ thêm phần còn thiếu, không ghi đè bản ghi đã có.
 public static class DatabaseSeeder
 {
     public static async Task SeedAsync(
@@ -59,21 +59,11 @@ public static class DatabaseSeeder
             logger.LogInformation("Đã tạo tài khoản quản trị {Username}.", admin.Username);
         }
 
-        if (!await unitOfWork.Subjects.AnyAsync(ct))
-        {
-            await unitOfWork.Subjects.AddAsync(new Subject
-            {
-                Code = "TIN",
-                Name = "Tin học",
-                Description = "Môn Tin học THCS",
-                IsActive = true
-            }, ct);
-            await unitOfWork.SaveChangesAsync(ct);
-        }
+        await SeedSubjectsAsync(unitOfWork, ct);
 
         await SeedDifficultyAsync(unitOfWork, config, clock: DateTime.UtcNow, ct);
         await SeedOrganizationAsync(unitOfWork, ct);
-        await SeedTopicsAsync(db, unitOfWork, ct);
+        await SeedTopicsAsync(unitOfWork, ct);
         await SeedSchoolSampleAsync(db, unitOfWork, passwords, config, ct);
         await SeedQuestionsAsync(db, unitOfWork, config, ct);
     }
@@ -100,23 +90,22 @@ public static class DatabaseSeeder
             await unitOfWork.SaveChangesAsync(ct);
         }
 
-        if (!await unitOfWork.Permissions.AnyAsync(ct))
+        var now = DateTime.UtcNow;
+        var existingCodes = (await unitOfWork.Permissions.ListAsync(null, ct)).Select(item => item.Code).ToHashSet();
+        var missingPermissions = PermissionCatalog.All.Where(item => !existingCodes.Contains(item.Code)).Select(item => new Permission
         {
-            var now = DateTime.UtcNow;
-            await unitOfWork.Permissions.AddRangeAsync(PermissionCatalog.All.Select(item => new Permission
-            {
-                Code = item.Code,
-                Name = item.Name,
-                Module = item.Module,
-                IsSystem = true,
-                IsActive = true,
-                CreatedAtUtc = now
-            }), ct);
+            Code = item.Code,
+            Name = item.Name,
+            Module = item.Module,
+            IsSystem = true,
+            IsActive = true,
+            CreatedAtUtc = now
+        }).ToList();
+        if (missingPermissions.Count > 0)
+        {
+            await unitOfWork.Permissions.AddRangeAsync(missingPermissions, ct);
             await unitOfWork.SaveChangesAsync(ct);
         }
-
-        if (await unitOfWork.Permissions.AnyRoleLinkAsync(ct))
-            return;
 
         var permissions = await unitOfWork.Permissions.ListAsync(null, ct);
         var byCode = permissions.ToDictionary(item => item.Code);
@@ -132,12 +121,12 @@ public static class DatabaseSeeder
                 {
                     RoleId = role.Id,
                     PermissionId = permission.Id,
-                    CreatedAtUtc = DateTime.UtcNow
+                    CreatedAtUtc = now
                 });
             }
         }
 
-        await unitOfWork.Permissions.AddRoleLinksAsync(links, ct);
+        await unitOfWork.Permissions.AddMissingRoleLinksAsync(links, ct);
         await unitOfWork.SaveChangesAsync(ct);
     }
 
@@ -194,50 +183,75 @@ public static class DatabaseSeeder
         await unitOfWork.SaveChangesAsync(ct);
     }
 
-    // Chuyên đề Tin học dùng khi tạo câu và sinh đề. Chỉ tạo khi bảng còn trống.
-    private static async Task SeedTopicsAsync(AiQuizDbContext db, IUnitOfWork unitOfWork, CancellationToken ct)
+    // Thêm môn chưa có theo mã. Môn đã tạo thì giữ nguyên tên và mô tả.
+    private static async Task SeedSubjectsAsync(IUnitOfWork unitOfWork, CancellationToken ct)
     {
-        if (await db.Topics.AnyAsync(ct))
-            return;
-        var subject = await unitOfWork.Subjects.FindByCodeAsync("TIN", ct);
-        if (subject is null)
-            return;
-
-        var roots = new (string Name, int Sort)[]
+        var codes = (await unitOfWork.Subjects.ListAsync(ct)).Select(item => item.Code).ToHashSet();
+        var added = false;
+        foreach (var item in SampleBank.Subjects)
         {
-            ("Biểu diễn thông tin", 1),
-            ("Thuật toán", 2),
-            ("Ngôn ngữ lập trình", 3),
-            ("Cấu trúc dữ liệu", 4),
-            ("Mạng máy tính", 5)
-        };
-        var created = new Dictionary<string, Topic>();
-        foreach (var (name, sort) in roots)
-        {
-            var topic = new Topic { SubjectId = subject.Id, Name = name, SortOrder = sort, IsActive = true };
-            await unitOfWork.Topics.AddAsync(topic, ct);
-            created[name] = topic;
+            if (codes.Contains(item.Code))
+                continue;
+            await unitOfWork.Subjects.AddAsync(new Subject
+            {
+                Code = item.Code,
+                Name = item.Name,
+                Description = item.Description,
+                IsActive = true
+            }, ct);
+            added = true;
         }
 
-        await unitOfWork.SaveChangesAsync(ct);
-        var programming = created["Ngôn ngữ lập trình"];
-        await unitOfWork.Topics.AddAsync(new Topic
+        if (added)
+            await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    // Thêm chuyên đề còn thiếu theo từng môn. Chuyên đề cha được lưu trước chuyên đề con.
+    private static async Task SeedTopicsAsync(IUnitOfWork unitOfWork, CancellationToken ct)
+    {
+        var subjects = (await unitOfWork.Subjects.ListAsync(ct)).ToDictionary(item => item.Code);
+        var known = (await unitOfWork.Topics.ListAsync(null, ct))
+            .ToDictionary(item => (item.SubjectId, item.Name));
+        var added = false;
+        foreach (var item in SampleBank.Topics.Where(item => item.Parent is null))
         {
-            SubjectId = subject.Id,
-            ParentTopicId = programming.Id,
-            Name = "Câu lệnh rẽ nhánh",
-            SortOrder = 1,
-            IsActive = true
-        }, ct);
-        await unitOfWork.Topics.AddAsync(new Topic
+            if (!subjects.TryGetValue(item.SubjectCode, out var subject))
+                continue;
+            if (known.ContainsKey((subject.Id, item.Name)))
+                continue;
+            var topic = new Topic { SubjectId = subject.Id, Name = item.Name, SortOrder = item.Sort, IsActive = true };
+            await unitOfWork.Topics.AddAsync(topic, ct);
+            known[(subject.Id, item.Name)] = topic;
+            added = true;
+        }
+
+        if (added)
+            await unitOfWork.SaveChangesAsync(ct);
+
+        added = false;
+        foreach (var item in SampleBank.Topics.Where(item => item.Parent is not null))
         {
-            SubjectId = subject.Id,
-            ParentTopicId = programming.Id,
-            Name = "Vòng lặp",
-            SortOrder = 2,
-            IsActive = true
-        }, ct);
-        await unitOfWork.SaveChangesAsync(ct);
+            if (!subjects.TryGetValue(item.SubjectCode, out var subject))
+                continue;
+            if (known.ContainsKey((subject.Id, item.Name)))
+                continue;
+            if (!known.TryGetValue((subject.Id, item.Parent!), out var parent))
+                continue;
+            var topic = new Topic
+            {
+                SubjectId = subject.Id,
+                ParentTopicId = parent.Id,
+                Name = item.Name,
+                SortOrder = item.Sort,
+                IsActive = true
+            };
+            await unitOfWork.Topics.AddAsync(topic, ct);
+            known[(subject.Id, item.Name)] = topic;
+            added = true;
+        }
+
+        if (added)
+            await unitOfWork.SaveChangesAsync(ct);
     }
 
     // Trường, năm học, lớp và vài hồ sơ mẫu để các bảng tổ chức không trống sau khi cài.
@@ -326,39 +340,61 @@ public static class DatabaseSeeder
         await unitOfWork.SaveChangesAsync(ct);
     }
 
-    // Vài câu đã duyệt để ngân hàng câu hỏi và phương án có dữ liệu khởi tạo.
+    // Thêm câu mẫu chưa có trong ngân hàng. Câu trùng nội dung thì bỏ qua.
     private static async Task SeedQuestionsAsync(
         AiQuizDbContext db,
         IUnitOfWork unitOfWork,
         IConfiguration config,
         CancellationToken ct)
     {
-        if (await db.Questions.AnyAsync(ct))
-            return;
         var adminName = config["Seed:Username"] ?? "admin";
         var admin = await unitOfWork.Users.FindByUsernameAsync(adminName, ct);
         if (admin is null)
             return;
-        var topics = await unitOfWork.Topics.ListAsync(null, ct);
-        var byName = topics.ToDictionary(topic => topic.Name);
-        if (!byName.ContainsKey("Thuật toán") || !byName.ContainsKey("Vòng lặp") || !byName.ContainsKey("Biểu diễn thông tin"))
-            return;
 
+        var subjects = (await unitOfWork.Subjects.ListAsync(ct)).ToDictionary(item => item.Code);
+        var topics = (await unitOfWork.Topics.ListAsync(null, ct)).ToDictionary(item => (item.SubjectId, item.Name));
+        var existing = (await db.Questions.AsNoTracking().Select(item => item.Content).ToListAsync(ct)).ToHashSet();
         var now = DateTime.UtcNow;
-        await unitOfWork.Questions.AddAsync(SampleQuestion(
-            byName["Biểu diễn thông tin"].Id, admin.Id, now, 1, QuestionLevel.Easy,
-            "1 byte bằng bao nhiêu bit?",
-            [("4 bit", false), ("8 bit", true), ("16 bit", false), ("32 bit", false)]), ct);
-        await unitOfWork.Questions.AddAsync(SampleQuestion(
-            byName["Thuật toán"].Id, admin.Id, now, 2, QuestionLevel.Medium,
-            "Thuật toán là gì?",
-            [("Một dãy bước hữu hạn để giải quyết bài toán", true), ("Một ngôn ngữ lập trình", false), ("Một thiết bị phần cứng", false), ("Một hệ điều hành", false)]), ct);
-        await unitOfWork.Questions.AddAsync(SampleQuestion(
-            byName["Vòng lặp"].Id, admin.Id, now, 3, QuestionLevel.Medium,
-            "Vòng lặp for thường dùng khi nào?",
-            [("Khi biết trước số lần lặp", true), ("Khi không bao giờ cần dừng", false), ("Chỉ khi viết hàm đệ quy", false), ("Khi chương trình chỉ chạy một lệnh", false)]), ct);
-        await unitOfWork.SaveChangesAsync(ct);
+        var added = 0;
+        foreach (var item in SampleBank.Questions)
+        {
+            if (existing.Contains(item.Content))
+                continue;
+            if (!subjects.TryGetValue(item.SubjectCode, out var subject))
+                continue;
+            if (!topics.TryGetValue((subject.Id, item.Topic), out var topic))
+                continue;
+            await unitOfWork.Questions.AddAsync(SampleQuestion(
+                topic.Id,
+                admin.Id,
+                now,
+                item.Level,
+                Rank(item.Level),
+                item.Content,
+                Options(item)), ct);
+            existing.Add(item.Content);
+            added++;
+        }
+
+        if (added > 0)
+            await unitOfWork.SaveChangesAsync(ct);
     }
+
+    private static QuestionLevel Rank(byte level) => level switch
+    {
+        1 => QuestionLevel.Easy,
+        2 or 3 => QuestionLevel.Medium,
+        _ => QuestionLevel.Hard
+    };
+
+    private static (string Content, bool IsCorrect)[] Options(QuestionSeed item) =>
+    [
+        (item.A, item.Correct == 0),
+        (item.B, item.Correct == 1),
+        (item.C, item.Correct == 2),
+        (item.D, item.Correct == 3)
+    ];
 
     private static async Task<User> CreateUserAsync(
         IUnitOfWork unitOfWork,

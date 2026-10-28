@@ -20,6 +20,12 @@ public sealed class AttemptRepository(AiQuizDbContext db) : IAttemptRepository
     public Task<ExamAttempt?> FindAsync(long id, CancellationToken ct) =>
         Detail().FirstOrDefaultAsync(attempt => attempt.Id == id, ct);
 
+    public Task<ExamAttempt?> FindLatestAsync(long examId, long userId, CancellationToken ct) =>
+        Detail()
+            .Where(attempt => attempt.ExamId == examId && attempt.UserId == userId)
+            .OrderByDescending(attempt => attempt.AttemptNumber)
+            .FirstOrDefaultAsync(ct);
+
     public Task<List<ExamAttempt>> ListByUserAsync(long userId, CancellationToken ct) =>
         db.ExamAttempts.AsNoTracking()
             .Include(attempt => attempt.Exam)

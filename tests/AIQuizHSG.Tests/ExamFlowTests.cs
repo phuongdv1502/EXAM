@@ -160,6 +160,7 @@ public class ExamFlowTests
         public IStudentRecordRepository StudentRecords => throw new NotSupportedException();
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments { get; } = new OpenAssignments();
+        public IOmrRepository Omr => throw new NotSupportedException();
         public IExamRepository Exams { get; }
         public IAttemptRepository AttemptsRepo { get; }
         IAttemptRepository IUnitOfWork.Attempts => AttemptsRepo;
@@ -270,6 +271,7 @@ public class ExamFlowTests
             public Task<User?> FindByIdAsync(long id, CancellationToken ct) => throw new NotSupportedException();
             public Task<User?> FindForUpdateAsync(long id, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<User>> ListByRoleAsync(string roleCode, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<User>> ListAsync(CancellationToken ct) => throw new NotSupportedException();
             public Task AddAsync(User user, CancellationToken ct) => throw new NotSupportedException();
         }
 
@@ -329,6 +331,12 @@ public class ExamFlowTests
             public Task<ExamAttempt?> FindAsync(long id, CancellationToken ct) =>
                 Task.FromResult(owner.Attempts.FirstOrDefault(attempt => attempt.Id == id));
 
+            public Task<ExamAttempt?> FindLatestAsync(long examId, long userId, CancellationToken ct) =>
+                Task.FromResult(owner.Attempts
+                    .Where(attempt => attempt.ExamId == examId && attempt.UserId == userId)
+                    .OrderByDescending(attempt => attempt.AttemptNumber)
+                    .FirstOrDefault());
+
             public Task AddAsync(ExamAttempt attempt, CancellationToken ct)
             {
                 owner.Attempts.Add(attempt);
@@ -358,6 +366,7 @@ public class ExamFlowTests
             public Task AddAsync(ExamAssignment assignment, CancellationToken ct) => throw new NotSupportedException();
             public Task<ExamAssignment?> FindActiveAsync(long examId, long? classroomId, long? studentId, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<ExamAssignment>> ListByClassroomAsync(long classroomId, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<ExamAssignment>> ListByExamAsync(long examId, CancellationToken ct) => throw new NotSupportedException();
         }
 
         private sealed class AuditRepo(FlowStore owner) : IAuditLogRepository
@@ -423,6 +432,7 @@ public class AccountServiceTests
         public IStudentRecordRepository StudentRecords => throw new NotSupportedException();
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
+        public IOmrRepository Omr => throw new NotSupportedException();
         public IExamRepository Exams => throw new NotSupportedException();
         public IAttemptRepository Attempts => throw new NotSupportedException();
         public IAuditLogRepository AuditLogs { get; } = new AuditRepo();
@@ -455,6 +465,7 @@ public class AccountServiceTests
             public Task<User?> FindByIdAsync(long id, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<User>> ListByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<User>> ListByRoleAsync(string roleCode, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<User>> ListAsync(CancellationToken ct) => throw new NotSupportedException();
         }
 
         private sealed class RoleRepo(AccountStore owner) : IRoleRepository

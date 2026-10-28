@@ -1,0 +1,79 @@
+<div class="page-head">
+  <div>
+    <h1>{{ questionId ? 'Sửa câu hỏi' : 'Câu hỏi mới' }}</h1>
+    <p>Sửa câu đã duyệt sẽ đưa câu về chờ duyệt.</p>
+  </div>
+  <a pButton severity="secondary" [outlined]="true" routerLink="/questions">Về danh sách</a>
+</div>
+
+<p-card>
+  <div class="stack">
+    @if (status) { <p-tag [value]="label(labels.questionStatus, status)" [severity]="tagColor(status)" /> }
+    @if (error) { <p-message severity="error">{{ error }}</p-message> }
+    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+    @if (status === 'Rejected' && rejectionReason) {
+      <p-message severity="warn">Lý do từ chối: {{ rejectionReason }}</p-message>
+    }
+    <form (ngSubmit)="save()">
+      <div class="form-grid">
+        <div class="field span-6">
+          <label>Môn</label>
+          <p-select name="subjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" (ngModelChange)="onSubjectChange()" placeholder="Chọn môn" appendTo="body" />
+        </div>
+        <div class="field span-6">
+          <label>Chuyên đề</label>
+          <p-select name="topicId" [options]="filteredTopics()" optionLabel="name" optionValue="id" [(ngModel)]="topicId" placeholder="Chọn chuyên đề" appendTo="body" />
+        </div>
+        <div class="field span-4">
+          <label>Mức độ</label>
+          <p-select name="level" [options]="choices.level" optionLabel="label" optionValue="value" [(ngModel)]="level" appendTo="body" />
+        </div>
+        <div class="field span-4">
+          <label>Mức câu hỏi</label>
+          <p-select name="difficultyLevelId" [options]="levels" optionLabel="name" optionValue="id" [(ngModel)]="difficultyLevelId" placeholder="Chưa gắn" [showClear]="true" appendTo="body" />
+        </div>
+        <div class="field span-4">
+          <label>Loại</label>
+          <p-select name="type" [options]="choices.questionType" optionLabel="label" optionValue="value" [(ngModel)]="type" appendTo="body" />
+        </div>
+        <div class="field span-12">
+          <label for="content">Nội dung</label>
+          <textarea pTextarea id="content" name="content" [(ngModel)]="content" rows="4"></textarea>
+        </div>
+        <div class="field span-12">
+          <label for="explanation">Lời giải</label>
+          <textarea pTextarea id="explanation" name="explanation" [(ngModel)]="explanation" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="page-head">
+        <h2 class="h6" style="margin: 0">Phương án (2 đến 6, phải có đáp án đúng và sai)</h2>
+        <p-button label="Thêm phương án" icon="pi pi-plus" severity="secondary" [outlined]="true" type="button" [disabled]="options.length >= 6" (onClick)="addOption()" />
+      </div>
+      @for (option of options; track $index) {
+        <div class="option-row">
+          <div class="choice">
+            <p-checkbox [binary]="true" [inputId]="'correct' + $index" [ngModel]="option.isCorrect" [name]="'correct' + $index" (ngModelChange)="type === 'SingleChoice' ? markCorrect($index) : option.isCorrect = $event" />
+            <label [for]="'correct' + $index">Đúng</label>
+          </div>
+          <input pInputText [(ngModel)]="option.content" [name]="'option' + $index" placeholder="Nội dung phương án" />
+          <p-button label="Xóa" severity="danger" [text]="true" type="button" [disabled]="options.length <= 2" (onClick)="removeOption($index)" />
+        </div>
+      }
+      <div class="row-actions" style="margin-top: 1rem">
+        <p-button label="Lưu" icon="pi pi-check" type="submit" [loading]="loading" />
+        @if (questionId && (status === 'Draft' || status === 'Rejected')) {
+          <p-button label="Gửi duyệt" severity="secondary" [outlined]="true" type="button" (onClick)="submit()" />
+        }
+        @if (questionId && status === 'PendingReview') {
+          <p-button label="Duyệt" type="button" (onClick)="approve()" />
+        }
+      </div>
+      @if (questionId && status === 'PendingReview') {
+        <div class="row-actions" style="margin-top: 0.75rem">
+          <input pInputText [(ngModel)]="rejectionReason" name="rejectionReason" placeholder="Lý do từ chối" style="max-width: 320px" />
+          <p-button label="Từ chối" severity="danger" [outlined]="true" type="button" (onClick)="reject()" />
+        </div>
+      }
+    </form>
+  </div>
+</p-card>

@@ -21,6 +21,18 @@ public sealed partial class ExamAssignmentService : TimedOrganizationService, IE
         this.validator = validator;
     }
 
+    // Liệt kê lớp và học sinh đã được giao đề này.
+    public async Task<OperationResult<IReadOnlyList<ExamAssignmentResponse>>> ListAsync(long examId, Actor actor, CancellationToken ct)
+    {
+        if (await access.DenyAsync(actor.UserId, "exam.assign", null, ct) is { } denied)
+            return OperationResult<IReadOnlyList<ExamAssignmentResponse>>.Forbidden(denied);
+        if (await _unitOfWork.Exams.FindAsync(examId, ct) is null)
+            return OperationResult<IReadOnlyList<ExamAssignmentResponse>>.NotFound(Messages.ExamNotFound);
+
+        var rows = await _unitOfWork.ExamAssignments.ListByExamAsync(examId, ct);
+        return OperationResult<IReadOnlyList<ExamAssignmentResponse>>.Ok(rows.Select(ToResponse).ToList());
+    }
+
     public async Task<OperationResult<ExamAssignmentResponse>> AssignAsync(long examId, AssignExamRequest request, Actor actor, CancellationToken ct)
     {
         if (await validator.FirstErrorAsync(request, ct) is { } error)
@@ -31,6 +43,8 @@ public sealed partial class ExamAssignmentService : TimedOrganizationService, IE
             return OperationResult<ExamAssignmentResponse>.NotFound(Messages.ExamNotFound);
 
         long schoolId;
+        string? classroomName = null;
+        string? studentName = null;
         if (request.ClassroomId is { } classroomId)
         {
             var room = await _unitOfWork.Classrooms.FindAsync(classroomId, ct);
@@ -39,6 +53,7 @@ public sealed partial class ExamAssignmentService : TimedOrganizationService, IE
             if (await access.DenyClassroomAsync(actor.UserId, room, "exam.assign", ct) is { } denied)
                 return OperationResult<ExamAssignmentResponse>.Forbidden(denied);
             schoolId = room.SchoolId;
+            classroomName = room.Name;
         }
         else
         {
@@ -52,6 +67,7 @@ public sealed partial class ExamAssignmentService : TimedOrganizationService, IE
             if (!wide && (active is null || !await _unitOfWork.Classrooms.TeachesAsync(active.ClassroomId, actor.UserId, ct)))
                 return OperationResult<ExamAssignmentResponse>.Forbidden(Messages.ClassScopeDenied);
             schoolId = student.SchoolId;
+            studentName = student.FullName;
         }
 
         if (await _unitOfWork.ExamAssignments.FindActiveAsync(examId, request.ClassroomId, request.StudentId, ct) is not null)
@@ -70,6 +86,16 @@ public sealed partial class ExamAssignmentService : TimedOrganizationService, IE
         await _unitOfWork.ExamAssignments.AddAsync(assignment, ct);
         await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.AssignExam, AuditCodes.ExamAssignment, () => assignment.Id, schoolId.ToString(), actor.IpAddress, ct);
         return OperationResult<ExamAssignmentResponse>.Ok(new ExamAssignmentResponse(
-            assignment.Id, examId, assignment.ClassroomId, assignment.StudentId, assignment.AssignedAtUtc, assignment.DueAtUtc));
+            assignment.Id, examId, assignment.ClassroomId, assignment.StudentId, assignment.AssignedAtUtc, assignment.DueAtUtc, classroomName, studentName));
     }
+
+    private static ExamAssignmentResponse ToResponse(ExamAssignment assignment) => new(
+        assignment.Id,
+        assignment.ExamId,
+        assignment.ClassroomId,
+        assignment.StudentId,
+        assignment.AssignedAtUtc,
+        assignment.DueAtUtc,
+        assignment.Classroom?.Name,
+        assignment.Student?.FullName);
 }

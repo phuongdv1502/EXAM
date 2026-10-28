@@ -72,5 +72,21 @@ public static class AuditCodes
     public const string AddSchoolMember = "AddSchoolMember";
     public const string ReplaceRolePermissions = "ReplaceRolePermissions";
     public const string ReplaceUserRoles = "ReplaceUserRoles";
+    public const string ReplaceUserPermissions = "ReplaceUserPermissions";
+    public const string CreateAccount = "CreateAccount";
+    public const string UpdateAccount = "UpdateAccount";
+    public const string LockAccount = "LockAccount";
+    public const string UnlockAccount = "UnlockAccount";
     public const string AssignExam = "AssignExam";
+
+    public const string OmrTemplate = "OmrTemplate";
+    public const string OmrBatch = "OmrImportBatch";
+    public const string OmrSheet = "OmrScannedSheet";
+    public const string CreateOmrTemplate = "CreateOmrTemplate";
+    public const string CreateOmrBatch = "CreateOmrBatch";
+    public const string UploadOmrSheets = "UploadOmrSheets";
+    public const string ReviewOmrSheet = "ReviewOmrSheet";
+    public const string GradeOmrBatch = "GradeOmrBatch";
+    public const string ApproveOmrBatch = "ApproveOmrBatch";
+    public const string PublishOmrBatch = "PublishOmrBatch";
 }

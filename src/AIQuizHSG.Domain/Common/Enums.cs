@@ -131,3 +131,44 @@ public enum PermissionEffect
     Allow,
     Deny
 }
+
+public enum OmrBatchStatus
+{
+    Draft,
+    Uploading,
+    Processing,
+    Reviewing,
+    Approved,
+    Published
+}
+
+public enum OmrSheetStatus
+{
+    Uploaded,
+    Processing,
+    NeedsReview,
+    Recognized,
+    Confirmed,
+    Graded,
+    Failed
+}
+
+public enum OmrReviewStatus
+{
+    Pending,
+    Confirmed
+}
+
+public enum OmrSourceType
+{
+    Camera,
+    Scanner,
+    Mixed
+}
+
+public enum OmrMarkStatus
+{
+    Blank,
+    Marked,
+    Ambiguous
+}

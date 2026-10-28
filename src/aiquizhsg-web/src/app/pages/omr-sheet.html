@@ -1,0 +1,80 @@
+<div class="page-head">
+  <div>
+    <h1>Đối soát phiếu</h1>
+    <p>Mã đề của đợt: {{ sheet?.expectedExamCode || '—' }}</p>
+  </div>
+  <div class="page-actions">
+    @if (sheet) {
+      <a pButton severity="secondary" [outlined]="true" [routerLink]="['/omr/batches', sheet.batchId]"><i class="pi pi-arrow-left"></i><span>Về đợt</span></a>
+    }
+  </div>
+</div>
+@if (error) { <p-message severity="error">{{ error }}</p-message> }
+@if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+@if (sheet) {
+  <div class="row-actions" style="margin-bottom: 1rem">
+    <p-tag [value]="label(labels.omrSheet, sheet.status)" [severity]="tagColor(sheet.status)" />
+    <p-tag [value]="label(labels.omrReview, sheet.reviewStatus)" [severity]="tagColor(sheet.reviewStatus)" />
+    <span class="muted">Độ tin cậy {{ percent(sheet.confidence) }}</span>
+  </div>
+  @if (sheet.failureReason) { <p-message severity="warn">{{ sheet.failureReason }}</p-message> }
+  <div class="split">
+    <p-card header="Ảnh phiếu">
+      @if (imageUrl) {
+        <img class="sheet-image" [src]="imageUrl" alt="Ảnh phiếu đã tải" />
+      } @else {
+        <p class="muted">Phiếu này không có ảnh để xem.</p>
+      }
+    </p-card>
+    <p-card header="Xác nhận">
+      @if (pending()) {
+        <p class="muted">Phiếu đang được nhận dạng. Quay lại sau ít giây.</p>
+      } @else if (locked()) {
+        <p class="muted">Đợt đã duyệt hoặc đã công bố nên không sửa phiếu.</p>
+      }
+      <form (ngSubmit)="save()">
+        <div class="form-grid">
+          <div class="field span-6">
+            <label for="studentCode">Mã học sinh</label>
+            <input pInputText id="studentCode" name="studentCode" [(ngModel)]="studentCode" [disabled]="locked() || pending()" />
+          </div>
+          <div class="field span-6">
+            <label for="examCode">Mã đề</label>
+            <input pInputText id="examCode" name="examCode" [(ngModel)]="examCode" [disabled]="locked() || pending()" />
+          </div>
+          <div class="field span-12">
+            <label for="reviewNote">Ghi chú</label>
+            <textarea pTextarea id="reviewNote" name="reviewNote" rows="2" [(ngModel)]="reviewNote" [disabled]="locked() || pending()"></textarea>
+          </div>
+        </div>
+        @for (draft of drafts; track draft.answer.questionNumber) {
+          <div class="answer-block">
+            <strong>Câu {{ draft.answer.questionNumber }}</strong>
+            <p-tag [value]="label(labels.omrMark, draft.answer.recognitionStatus)" [severity]="tagColor(draft.answer.recognitionStatus)" />
+            <p>{{ draft.answer.content || 'Không gắn được câu trong đề.' }}</p>
+            <div class="choice-list">
+              @for (choice of draft.answer.choices; track choice.id; let index = $index) {
+                <div class="choice">
+                  @if (draft.answer.questionType === 'MultipleChoice') {
+                    <p-checkbox [name]="'q' + draft.answer.questionNumber + '-' + choice.id" [value]="choice.id" [(ngModel)]="draft.many" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
+                  } @else {
+                    <p-radiobutton [name]="'q' + draft.answer.questionNumber" [value]="choice.id" [(ngModel)]="draft.single" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
+                  }
+                  <label [for]="'c' + draft.answer.questionNumber + '-' + choice.id">{{ letter(index) }}. {{ choice.content }}</label>
+                </div>
+              }
+            </div>
+          </div>
+        }
+        @if (!drafts.length) {
+          <p class="muted">Chưa có câu để đối soát. Nhận dạng lại phiếu từ trang đợt.</p>
+        }
+        @if (!locked() && !pending() && drafts.length) {
+          <div class="row-actions">
+            <p-button label="Lưu xác nhận" icon="pi pi-check" type="submit" [loading]="loading" />
+          </div>
+        }
+      </form>
+    </p-card>
+  </div>
+}

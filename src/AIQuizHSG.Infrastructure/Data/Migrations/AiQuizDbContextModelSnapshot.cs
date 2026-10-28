@@ -765,6 +765,262 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.ToTable("Grade_Levels", (string)null);
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrImportBatch", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("ApprovedById")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("CreatedById")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ExamCode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<long>("ExamId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("FailedSheets")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProcessedSheets")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("PublishedById")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<long>("TemplateId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TotalSheets")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("ExamId");
+
+                    b.HasIndex("TemplateId");
+
+                    b.ToTable("Omr_Import_Batches", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrRecognizedAnswer", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Confidence")
+                        .HasPrecision(6, 4)
+                        .HasColumnType("decimal(6,4)");
+
+                    b.Property<DateTime?>("ConfirmedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("ConfirmedById")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ConfirmedMarksJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("DetectedMarksJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<long?>("ExamQuestionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("QuestionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RecognitionStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<long?>("RecognizedOptionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SheetId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExamQuestionId");
+
+                    b.HasIndex("RecognizedOptionId");
+
+                    b.HasIndex("SheetId", "QuestionNumber")
+                        .IsUnique();
+
+                    b.ToTable("Omr_Recognized_Answers", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrScannedSheet", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("BatchId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("Confidence")
+                        .HasPrecision(6, 4)
+                        .HasColumnType("decimal(6,4)");
+
+                    b.Property<string>("ConfirmedExamCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("ConfirmedStudentCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("ExamAttemptId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("varchar(260)");
+
+                    b.Property<string>("OriginalFilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("PageNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RecognizedExamCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("RecognizedStudentCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("ReviewStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("ReviewedById")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExamAttemptId");
+
+                    b.HasIndex("ReviewedById");
+
+                    b.HasIndex("BatchId", "FileHash")
+                        .IsUnique();
+
+                    b.ToTable("Omr_Scanned_Sheets", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrTemplate", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("CreatedById")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("Code", "Version")
+                        .IsUnique();
+
+                    b.ToTable("Omr_Templates", (string)null);
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Permission", b =>
                 {
                     b.Property<long>("Id")
@@ -1681,6 +1937,94 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.Navigation("SourceQuestion");
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrImportBatch", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.Exam", "Exam")
+                        .WithMany()
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.OmrTemplate", "Template")
+                        .WithMany()
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Exam");
+
+                    b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrRecognizedAnswer", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.ExamQuestion", "ExamQuestion")
+                        .WithMany()
+                        .HasForeignKey("ExamQuestionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.ExamOption", "RecognizedOption")
+                        .WithMany()
+                        .HasForeignKey("RecognizedOptionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.OmrScannedSheet", "Sheet")
+                        .WithMany("Answers")
+                        .HasForeignKey("SheetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ExamQuestion");
+
+                    b.Navigation("RecognizedOption");
+
+                    b.Navigation("Sheet");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrScannedSheet", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.OmrImportBatch", "Batch")
+                        .WithMany("Sheets")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.ExamAttempt", "ExamAttempt")
+                        .WithMany()
+                        .HasForeignKey("ExamAttemptId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", "ReviewedBy")
+                        .WithMany()
+                        .HasForeignKey("ReviewedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("ExamAttempt");
+
+                    b.Navigation("ReviewedBy");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrTemplate", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Question", b =>
                 {
                     b.HasOne("AIQuizHSG.Domain.Entities.User", "CreatedBy")
@@ -1902,6 +2246,16 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamQuestion", b =>
                 {
                     b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrImportBatch", b =>
+                {
+                    b.Navigation("Sheets");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrScannedSheet", b =>
+                {
+                    b.Navigation("Answers");
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Question", b =>

@@ -1,0 +1,64 @@
+<div class="page-head">
+  <div>
+    <h1>Chuyên đề</h1>
+    <p>Ngân hàng câu hỏi</p>
+  </div>
+</div>
+<div class="split">
+  <p-card [header]="editingId ? 'Sửa chuyên đề' : 'Thêm chuyên đề'">
+    @if (error) { <p-message severity="error">{{ error }}</p-message> }
+    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+    <form (ngSubmit)="save()">
+      <div class="field">
+        <label>Môn học</label>
+        <p-select name="subjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" placeholder="Chọn môn" appendTo="body" />
+      </div>
+      <div class="field">
+        <label>Chuyên đề cha</label>
+        <p-select name="parentTopicId" [options]="parents()" optionLabel="name" optionValue="id" [(ngModel)]="parentTopicId" placeholder="Không có" [showClear]="true" appendTo="body" />
+      </div>
+      <div class="field">
+        <label for="topicName">Tên chuyên đề</label>
+        <input pInputText id="topicName" name="name" [(ngModel)]="name" />
+      </div>
+      <div class="field">
+        <label for="topicDescription">Mô tả</label>
+        <textarea pTextarea id="topicDescription" name="description" [(ngModel)]="description" rows="3"></textarea>
+      </div>
+      <div class="field">
+        <label>Thứ tự</label>
+        <p-inputnumber name="sortOrder" [(ngModel)]="sortOrder" [min]="0" [showButtons]="true" />
+      </div>
+      <div class="choice" style="margin-bottom: 1rem">
+        <p-toggleswitch inputId="topicActive" name="isActive" [(ngModel)]="isActive" />
+        <label for="topicActive">Đang dùng</label>
+      </div>
+      <div class="row-actions">
+        <p-button label="Lưu" icon="pi pi-check" type="submit" [loading]="loading" />
+        @if (editingId) {
+          <p-button label="Hủy sửa" severity="secondary" [outlined]="true" type="button" (onClick)="reset()" />
+        }
+      </div>
+    </form>
+  </p-card>
+  <p-card header="Danh sách">
+    <div class="field" style="max-width: 280px">
+      <p-select [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="filterSubjectId" (ngModelChange)="load()" name="filterSubjectId" placeholder="Lọc theo môn" [showClear]="true" appendTo="body" />
+    </div>
+    <p-table [value]="items" [paginator]="items.length > 8" [rows]="8">
+      <ng-template #header>
+        <tr><th>Tên</th><th>Môn</th><th></th></tr>
+      </ng-template>
+      <ng-template #body let-item>
+        <tr>
+          <td>{{ item.name }}<div class="muted">Thứ tự {{ item.sortOrder }}</div></td>
+          <td>{{ subjectName(item.subjectId) }}</td>
+          <td><p-button label="Sửa" size="small" severity="secondary" [outlined]="true" (onClick)="edit(item)" /></td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr><td colspan="3" class="muted">Chưa có chuyên đề.</td></tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+</div>

@@ -1,0 +1,41 @@
+<div class="page-head">
+  <div>
+    <h1>Đề thi</h1>
+    <p>Đề nháp mới sửa được. Phát hành xong thì nội dung câu được chụp lại.</p>
+  </div>
+  <div class="page-actions">
+    <a pButton routerLink="/exams/new"><i class="pi pi-plus"></i><span>Tạo đề</span></a>
+    <a pButton severity="secondary" [outlined]="true" routerLink="/exams/generate"><i class="pi pi-sparkles"></i><span>Sinh theo ma trận</span></a>
+  </div>
+</div>
+@if (error) { <p-message severity="error">{{ error }}</p-message> }
+<p-card>
+  <p-table [value]="items" [paginator]="items.length > 10" [rows]="10">
+    <ng-template #header>
+      <tr>
+        <th>Đề</th>
+        <th>Môn</th>
+        <th>Câu</th>
+        <th>Thời gian</th>
+        <th>Trạng thái</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-item>
+      <tr>
+        <td>
+          {{ item.title }}
+          <div class="muted">{{ formatDateTime(item.opensAtUtc) }} – {{ formatDateTime(item.closesAtUtc) }}</div>
+        </td>
+        <td>{{ item.subjectName }}</td>
+        <td>{{ item.questionCount }}</td>
+        <td>{{ item.durationMinutes }} phút</td>
+        <td><p-tag [value]="label(labels.examStatus, item.status)" [severity]="tagColor(item.status)" /></td>
+        <td><a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/exams', item.id]">Mở</a></td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr><td colspan="6" class="muted">Chưa có đề thi.</td></tr>
+    </ng-template>
+  </p-table>
+</p-card>

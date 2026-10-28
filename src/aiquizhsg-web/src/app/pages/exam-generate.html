@@ -1,0 +1,93 @@
+<div class="page-head">
+  <div>
+    <h1>Sinh đề theo ma trận</h1>
+    <p>Không chọn chuyên đề thì lấy mọi câu đã duyệt của môn.</p>
+  </div>
+  <a pButton severity="secondary" [outlined]="true" routerLink="/exams">Về danh sách</a>
+</div>
+<p-card>
+  <div class="stack">
+    @if (error) { <p-message severity="error">{{ error }}</p-message> }
+    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+    <form>
+      <div class="form-grid">
+        <div class="field span-6">
+          <label for="title">Tên đề</label>
+          <input pInputText id="title" name="title" [(ngModel)]="title" />
+        </div>
+        <div class="field span-6">
+          <label for="description">Mô tả</label>
+          <input pInputText id="description" name="description" [(ngModel)]="description" />
+        </div>
+        <div class="field span-4">
+          <label>Môn</label>
+          <p-select name="subjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" (ngModelChange)="loadTopics()" placeholder="Chọn môn" appendTo="body" />
+        </div>
+        <div class="field span-4">
+          <label>Ma trận</label>
+          <p-select name="profileId" [options]="profiles" optionLabel="name" optionValue="id" [(ngModel)]="profileId" placeholder="Chọn ma trận" appendTo="body" />
+        </div>
+        <div class="field span-2">
+          <label>Số câu</label>
+          <p-inputnumber name="questionCount" [(ngModel)]="questionCount" [min]="1" [showButtons]="true" />
+        </div>
+        <div class="field span-2">
+          <label>Loại câu</label>
+          <p-select name="questionType" [options]="choices.questionType" optionLabel="label" optionValue="value" [(ngModel)]="questionType" placeholder="Mọi loại" [showClear]="true" appendTo="body" />
+        </div>
+        <div class="field span-4">
+          <label>Điểm mỗi câu</label>
+          <p-inputnumber name="points" [(ngModel)]="defaultPoints" [min]="0.1" [step]="0.1" [minFractionDigits]="1" />
+        </div>
+        <div class="field span-4">
+          <label>Số phút</label>
+          <p-inputnumber name="duration" [(ngModel)]="durationMinutes" [min]="1" [showButtons]="true" />
+        </div>
+        <div class="field span-4">
+          <label>Số lượt</label>
+          <p-inputnumber name="attempts" [(ngModel)]="maxAttempts" [min]="1" [max]="10" [showButtons]="true" />
+        </div>
+      </div>
+      <div class="checks" style="margin: 0.5rem 0 1rem">
+        <div class="choice">
+          <p-checkbox [binary]="true" inputId="shuffleQuestions" name="shuffleQuestions" [(ngModel)]="shuffleQuestions" />
+          <label for="shuffleQuestions">Xáo câu hỏi</label>
+        </div>
+        <div class="choice">
+          <p-checkbox [binary]="true" inputId="shuffleOptions" name="shuffleOptions" [(ngModel)]="shuffleOptions" />
+          <label for="shuffleOptions">Xáo phương án</label>
+        </div>
+        <div class="choice">
+          <p-checkbox [binary]="true" inputId="publishResults" name="publishResults" [(ngModel)]="publishResults" />
+          <label for="publishResults">Công bố kết quả</label>
+        </div>
+      </div>
+      @if (topics.length) {
+        <p-divider align="left"><b>Chuyên đề</b></p-divider>
+        <div class="cards">
+          @for (topic of topics; track topic.id) {
+            <div class="choice">
+              <p-checkbox [binary]="true" [inputId]="'topic' + topic.id" [name]="'topic' + topic.id" [ngModel]="topicIds.includes(topic.id)" (ngModelChange)="toggleTopic(topic.id, $event)" />
+              <label [for]="'topic' + topic.id">{{ topic.name }}</label>
+            </div>
+          }
+        </div>
+      }
+      @if (availability) {
+        <p-message [severity]="availability.canGenerate ? 'success' : 'warn'">
+          <div>
+            Cần {{ availability.requiredQuestionCount }} câu, ngân hàng có {{ availability.availableQuestionCount }} câu.
+            @for (line of availability.shortages; track line.level) {
+              <div>{{ levelName(line.level) }}: thiếu {{ line.missing }} (cần {{ line.required }}, có {{ line.available }})</div>
+            }
+            @for (item of availability.errors; track item.code) { <div>{{ item.message }}</div> }
+          </div>
+        </p-message>
+      }
+      <div class="row-actions" style="margin-top: 1rem">
+        <p-button label="Kiểm tra ngân hàng" severity="secondary" [outlined]="true" type="button" [loading]="loading" (onClick)="check()" />
+        <p-button label="Sinh đề" icon="pi pi-sparkles" type="button" [loading]="loading" (onClick)="generate()" />
+      </div>
+    </form>
+  </div>
+</p-card>

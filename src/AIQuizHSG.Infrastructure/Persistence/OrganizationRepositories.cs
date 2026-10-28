@@ -167,6 +167,9 @@ public sealed class StudentRecordRepository(AiQuizDbContext db) : IStudentRecord
         db.Students.AsNoTracking()
             .FirstOrDefaultAsync(student => student.SchoolId == schoolId && student.StudentCode == code, ct);
 
+    public Task<List<StudentProfile>> FindAllByCodeAsync(string code, CancellationToken ct) =>
+        db.Students.AsNoTracking().Where(student => student.StudentCode == code).ToListAsync(ct);
+
     public Task<StudentProfile?> FindByUserAsync(long userId, CancellationToken ct) =>
         db.Students.AsNoTracking().FirstOrDefaultAsync(student => student.UserId == userId, ct);
 
@@ -260,6 +263,43 @@ public sealed class PermissionRepository(AiQuizDbContext db) : IPermissionReposi
 
     public async Task AddRoleLinksAsync(IEnumerable<RolePermission> links, CancellationToken ct) =>
         await db.RolePermissions.AddRangeAsync(links, ct);
+
+    public Task<List<UserPermission>> ListGrantsAsync(long userId, CancellationToken ct) =>
+        db.UserPermissions.AsNoTracking()
+            .Include(item => item.Permission)
+            .Where(item => item.UserId == userId)
+            .OrderBy(item => item.Permission.Module)
+            .ThenBy(item => item.Permission.Code)
+            .ToListAsync(ct);
+
+    // Thay cả tập quyền ngoại lệ. Danh sách rỗng là xóa hết ngoại lệ của người đó.
+    public async Task ReplaceUserGrantsAsync(long userId, IReadOnlyCollection<UserGrant> grants, long? actorId, DateTime now, CancellationToken ct)
+    {
+        var existing = await db.UserPermissions.Where(item => item.UserId == userId).ToListAsync(ct);
+        db.UserPermissions.RemoveRange(existing);
+        foreach (var grant in grants.DistinctBy(item => item.PermissionId))
+        {
+            db.UserPermissions.Add(new UserPermission
+            {
+                UserId = userId,
+                PermissionId = grant.PermissionId,
+                Effect = grant.Effect,
+                CreatedAtUtc = now,
+                CreatedByUserId = actorId
+            });
+        }
+    }
+
+    public async Task AddMissingRoleLinksAsync(IEnumerable<RolePermission> links, CancellationToken ct)
+    {
+        var existing = await db.RolePermissions.AsNoTracking()
+            .Select(link => new { link.RoleId, link.PermissionId })
+            .ToListAsync(ct);
+        var have = existing.Select(link => (link.RoleId, link.PermissionId)).ToHashSet();
+        var missing = links.Where(link => !have.Contains((link.RoleId, link.PermissionId))).ToList();
+        if (missing.Count > 0)
+            await db.RolePermissions.AddRangeAsync(missing, ct);
+    }
 }
 
 public sealed class ExamAssignmentRepository(AiQuizDbContext db) : IExamAssignmentRepository
@@ -280,7 +320,15 @@ public sealed class ExamAssignmentRepository(AiQuizDbContext db) : IExamAssignme
             .Where(item => item.ClassroomId == classroomId && item.Status == AssignmentStatus.Active)
             .ToListAsync(ct);
 
-    // Không có giao đề thì giữ luật danh sách thí sinh cũ. Có giao thì chỉ hồ sơ được giao mới vào.
+    public Task<List<ExamAssignment>> ListByExamAsync(long examId, CancellationToken ct) =>
+        db.ExamAssignments.AsNoTracking()
+            .Include(item => item.Classroom)
+            .Include(item => item.Student)
+            .Where(item => item.ExamId == examId && item.Status == AssignmentStatus.Active)
+            .OrderBy(item => item.Id)
+            .ToListAsync(ct);
+
+    // Không giao cho lớp hay học sinh thì không ai được vào nhờ bản giao.
     public async Task<bool> AllowsAsync(long examId, long userId, CancellationToken ct)
     {
         var targets = await db.ExamAssignments.AsNoTracking()
@@ -288,7 +336,7 @@ public sealed class ExamAssignmentRepository(AiQuizDbContext db) : IExamAssignme
             .Select(item => new { item.ClassroomId, item.StudentId })
             .ToListAsync(ct);
         if (targets.Count == 0)
-            return true;
+            return false;
 
         var studentId = await db.Students.AsNoTracking()
             .Where(student => student.UserId == userId)

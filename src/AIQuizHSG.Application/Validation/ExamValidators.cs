@@ -113,3 +113,54 @@ public sealed class UpdateStudentRequestValidator : AbstractValidator<UpdateStud
             .Must(value => string.IsNullOrEmpty(value) || value.Length <= 100).WithMessage(Messages.PasswordTooLong);
     }
 }
+
+public sealed class CreateAccountRequestValidator : AbstractValidator<CreateAccountRequest>
+{
+    public CreateAccountRequestValidator()
+    {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
+        RuleFor(x => x.Username)
+            .NotEmpty().WithMessage(Messages.UsernameRequired)
+            .Must(value => value.Trim().Length >= 3).WithMessage(Messages.UsernameTooShort)
+            .Must(value => value.Trim().Length <= 50).WithMessage(Messages.UsernameTooLong)
+            .Must(value => !value.Trim().Any(char.IsWhiteSpace)).WithMessage(Messages.UsernameInvalid);
+
+        RuleFor(x => x.Password)
+            .NotEmpty().WithMessage(Messages.PasswordRequired)
+            .MinimumLength(8).WithMessage(Messages.PasswordTooShort)
+            .MaximumLength(100).WithMessage(Messages.PasswordTooLong);
+
+        RuleFor(x => x.FullName)
+            .NotEmpty().WithMessage(Messages.FullNameRequired)
+            .Must(value => value.Trim().Length <= 200).WithMessage(Messages.FullNameTooLong);
+
+        RuleFor(x => x.Email)
+            .Must(value => string.IsNullOrWhiteSpace(value) || value.Trim().Length <= 256).WithMessage(Messages.EmailTooLong)
+            .Must(value => string.IsNullOrWhiteSpace(value) || value.Contains('@')).WithMessage(Messages.EmailInvalid);
+
+        RuleFor(x => x.RoleIds)
+            .NotNull().WithMessage(Messages.RoleRequired)
+            .Must(ids => ids.Count > 0).WithMessage(Messages.RoleRequired);
+    }
+}
+
+public sealed class UpdateAccountRequestValidator : AbstractValidator<UpdateAccountRequest>
+{
+    public UpdateAccountRequestValidator()
+    {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
+        RuleFor(x => x.FullName)
+            .NotEmpty().WithMessage(Messages.FullNameRequired)
+            .Must(value => value.Trim().Length <= 200).WithMessage(Messages.FullNameTooLong);
+
+        RuleFor(x => x.Email)
+            .Must(value => string.IsNullOrWhiteSpace(value) || value.Trim().Length <= 256).WithMessage(Messages.EmailTooLong)
+            .Must(value => string.IsNullOrWhiteSpace(value) || value.Contains('@')).WithMessage(Messages.EmailInvalid);
+
+        RuleFor(x => x.Password)
+            .Must(value => string.IsNullOrEmpty(value) || value.Length >= 8).WithMessage(Messages.PasswordTooShort)
+            .Must(value => string.IsNullOrEmpty(value) || value.Length <= 100).WithMessage(Messages.PasswordTooLong);
+    }
+}

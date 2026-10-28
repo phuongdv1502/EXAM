@@ -38,6 +38,10 @@ public class AiQuizDbContext(DbContextOptions<AiQuizDbContext> options) : DbCont
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
+    public DbSet<OmrTemplate> OmrTemplates => Set<OmrTemplate>();
+    public DbSet<OmrImportBatch> OmrImportBatches => Set<OmrImportBatch>();
+    public DbSet<OmrScannedSheet> OmrScannedSheets => Set<OmrScannedSheet>();
+    public DbSet<OmrRecognizedAnswer> OmrRecognizedAnswers => Set<OmrRecognizedAnswer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

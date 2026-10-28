@@ -1,0 +1,19 @@
+<div class="page-head">
+  <div>
+    <h1>Đề của tôi</h1>
+    <p>Chỉ hiện đề đã giao cho lớp hoặc hồ sơ của bạn.</p>
+  </div>
+</div>
+@if (error) { <p-message severity="error">{{ error }}</p-message> }
+@if (!items.length) {
+  <p-card><p class="muted">Chưa có đề nào được giao cho lớp của bạn.</p></p-card>
+}
+<div class="stack">
+  @for (item of items; track item.id) {
+    <p-card [header]="item.title">
+      <p>{{ item.subjectName }} · {{ item.durationMinutes }} phút · {{ item.questionCount }} câu</p>
+      <p class="muted">{{ formatDateTime(item.opensAtUtc) }} – {{ formatDateTime(item.closesAtUtc) }}</p>
+      <p-button label="Vào thi" icon="pi pi-play" [loading]="loading" (onClick)="start(item)" />
+    </p-card>
+  }
+</div>

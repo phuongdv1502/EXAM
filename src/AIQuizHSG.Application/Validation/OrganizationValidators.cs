@@ -97,3 +97,18 @@ public sealed class ReplaceUserRolesRequestValidator : AbstractValidator<Replace
         RuleFor(x => x.RoleIds).NotNull().WithMessage(Messages.RoleNotFound);
     }
 }
+
+public sealed class ReplaceUserPermissionsRequestValidator : AbstractValidator<ReplaceUserPermissionsRequest>
+{
+    public ReplaceUserPermissionsRequestValidator()
+    {
+        RuleFor(x => x.Grants).NotNull().WithMessage(Messages.PermissionNotFound);
+        RuleForEach(x => x.Grants).ChildRules(grant =>
+        {
+            grant.RuleFor(x => x.PermissionId).GreaterThan(0).WithMessage(Messages.PermissionNotFound);
+            grant.RuleFor(x => x.Effect)
+                .Must(effect => effect is "Allow" or "Deny")
+                .WithMessage(Messages.PermissionEffectInvalid);
+        });
+    }
+}

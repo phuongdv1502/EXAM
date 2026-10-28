@@ -113,7 +113,15 @@ public sealed class AssignExamRequest
     public DateTime? DueAtUtc { get; set; }
 }
 
-public sealed record ExamAssignmentResponse(long Id, long ExamId, long? ClassroomId, long? StudentId, DateTime AssignedAtUtc, DateTime? DueAtUtc);
+public sealed record ExamAssignmentResponse(
+    long Id,
+    long ExamId,
+    long? ClassroomId,
+    long? StudentId,
+    DateTime AssignedAtUtc,
+    DateTime? DueAtUtc,
+    string? ClassroomName = null,
+    string? StudentName = null);
 
 public sealed record StudentExamLine(long ExamId, string Title, string? AttemptStatus, decimal? Score, decimal? MaxScore);
 
@@ -128,6 +136,24 @@ public sealed class ReplaceUserRolesRequest
 {
     public List<long> RoleIds { get; set; } = [];
 }
+
+public sealed class UserPermissionGrantRequest
+{
+    public long PermissionId { get; set; }
+    public string Effect { get; set; } = string.Empty;
+}
+
+public sealed class ReplaceUserPermissionsRequest
+{
+    public List<UserPermissionGrantRequest> Grants { get; set; } = [];
+}
+
+public sealed record UserPermissionGrantResponse(
+    long PermissionId,
+    string Code,
+    string Name,
+    string Module,
+    PermissionEffect Effect);
 
 public sealed record PermissionResponse(long Id, string Code, string Name, string Module, string? Description);
 

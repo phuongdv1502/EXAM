@@ -1,4 +1,6 @@
 using AIQuizHSG.Application.Accounts;
+using AIQuizHSG.Application.Omr;
+using AIQuizHSG.Infrastructure.Omr;
 using AIQuizHSG.Application.Authentication;
 using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Difficulty;
@@ -46,6 +48,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
         services.AddScoped<ILoginService, LoginService>();
         services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IQuestionService, QuestionService>();
         services.AddScoped<IExamService, ExamService>();
@@ -59,6 +62,13 @@ public static class DependencyInjection
         services.AddScoped<IPermissionAdminService, PermissionAdminService>();
         services.AddScoped<IExamAssignmentService, ExamAssignmentService>();
         services.AddScoped<IClassroomReportService, ClassroomReportService>();
+        services.AddSingleton<OmrJobQueue>();
+        services.AddSingleton<IOmrJobQueue>(provider => provider.GetRequiredService<OmrJobQueue>());
+        services.AddSingleton<IOmrRecognitionService, OmrRecognitionService>();
+        services.AddSingleton<IOmrPageSplitter, OmrPageSplitter>();
+        services.AddSingleton<IOmrFileStore, OmrFileStore>();
+        services.AddScoped<IOmrService, OmrService>();
+        services.AddHostedService<OmrProcessingWorker>();
         return services;
     }
 }

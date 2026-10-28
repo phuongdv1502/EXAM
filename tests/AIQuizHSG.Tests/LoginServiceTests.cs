@@ -112,6 +112,7 @@ public class LoginServiceTests
         public IStudentRecordRepository StudentRecords => throw new NotSupportedException();
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
+        public IOmrRepository Omr => throw new NotSupportedException();
         public IExamRepository Exams => throw new NotSupportedException();
         public IAttemptRepository Attempts => throw new NotSupportedException();
         public IAuditLogRepository AuditLogs => new AuditSpy(Entries);
@@ -140,6 +141,9 @@ public class LoginServiceTests
             Task.FromResult(user is not null && ids.Contains(user.Id) ? new List<User> { user } : []);
 
         public Task<List<User>> ListByRoleAsync(string roleCode, CancellationToken ct) =>
+            Task.FromResult(new List<User>());
+
+        public Task<List<User>> ListAsync(CancellationToken ct) =>
             Task.FromResult(new List<User>());
 
         public Task AddAsync(User newUser, CancellationToken ct) => Task.CompletedTask;

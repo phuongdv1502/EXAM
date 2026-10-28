@@ -1,0 +1,201 @@
+<div class="accounts-page">
+  <div class="page-head">
+    <div>
+      <h1>Tài khoản</h1>
+      <p>Tạo tài khoản đăng nhập và gán vai trò. Học sinh muốn làm bài theo lớp thì vẫn cần hồ sơ ở Trường học.</p>
+    </div>
+    @if (store.hasRole('ADMIN')) {
+      <div class="page-actions">
+        <a pButton severity="secondary" [outlined]="true" routerLink="/roles"><i class="pi pi-shield"></i><span>Phân quyền theo vai trò</span></a>
+      </div>
+    }
+  </div>
+  @if (notice && !formOpen && !grantUser) { <p-message severity="success" class="account-note">{{ notice }}</p-message> }
+  @if (error && !formOpen && !grantUser) { <p-message severity="error" class="account-note">{{ error }}</p-message> }
+  <div class="account-main">
+      <p-card>
+        <div class="account-toolbar">
+          <div>
+            <h2>Danh sách</h2>
+            <p>{{ listHint() }}</p>
+          </div>
+          <div class="account-toolbar-actions">
+            <div class="field account-search">
+              <i class="pi pi-search"></i>
+              <input pInputText name="keyword" [ngModel]="keyword" (ngModelChange)="keyword = $event; applyFilter()" placeholder="Tìm theo tên, tên đăng nhập hoặc email" />
+            </div>
+            <p-button label="Tài khoản mới" icon="pi pi-user-plus" (onClick)="openCreate()" />
+          </div>
+        </div>
+        <p-table [value]="filtered" [paginator]="filtered.length > 8" [rows]="8">
+          <ng-template #header>
+            <tr>
+              <th>Người dùng</th>
+              <th>Vai trò</th>
+              <th>Trạng thái</th>
+              <th></th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-item>
+            <tr [class.is-editing]="editingId === item.id" [class.is-grant]="grantUser?.id === item.id">
+              <td>
+                <div class="user-cell">
+                  <span class="user-avatar" [class.locked]="item.status === 'Locked'">{{ initials(item.fullName) }}</span>
+                  <div>
+                    <strong>{{ item.fullName }}</strong>
+                    <span>{{ item.username }}</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="account-role-tags">
+                  @for (role of item.roles; track role.id) {
+                    <p-tag [value]="role.name" severity="secondary" />
+                  }
+                </div>
+              </td>
+              <td><p-tag [value]="label(labels.userStatus, item.status)" [severity]="tagColor(item.status)" /></td>
+              <td>
+                <div class="account-actions">
+                  @if (canEdit(item)) {
+                    <p-button icon="pi pi-pencil" label="Sửa" size="small" [text]="true" severity="secondary" (onClick)="edit(item)" />
+                  }
+                  @if (canLock(item)) {
+                    <p-button [icon]="item.status === 'Locked' ? 'pi pi-lock-open' : 'pi pi-lock'" [label]="item.status === 'Locked' ? 'Mở' : 'Khóa'" size="small" [text]="true" severity="secondary" (onClick)="lock(item)" />
+                  }
+                  @if (canGrant(item)) {
+                    <p-button icon="pi pi-key" label="Quyền" size="small" [text]="true" severity="secondary" (onClick)="openGrants(item)" />
+                  }
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr>
+              <td colspan="4">
+                <div class="exam-empty">
+                  <i class="pi pi-users"></i>
+                  <p>{{ emptyText() }}</p>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </p-card>
+  </div>
+  @if (formOpen || grantUser) {
+    <div class="account-backdrop" (click)="closeOverlay()"></div>
+  }
+  @if (formOpen) {
+    <aside class="account-drawer" role="dialog" aria-modal="true" [attr.aria-label]="editingId ? 'Sửa tài khoản' : 'Tài khoản mới'">
+      <form class="batch-form" (ngSubmit)="save()">
+        <div class="batch-form-head">
+          @if (editingId) {
+            <span class="batch-form-icon"><i class="pi pi-user-edit"></i></span>
+          } @else {
+            <span class="batch-form-icon"><i class="pi pi-user-plus"></i></span>
+          }
+          <div>
+            <h2>{{ editingId ? 'Sửa tài khoản' : 'Tài khoản mới' }}</h2>
+            <p>{{ editingId ? 'Cập nhật hồ sơ. Để trống mật khẩu nếu giữ nguyên.' : 'Điền thông tin, chọn vai trò, rồi lưu.' }}</p>
+          </div>
+          <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeForm()"><i class="pi pi-times"></i></button>
+        </div>
+        @if (error) { <p-message severity="error">{{ error }}</p-message> }
+        @if (editingId) {
+          <div class="pick-preview">
+            <span class="user-avatar">{{ initials(fullName || username) }}</span>
+            <div>
+              <strong>{{ fullName || username }}</strong>
+              <span>{{ username }}</span>
+            </div>
+          </div>
+        } @else {
+          <div class="field">
+            <label for="username">Tên đăng nhập</label>
+            <input pInputText id="username" name="username" [(ngModel)]="username" autocomplete="off" placeholder="Ví dụ: gvhoa" />
+          </div>
+        }
+        <div class="field">
+          <label for="fullName">Họ tên</label>
+          <input pInputText id="fullName" name="fullName" [(ngModel)]="fullName" placeholder="Họ và tên hiển thị" />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input pInputText id="email" name="email" [(ngModel)]="email" placeholder="Có thể bỏ trống" />
+        </div>
+        <div class="field">
+          <label for="password">{{ editingId ? 'Mật khẩu mới' : 'Mật khẩu' }}</label>
+          <input pInputText id="password" type="password" name="password" [(ngModel)]="password" [placeholder]="editingId ? 'Bỏ trống nếu giữ nguyên' : 'Mật khẩu đăng nhập'" autocomplete="new-password" />
+        </div>
+        @if (showRolePicker()) {
+          <div class="field">
+            <span class="field-label">Vai trò</span>
+            <div class="source-pills account-roles">
+              @for (role of roles; track role.id) {
+                <button type="button" class="source-pill" [class.on]="roleIds.includes(role.id)" (click)="toggleRole(role.id, !roleIds.includes(role.id))">
+                  <i [class]="roleIcon(role.code)"></i>
+                  {{ role.name }}
+                </button>
+              }
+            </div>
+            <p class="muted">Đã chọn {{ roleIds.length }} vai trò.</p>
+          </div>
+        } @else if (editingId) {
+          <div class="field">
+            <span class="field-label">Vai trò</span>
+            <div class="account-role-tags">
+              @for (role of editingRoles; track role.id) {
+                <p-tag [value]="role.name" severity="secondary" />
+              }
+            </div>
+            <p class="muted">Chỉ quản trị hệ thống đổi được vai trò.</p>
+          </div>
+        }
+        <p-button styleClass="batch-submit" [label]="editingId ? 'Lưu thay đổi' : 'Lưu tài khoản'" icon="pi pi-check" type="submit" [loading]="loading" />
+        <p-button styleClass="account-cancel" [label]="editingId ? 'Hủy sửa' : 'Đóng'" icon="pi pi-times" severity="secondary" [outlined]="true" type="button" (onClick)="closeForm()" />
+      </form>
+    </aside>
+  }
+  @if (grantUser) {
+    <aside class="account-drawer account-drawer-grants" role="dialog" aria-modal="true" [attr.aria-label]="'Quyền riêng của ' + grantUser.fullName">
+      <div class="batch-form-head">
+        <span class="batch-form-icon"><i class="pi pi-key"></i></span>
+        <div>
+          <h2>Quyền riêng của {{ grantUser.fullName }}</h2>
+          <p>Theo vai trò giữ nguyên. Cho phép thêm quyền. Cấm thì bỏ quyền đang có từ vai trò.</p>
+        </div>
+        <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeGrants()"><i class="pi pi-times"></i></button>
+      </div>
+      @if (notice) { <p-message severity="success" class="account-note">{{ notice }}</p-message> }
+      @if (error) { <p-message severity="error" class="account-note">{{ error }}</p-message> }
+      @if (permissions.length === 0) {
+        <p class="muted pick-empty">Đang tải danh mục quyền.</p>
+      }
+      @for (module of modules(); track module) {
+        <section class="perm-module">
+          <h3>{{ module }}</h3>
+          @for (item of inModule(module); track item.id) {
+            <div class="perm-row">
+              <div>
+                {{ item.name }}
+                <small>{{ item.code }}</small>
+              </div>
+              <div class="effect-pills">
+                @for (effect of effects; track effect.value) {
+                  <button type="button" class="source-pill" [class.on]="grantEffects[item.id] === effect.value" [class.allow]="effect.value === 'Allow'" [class.deny]="effect.value === 'Deny'" (click)="grantEffects[item.id] = effect.value">
+                    {{ effect.label }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </section>
+      }
+      <div class="row-actions grant-actions">
+        <p-button styleClass="batch-submit" label="Lưu quyền riêng" icon="pi pi-check" (onClick)="saveGrants()" [loading]="grantLoading" [disabled]="permissions.length === 0" />
+        <p-button styleClass="account-cancel" label="Đóng" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="closeGrants()" />
+      </div>
+    </aside>
+  }
+</div>

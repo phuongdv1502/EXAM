@@ -1,0 +1,239 @@
+<div class="page-head exam-page">
+  <div>
+    <h1>{{ examId ? 'Chi tiết đề' : 'Đề mới' }}</h1>
+    <p>Chỉ câu đã duyệt mới đưa vào đề. Phát hành xong, giao cho lớp thì học sinh lớp đó mới thấy.</p>
+  </div>
+  <div class="page-actions">
+    @if (examId) { <p-tag [value]="label(labels.examStatus, status)" [severity]="tagColor(status)" /> }
+    <a pButton severity="secondary" [outlined]="true" routerLink="/exams"><i class="pi pi-arrow-left"></i><span>Về danh sách</span></a>
+  </div>
+</div>
+
+<div class="stack exam-page">
+  @if (error) { <p-message severity="error">{{ error }}</p-message> }
+  @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+  @if (validationMessages.length) {
+    <p-message [severity]="validationMessages[0] === 'Đề khớp ma trận.' ? 'success' : 'warn'">
+      {{ validationMessages.join(' ') }}
+    </p-message>
+  }
+
+  <form class="exam-form" (ngSubmit)="save()">
+    <p-card>
+      <div class="batch-form-head">
+        <span class="batch-form-icon"><i class="pi pi-file-edit"></i></span>
+        <div>
+          <h2>Thông tin đề</h2>
+          <p>Tên, môn, thời gian và cách xáo câu.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field span-12">
+          <label for="title">Tên đề</label>
+          <input pInputText id="title" name="title" [(ngModel)]="title" [disabled]="locked" placeholder="VD: Kiểm tra chương 1" />
+        </div>
+        <div class="field span-12">
+          <label for="description">Mô tả</label>
+          <textarea pTextarea id="description" name="description" [(ngModel)]="description" [disabled]="locked" rows="2" placeholder="Ghi chú ngắn, có thể để trống"></textarea>
+        </div>
+        <div class="field span-6">
+          <label for="subjectId">Môn</label>
+          <p-select inputId="subjectId" name="subjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" (ngModelChange)="onSubject()" [disabled]="locked" placeholder="Chọn môn" appendTo="body" />
+        </div>
+        <div class="field span-3">
+          <label for="duration">Số phút</label>
+          <p-inputnumber inputId="duration" name="duration" [(ngModel)]="durationMinutes" [min]="1" [max]="300" [disabled]="locked" [showButtons]="true" />
+        </div>
+        <div class="field span-3">
+          <label for="attempts">Số lượt</label>
+          <p-inputnumber inputId="attempts" name="attempts" [(ngModel)]="maxAttempts" [min]="1" [max]="10" [disabled]="locked" [showButtons]="true" />
+        </div>
+        <div class="field span-6">
+          <label for="opens">Mở lúc</label>
+          <input pInputText id="opens" type="datetime-local" name="opens" [(ngModel)]="opensAt" [disabled]="locked" />
+        </div>
+        <div class="field span-6">
+          <label for="closes">Đóng lúc</label>
+          <input pInputText id="closes" type="datetime-local" name="closes" [(ngModel)]="closesAt" [disabled]="locked" />
+        </div>
+      </div>
+      @if (selectedSubject(); as subject) {
+        <div class="pick-preview">
+          <i class="pi pi-book"></i>
+          <div>
+            <strong>{{ subject.name }}</strong>
+            <span>{{ bank.length }} câu đã duyệt</span>
+          </div>
+        </div>
+      }
+      <div class="exam-flags">
+        <button type="button" class="source-pill" [class.on]="shuffleQuestions" [disabled]="locked" (click)="toggleFlag('shuffleQuestions')">
+          <i class="pi pi-sort-alt"></i> Xáo câu hỏi
+        </button>
+        <button type="button" class="source-pill" [class.on]="shuffleOptions" [disabled]="locked" (click)="toggleFlag('shuffleOptions')">
+          <i class="pi pi-list"></i> Xáo phương án
+        </button>
+        <button type="button" class="source-pill" [class.on]="publishResults" [disabled]="locked" (click)="toggleFlag('publishResults')">
+          <i class="pi pi-eye"></i> Công bố kết quả
+        </button>
+      </div>
+    </p-card>
+
+    @if (!locked) {
+      <p-card>
+        <div class="batch-form-head">
+          <span class="batch-form-icon"><i class="pi pi-sparkles"></i></span>
+          <div>
+            <h2>Lấy câu tự động</h2>
+            <p>Chọn ma trận để ném câu đã duyệt vào đề. Không chọn chuyên đề thì lấy cả môn.</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field span-4">
+            <label for="profileId">Ma trận</label>
+            <p-select inputId="profileId" name="profileId" [options]="profiles" optionLabel="name" optionValue="id" [(ngModel)]="profileId" (ngModelChange)="onProfile()" [disabled]="!subjectId" placeholder="Chọn ma trận" appendTo="body" />
+          </div>
+          <div class="field span-2">
+            <label for="drawCount">Số câu</label>
+            <p-inputnumber inputId="drawCount" name="drawCount" [(ngModel)]="drawCount" [min]="1" [max]="100" [showButtons]="true" [disabled]="!subjectId" />
+          </div>
+          <div class="field span-2">
+            <label for="drawPoints">Điểm mỗi câu</label>
+            <p-inputnumber inputId="drawPoints" name="drawPoints" [(ngModel)]="drawPoints" [min]="0.1" [step]="0.1" [disabled]="!subjectId" />
+          </div>
+          <div class="field span-4 exam-assign">
+            <p-button label="Ném vào đề" icon="pi pi-sparkles" type="button" [loading]="drawing" [disabled]="!subjectId" (onClick)="draw()" />
+          </div>
+        </div>
+        @if (topics.length) {
+          <div class="exam-topics">
+            @for (topic of topics; track topic.id) {
+              <div class="choice">
+                <p-checkbox [binary]="true" [inputId]="'topic' + topic.id" [name]="'topic' + topic.id" [ngModel]="topicIds.includes(topic.id)" (ngModelChange)="toggleTopic(topic.id, $event)" />
+                <label [for]="'topic' + topic.id">{{ topic.name }}</label>
+              </div>
+            }
+          </div>
+        }
+      </p-card>
+    }
+
+    <div class="exam-board">
+      <p-card>
+        <div class="exam-pane-head">
+          <div>
+            <h2>Câu đã duyệt</h2>
+            <p>{{ visibleBank().length }} câu có thể thêm</p>
+          </div>
+        </div>
+        @if (subjectId) {
+          <input pInputText class="exam-search" name="bankQuery" [(ngModel)]="bankQuery" placeholder="Tìm theo nội dung hoặc chuyên đề" />
+        }
+        @if (!subjectId) {
+          <div class="exam-empty">
+            <i class="pi pi-book"></i>
+            <p>Chọn môn để hiện câu đã duyệt.</p>
+          </div>
+        } @else if (!bankReady) {
+          <div class="exam-empty">
+            <i class="pi pi-spin pi-spinner"></i>
+            <p>Đang tải câu đã duyệt.</p>
+          </div>
+        } @else if (bank.length === 0) {
+          <div class="exam-empty">
+            <i class="pi pi-inbox"></i>
+            <p>Môn này chưa có câu đã duyệt.</p>
+          </div>
+        } @else if (visibleBank().length === 0) {
+          <div class="exam-empty">
+            <i class="pi pi-check-circle"></i>
+            <p>{{ bankQuery ? 'Không có câu khớp từ khóa.' : 'Các câu đã duyệt đều đã nằm trong đề.' }}</p>
+          </div>
+        } @else {
+          @for (item of visibleBank(); track item.id) {
+            <div class="exam-q">
+              <div class="exam-q-main">
+                <p>{{ item.content }}</p>
+                <span>{{ item.topicName }} · {{ label(labels.level, item.level) }}</span>
+              </div>
+              <p-button label="Thêm" icon="pi pi-plus" size="small" [disabled]="locked" (onClick)="addQuestion(item)" />
+            </div>
+          }
+        }
+      </p-card>
+      <p-card>
+        <div class="exam-pane-head">
+          <div>
+            <h2>Câu trong đề</h2>
+            <p>{{ picked.length }} câu · {{ totalPoints() }} điểm</p>
+          </div>
+        </div>
+        @for (item of picked; track item.questionId; let index = $index) {
+          <div class="exam-q">
+            <span class="exam-index">{{ index + 1 }}</span>
+            <div class="exam-q-main">
+              <p>{{ item.content }}</p>
+              <span>Điểm</span>
+            </div>
+            <div class="exam-q-actions">
+              <p-inputnumber class="exam-points" inputStyleClass="exam-points-input" [(ngModel)]="item.points" [name]="'points' + item.questionId" [min]="0.1" [step]="0.1" [disabled]="locked" />
+              <p-button icon="pi pi-times" severity="danger" [text]="true" [disabled]="locked" (onClick)="removeQuestion(item.questionId)" ariaLabel="Bỏ câu" />
+            </div>
+          </div>
+        } @empty {
+          <div class="exam-empty">
+            <i class="pi pi-plus-circle"></i>
+            <p>Bấm Thêm ở cột bên trái để đưa câu vào đề.</p>
+          </div>
+        }
+      </p-card>
+    </div>
+
+    <div class="exam-bar">
+      <div>
+        <strong>{{ picked.length }} câu</strong>
+        <span>{{ totalPoints() }} điểm · {{ durationMinutes || 0 }} phút</span>
+      </div>
+      <div class="row-actions">
+        @if (!locked) { <p-button label="Lưu đề" icon="pi pi-check" type="submit" [loading]="loading" /> }
+        @if (examId && status === 'Draft') { <p-button label="Phát hành" icon="pi pi-send" type="button" (onClick)="publish()" /> }
+        @if (examId && status === 'Published') { <p-button label="Đóng đề" severity="danger" [outlined]="true" type="button" (onClick)="close()" /> }
+        @if (examId) { <p-button label="Kiểm tra ma trận" severity="secondary" [outlined]="true" type="button" (onClick)="validate()" /> }
+      </div>
+    </div>
+  </form>
+
+  @if (examId && schools.length) {
+    <p-card>
+      <div class="batch-form-head">
+        <span class="batch-form-icon"><i class="pi pi-users"></i></span>
+        <div>
+          <h2>Giao cho cả lớp</h2>
+          <p>Chọn một lớp là mọi học sinh đang học lớp đó đều thấy đề.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field span-4">
+          <label for="assignSchoolId">Trường</label>
+          <p-select inputId="assignSchoolId" [options]="schools" optionLabel="name" optionValue="id" [(ngModel)]="assignSchoolId" (ngModelChange)="loadRooms()" name="assignSchoolId" placeholder="Chọn trường" appendTo="body" />
+        </div>
+        <div class="field span-4">
+          <label for="assignRoomId">Lớp</label>
+          <p-select inputId="assignRoomId" [options]="rooms" optionLabel="name" optionValue="id" [(ngModel)]="assignRoomId" name="assignRoomId" placeholder="Chọn lớp" appendTo="body" />
+        </div>
+        <div class="field span-4 exam-assign">
+          <p-button label="Giao cho lớp" icon="pi pi-users" (onClick)="assign()" />
+        </div>
+      </div>
+      @if (assignments.length) {
+        <div class="exam-tags">
+          @for (item of assignments; track item.id) {
+            <p-tag [value]="item.classroomName || item.studentName || 'Đã giao'" severity="info" />
+          }
+        </div>
+      } @else {
+        <p class="muted exam-assign-empty">Chưa giao lớp nào. Học sinh chưa thấy đề này.</p>
+      }
+    </p-card>
+  }
+</div>

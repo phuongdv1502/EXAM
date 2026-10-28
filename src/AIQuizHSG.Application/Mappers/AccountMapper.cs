@@ -12,4 +12,15 @@ public static class AccountMapper
         user.FullName,
         user.Email,
         user.Status);
+
+    public static AccountResponse ToAccount(User user) => new(
+        user.Id,
+        user.Username,
+        user.FullName,
+        user.Email,
+        user.Status,
+        user.UserRoles
+            .Select(link => new AccountRole(link.Role.Id, link.Role.Code, link.Role.Name))
+            .OrderBy(role => role.Name)
+            .ToArray());
 }

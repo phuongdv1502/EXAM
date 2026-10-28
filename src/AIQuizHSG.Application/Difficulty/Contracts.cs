@@ -66,6 +66,10 @@ public sealed record AvailabilityResponse(
     IReadOnlyList<ShortageLine> Shortages,
     IReadOnlyList<AvailabilityError> Errors);
 
+public sealed record DrawnQuestionResponse(long Id, string Content, string TopicName, string Level, string Type);
+
+public sealed record DrawQuestionsResponse(IReadOnlyList<DrawnQuestionResponse> Questions);
+
 public sealed class GenerateExamRequest
 {
     public string Title { get; set; } = string.Empty;

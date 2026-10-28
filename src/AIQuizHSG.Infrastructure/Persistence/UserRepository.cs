@@ -38,6 +38,13 @@ public sealed class UserRepository(AiQuizDbContext db) : IUserRepository
             .ThenBy(user => user.Username)
             .ToListAsync(ct);
 
+    // Mọi tài khoản kèm vai trò, cho màn quản trị.
+    public Task<List<User>> ListAsync(CancellationToken ct) =>
+        Query()
+            .OrderBy(user => user.FullName)
+            .ThenBy(user => user.Username)
+            .ToListAsync(ct);
+
     public async Task AddAsync(User user, CancellationToken ct) =>
         await db.Users.AddAsync(user, ct);
 

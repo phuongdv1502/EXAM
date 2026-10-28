@@ -1,0 +1,141 @@
+<div class="page-head">
+  <div>
+    <h1>{{ batch?.examTitle || 'Đợt chấm' }}</h1>
+    <p>{{ batch?.examCode }} · mẫu {{ batch?.templateCode }} · {{ label(labels.omrSource, batch?.sourceType) }}</p>
+  </div>
+  <div class="page-actions">
+    <a pButton severity="secondary" [outlined]="true" routerLink="/omr"><i class="pi pi-arrow-left"></i><span>Danh sách</span></a>
+  </div>
+</div>
+@if (error) { <p-message severity="error">{{ error }}</p-message> }
+@if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+@if (batch) {
+  <p-card>
+    <div class="row-actions">
+      <p-tag [value]="label(labels.omrBatch, batch.status)" [severity]="tagColor(batch.status)" />
+      <span class="muted">{{ batch.processedSheets }}/{{ batch.totalSheets }} phiếu đã xử lý · {{ batch.failedSheets }} lỗi · {{ batch.needsReviewSheets }} cần đối soát</span>
+    </div>
+    <p class="muted">Ảnh đúng mẫu thì nhận ô tô theo lưới. Ảnh lệch hoặc mờ sẽ vào hàng đối soát, không tự ghi điểm.</p>
+    <div class="row-actions">
+      @if (!locked()) {
+        <p-button label="Chấm phiếu đã nhận" icon="pi pi-check-square" [loading]="loading" (onClick)="grade()" />
+        <p-button label="Duyệt đợt" icon="pi pi-verified" severity="secondary" [outlined]="true" (onClick)="approve()" />
+      }
+      @if (batch.status === 'Approved') {
+        <p-button label="Công bố điểm" icon="pi pi-megaphone" (onClick)="publish()" />
+      }
+      <p-button label="Bảng điểm" icon="pi pi-list" severity="secondary" [outlined]="true" (onClick)="loadResults()" />
+      <p-button label="Xuất Excel" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="exportFile()" />
+    </div>
+  </p-card>
+}
+
+@if (!locked()) {
+  <p-card header="Tải phiếu">
+    <p class="muted">Chụp phiếu mở camera của máy tính hoặc điện thoại. Tải ảnh hoặc PDF khi quét nhiều phiếu, tối đa 20 tệp, mỗi tệp 12 MB.</p>
+    <div class="row-actions">
+      <p-button label="Chụp phiếu" icon="pi pi-camera" (onClick)="openCamera()" />
+      <label pButton severity="secondary" [outlined]="true">
+        <i class="pi pi-upload"></i><span>Tải ảnh hoặc PDF</span>
+        <input type="file" accept="image/*,application/pdf" multiple hidden (change)="onFiles($event, 'Scanner')" />
+      </label>
+    </div>
+  </p-card>
+}
+
+@if (cameraOpen) {
+  <div class="camera-backdrop" (click)="closeCamera()">
+    <section class="camera-panel" role="dialog" aria-modal="true" aria-label="Chụp phiếu" (click)="$event.stopPropagation()">
+      <div class="batch-form-head">
+        <span class="batch-form-icon"><i class="pi pi-camera"></i></span>
+        <div>
+          <h2>Chụp phiếu</h2>
+          <p>Đưa phiếu vào khung, đủ sáng và thấy rõ bốn góc.</p>
+        </div>
+        <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeCamera()"><i class="pi pi-times"></i></button>
+      </div>
+      <div class="camera-stage">
+        <video #preview autoplay playsinline muted></video>
+        @if (cameraError) { <p class="camera-fallback">{{ cameraError }}</p> }
+      </div>
+      <div class="row-actions">
+        <p-button label="Chụp và nhận phiếu" icon="pi pi-camera" [disabled]="!!cameraError" [loading]="loading" (onClick)="shoot()" />
+        <p-button label="Đóng" severity="secondary" [outlined]="true" (onClick)="closeCamera()" />
+      </div>
+    </section>
+  </div>
+}
+
+<p-card header="Phiếu trong đợt">
+  <div class="field" style="max-width: 16rem; margin-bottom: 1rem">
+    <label for="sheetStatus">Lọc trạng thái</label>
+    <p-select inputId="sheetStatus" name="sheetStatus" [options]="choices.omrSheet" optionLabel="label" optionValue="value" [(ngModel)]="status" (ngModelChange)="page = 1; refresh()" placeholder="Mọi trạng thái" [showClear]="true" appendTo="body" />
+  </div>
+  <p-table [value]="sheets">
+    <ng-template #header>
+      <tr>
+        <th>Tệp</th>
+        <th>Học sinh</th>
+        <th>Mã đề</th>
+        <th>Độ tin cậy</th>
+        <th>Trạng thái</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-item>
+      <tr>
+        <td>
+          {{ item.fileName }}
+          <div class="muted">Trang {{ item.pageNumber }}</div>
+          @if (item.failureReason) { <div class="muted">{{ item.failureReason }}</div> }
+        </td>
+        <td>{{ item.studentCode || '—' }}</td>
+        <td>{{ item.examCode || '—' }}</td>
+        <td>{{ percent(item.confidence) }}</td>
+        <td><p-tag [value]="label(labels.omrSheet, item.status)" [severity]="tagColor(item.status)" /></td>
+        <td class="row-actions">
+          <a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/omr/sheets', item.id]">Đối soát</a>
+          @if (!locked() && item.status !== 'Graded' && item.status !== 'Uploaded' && item.status !== 'Processing') {
+            <p-button label="Nhận dạng lại" size="small" severity="secondary" [text]="true" (onClick)="retry(item)" />
+          }
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr><td colspan="6" class="muted">Chưa có phiếu.</td></tr>
+    </ng-template>
+  </p-table>
+  <p-paginator [first]="(page - 1) * pageSize" [rows]="pageSize" [totalRecords]="total" (onPageChange)="turn($event)" />
+</p-card>
+
+@if (showResults) {
+  <p-card header="Kết quả">
+    <p-table [value]="results" [paginator]="results.length > 10" [rows]="10">
+      <ng-template #header>
+        <tr>
+          <th>Học sinh</th>
+          <th>Mã đề</th>
+          <th>Đúng</th>
+          <th>Sai</th>
+          <th>Bỏ</th>
+          <th>Điểm</th>
+          <th>Trạng thái</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-item>
+        <tr>
+          <td>{{ item.studentName || '—' }} <div class="muted">{{ item.studentCode || '—' }}</div></td>
+          <td>{{ item.examCode || '—' }}</td>
+          <td>{{ item.correct }}</td>
+          <td>{{ item.wrong }}</td>
+          <td>{{ item.blank }}</td>
+          <td>{{ item.score ?? '—' }} / {{ item.maxScore ?? '—' }}</td>
+          <td><p-tag [value]="label(labels.omrSheet, item.status)" [severity]="tagColor(item.status)" /></td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr><td colspan="7" class="muted">Chưa có kết quả.</td></tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+}

@@ -1,0 +1,62 @@
+<div class="page-head">
+  <div>
+    <h1>Môn học</h1>
+    <p>Ngân hàng câu hỏi</p>
+  </div>
+</div>
+<div class="split">
+  <p-card [header]="editingId ? 'Sửa môn' : 'Thêm môn'">
+    @if (error) { <p-message severity="error">{{ error }}</p-message> }
+    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
+    <form (ngSubmit)="save()">
+      <div class="field">
+        <label for="code">Mã môn</label>
+        <input pInputText id="code" name="code" [(ngModel)]="code" />
+      </div>
+      <div class="field">
+        <label for="name">Tên môn</label>
+        <input pInputText id="name" name="name" [(ngModel)]="name" />
+      </div>
+      <div class="field">
+        <label for="description">Mô tả</label>
+        <textarea pTextarea id="description" name="description" [(ngModel)]="description" rows="4"></textarea>
+      </div>
+      <div class="choice" style="margin-bottom: 1rem">
+        <p-toggleswitch inputId="subjectActive" name="isActive" [(ngModel)]="isActive" />
+        <label for="subjectActive">Đang dùng</label>
+      </div>
+      <div class="row-actions">
+        <p-button label="Lưu" icon="pi pi-check" type="submit" [loading]="loading" />
+        @if (editingId) {
+          <p-button label="Hủy sửa" severity="secondary" [outlined]="true" type="button" (onClick)="reset()" />
+        }
+      </div>
+    </form>
+  </p-card>
+  <p-card>
+    <p-table [value]="items" [paginator]="items.length > 8" [rows]="8">
+      <ng-template #header>
+        <tr>
+          <th>Mã</th>
+          <th>Tên</th>
+          <th>Trạng thái</th>
+          <th></th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-item>
+        <tr>
+          <td>{{ item.code }}</td>
+          <td>
+            {{ item.name }}
+            @if (item.description) { <div class="muted">{{ item.description }}</div> }
+          </td>
+          <td><p-tag [value]="item.isActive ? 'Đang dùng' : 'Ẩn'" [severity]="item.isActive ? 'success' : 'secondary'" /></td>
+          <td><p-button label="Sửa" size="small" severity="secondary" [outlined]="true" (onClick)="edit(item)" /></td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr><td colspan="4" class="muted">Chưa có môn học.</td></tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+</div>

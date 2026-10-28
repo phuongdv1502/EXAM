@@ -1,0 +1,31 @@
+<div class="page-head">
+  <div>
+    <h1>Lượt làm bài</h1>
+    <p>Bài đang làm dở và các lượt đã nộp.</p>
+  </div>
+</div>
+<div class="stack">
+  @if (submitted) { <p-message severity="success">Đã nộp bài. Điểm chỉ hiện khi đề được công bố.</p-message> }
+  @if (error) { <p-message severity="error">{{ error }}</p-message> }
+  <p-card>
+    <p-table [value]="items" [paginator]="items.length > 10" [rows]="10">
+      <ng-template #header>
+        <tr><th>Đề</th><th>Lượt</th><th>Trạng thái</th><th>Hạn</th><th></th></tr>
+      </ng-template>
+      <ng-template #body let-item>
+        <tr>
+          <td>{{ item.examTitle }}</td>
+          <td>{{ item.attemptNumber }}</td>
+          <td><p-tag [value]="label(labels.attemptStatus, item.status)" [severity]="tagColor(item.status)" /></td>
+          <td>{{ formatDateTime(item.dueAtUtc) }}</td>
+          <td>
+            <a pButton size="small" [routerLink]="['/attempts', item.id]">{{ item.status === 'InProgress' ? 'Làm tiếp' : 'Xem' }}</a>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr><td colspan="5" class="muted">Chưa có lượt làm bài.</td></tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+</div>

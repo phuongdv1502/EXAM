@@ -1,8 +1,11 @@
+using AIQuizHSG.Domain.Common;
 using AIQuizHSG.Domain.Entities;
 
 namespace AIQuizHSG.Application.Persistence;
 
-// Danh mục quyền và quyền của từng vai trò.
+public readonly record struct UserGrant(long PermissionId, PermissionEffect Effect);
+
+// Danh mục quyền, quyền của vai trò, và quyền ngoại lệ từng người.
 public interface IPermissionRepository
 {
     Task<bool> AnyAsync(CancellationToken ct);
@@ -14,4 +17,7 @@ public interface IPermissionRepository
     Task<List<Permission>> ListForRoleAsync(long roleId, CancellationToken ct);
     Task ReplaceRoleAsync(long roleId, IReadOnlyCollection<long> permissionIds, long? actorId, DateTime now, CancellationToken ct);
     Task AddRoleLinksAsync(IEnumerable<RolePermission> links, CancellationToken ct);
+    Task AddMissingRoleLinksAsync(IEnumerable<RolePermission> links, CancellationToken ct);
+    Task<List<UserPermission>> ListGrantsAsync(long userId, CancellationToken ct);
+    Task ReplaceUserGrantsAsync(long userId, IReadOnlyCollection<UserGrant> grants, long? actorId, DateTime now, CancellationToken ct);
 }

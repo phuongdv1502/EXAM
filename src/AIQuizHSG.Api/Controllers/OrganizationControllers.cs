@@ -288,6 +288,22 @@ public class UserRolesController(IPermissionAdminService permissions) : Controll
             return ApiResults.Unauthorized();
         return ApiResults.From(await permissions.ReplaceUserRolesAsync(id, request, actor, ct));
     }
+
+    [HttpGet("{id:long}/permissions")]
+    public async Task<ActionResult<IReadOnlyList<UserPermissionGrantResponse>>> Permissions(long id, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await permissions.ListGrantsAsync(id, actor, ct));
+    }
+
+    [HttpPut("{id:long}/permissions")]
+    public async Task<ActionResult<IReadOnlyList<UserPermissionGrantResponse>>> ReplacePermissions(long id, ReplaceUserPermissionsRequest request, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await permissions.ReplaceUserGrantsAsync(id, request, actor, ct));
+    }
 }
 
 [ApiController]
@@ -295,6 +311,14 @@ public class UserRolesController(IPermissionAdminService permissions) : Controll
 [Route("api/exams/{examId:long}/assignments")]
 public class ExamAssignmentsController(IExamAssignmentService assignments) : ControllerBase
 {
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<ExamAssignmentResponse>>> List(long examId, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await assignments.ListAsync(examId, actor, ct));
+    }
+
     [HttpPost]
     public async Task<ActionResult<ExamAssignmentResponse>> Create(long examId, AssignExamRequest request, CancellationToken ct)
     {

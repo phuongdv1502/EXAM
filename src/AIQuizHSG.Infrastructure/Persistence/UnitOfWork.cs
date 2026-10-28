@@ -23,6 +23,7 @@ public sealed class UnitOfWork(AiQuizDbContext db) : IUnitOfWork
     public IStudentRecordRepository StudentRecords { get; } = new StudentRecordRepository(db);
     public IPermissionRepository Permissions { get; } = new PermissionRepository(db);
     public IExamAssignmentRepository ExamAssignments { get; } = new ExamAssignmentRepository(db);
+    public IOmrRepository Omr { get; } = new OmrRepository(db);
 
     public Task<int> SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 

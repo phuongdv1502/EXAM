@@ -35,11 +35,10 @@ public sealed partial class AttemptService : TimedService, IAttemptService
         if (!IsOpen(exam, clock.UtcNow))
             return OperationResult<AttemptPaper>.Invalid(Messages.ExamNotOpen);
 
-        // Không khai báo thí sinh thì mọi học sinh được vào. Có danh sách thì phải nằm trong đó.
+        // Có danh sách thí sinh thì phải nằm trong đó. Không có danh sách thì phải được giao theo lớp hoặc hồ sơ.
         if (exam.Participants.Count > 0 && exam.Participants.All(participant => participant.UserId != actor.UserId))
             return OperationResult<AttemptPaper>.Invalid(Messages.ExamNotParticipant);
-        // Có giao đề cho lớp hoặc học sinh thì chỉ hồ sơ nằm trong phạm vi đó mới được vào.
-        if (!await _unitOfWork.ExamAssignments.AllowsAsync(exam.Id, actor.UserId, ct))
+        if (exam.Participants.Count == 0 && !await _unitOfWork.ExamAssignments.AllowsAsync(exam.Id, actor.UserId, ct))
             return OperationResult<AttemptPaper>.Invalid(Messages.ExamNotParticipant);
 
         var existing = await _unitOfWork.Attempts.FindInProgressAsync(exam.Id, actor.UserId, ct);

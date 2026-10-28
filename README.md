@@ -30,6 +30,17 @@ API lắng nghe `http://localhost:5080`. Swagger UI: `http://localhost:5080/swag
 
 Đổi mật khẩu này trước khi dùng với dữ liệu thật. Khóa ký JWT trong môi trường Development chỉ dùng cho máy local.
 
+## Giao diện Angular
+
+Project nằm ở `src/aiquizhsg-web`. Cần Node.js 22 trở lên. API phải chạy ở `http://localhost:5080` vì CORS đã mở cho `http://localhost:4200`.
+
+```powershell
+cd src/aiquizhsg-web
+npm start
+```
+
+Mở `http://localhost:4200`. Ngoài `admin`, dữ liệu mẫu còn có `teacher`, `schooladmin`, `hs26001`, `hs26002`, cùng mật khẩu `Admin@123456`.
+
 Tên class, thư mục, thuộc tính, bảng và cột MySQL dùng tiếng Anh. Thông báo lỗi, tên vai trò, tên mức độ và nội dung seed hiển thị trên màn hình vẫn là tiếng Việt.
 
 Đăng nhập: `POST /api/login` với JSON `{"username":"admin","password":"Admin@123456"}`. Gửi kèm header `Authorization: Bearer <token>` cho các API bên dưới. Giáo viên và quản trị mới gọi được ngân hàng câu hỏi.

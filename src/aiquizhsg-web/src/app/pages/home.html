@@ -1,0 +1,15 @@
+<div class="page-head">
+  <div>
+    <h1>Xin chào, {{ store.user()?.fullName }}</h1>
+    <p>Chọn việc cần làm</p>
+  </div>
+</div>
+<div class="cards">
+  @for (card of visible(); track card.link) {
+    <a class="home-card" [routerLink]="card.link">
+      <p-card [header]="card.title">
+        <p class="muted">{{ card.text }}</p>
+      </p-card>
+    </a>
+  }
+</div>
