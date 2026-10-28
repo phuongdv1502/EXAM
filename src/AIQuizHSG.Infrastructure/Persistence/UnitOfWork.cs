@@ -17,6 +17,12 @@ public sealed class UnitOfWork(AiQuizDbContext db) : IUnitOfWork
     public IExamRepository Exams { get; } = new ExamRepository(db);
     public IAttemptRepository Attempts { get; } = new AttemptRepository(db);
     public IAuditLogRepository AuditLogs { get; } = new AuditLogRepository(db);
+    public ISchoolRepository Schools { get; } = new SchoolRepository(db);
+    public IGradeLevelRepository GradeLevels { get; } = new GradeLevelRepository(db);
+    public IClassroomRepository Classrooms { get; } = new ClassroomRepository(db);
+    public IStudentRecordRepository StudentRecords { get; } = new StudentRecordRepository(db);
+    public IPermissionRepository Permissions { get; } = new PermissionRepository(db);
+    public IExamAssignmentRepository ExamAssignments { get; } = new ExamAssignmentRepository(db);
 
     public Task<int> SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 

@@ -7,7 +7,7 @@ namespace AIQuizHSG.Api.Controllers;
 [ApiController]
 [Route("api/login")]
 // Đăng nhập công khai. Thành công trả token, thất bại trả 401.
-public class LoginController(LoginService loginService) : ControllerBase
+public class LoginController(ILoginService loginService) : ControllerBase
 {
     [HttpPost]
     [AllowAnonymous]

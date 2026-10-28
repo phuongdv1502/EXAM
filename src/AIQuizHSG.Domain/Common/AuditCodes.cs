@@ -46,4 +46,31 @@ public static class AuditCodes
     public const string CreateProfile = "CreateProfile";
     public const string UpdateProfile = "UpdateProfile";
     public const string GenerateExam = "GenerateExam";
+
+    public const string School = "School";
+    public const string SchoolYear = "SchoolYear";
+    public const string GradeLevel = "GradeLevel";
+    public const string Classroom = "Classroom";
+    public const string StudentProfile = "StudentProfile";
+    public const string Enrollment = "StudentEnrollment";
+    public const string Permission = "Permission";
+    public const string ExamAssignment = "ExamAssignment";
+
+    public const string CreateSchool = "CreateSchool";
+    public const string UpdateSchool = "UpdateSchool";
+    public const string CreateSchoolYear = "CreateSchoolYear";
+    public const string UpdateSchoolYear = "UpdateSchoolYear";
+    public const string CreateGradeLevel = "CreateGradeLevel";
+    public const string CreateClassroom = "CreateClassroom";
+    public const string UpdateClassroom = "UpdateClassroom";
+    public const string AssignTeacher = "AssignTeacher";
+    public const string CreateStudentProfile = "CreateStudentProfile";
+    public const string UpdateStudentProfile = "UpdateStudentProfile";
+    public const string EnrollStudent = "EnrollStudent";
+    public const string TransferStudent = "TransferStudent";
+    public const string ImportStudents = "ImportStudents";
+    public const string AddSchoolMember = "AddSchoolMember";
+    public const string ReplaceRolePermissions = "ReplaceRolePermissions";
+    public const string ReplaceUserRoles = "ReplaceUserRoles";
+    public const string AssignExam = "AssignExam";
 }

@@ -13,6 +13,12 @@ public interface IUnitOfWork
     IExamRepository Exams { get; }
     IAttemptRepository Attempts { get; }
     IAuditLogRepository AuditLogs { get; }
+    ISchoolRepository Schools { get; }
+    IGradeLevelRepository GradeLevels { get; }
+    IClassroomRepository Classrooms { get; }
+    IStudentRecordRepository StudentRecords { get; }
+    IPermissionRepository Permissions { get; }
+    IExamAssignmentRepository ExamAssignments { get; }
 
     // Ghi các thay đổi đang theo dõi. Chưa commit nếu đang nằm trong transaction.
     Task<int> SaveChangesAsync(CancellationToken ct);

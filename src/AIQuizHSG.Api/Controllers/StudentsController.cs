@@ -10,7 +10,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Admin)]
 [Route("api/students")]
 // Quản trị tạo, sửa và khóa tài khoản học sinh.
-public class StudentsController(AccountService accounts) : ControllerBase
+public class StudentsController(IAccountService accounts) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<StudentAccount>> List(CancellationToken ct) =>

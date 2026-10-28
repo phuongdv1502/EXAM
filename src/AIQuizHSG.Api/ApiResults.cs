@@ -28,6 +28,7 @@ internal static class ApiResults
         {
             OperationStatus.Ok => new OkObjectResult(result.Value),
             OperationStatus.NotFound => new NotFoundObjectResult(new { message = result.Message }),
+            OperationStatus.Forbidden => new ObjectResult(new { message = result.Message }) { StatusCode = StatusCodes.Status403Forbidden },
             _ => new BadRequestObjectResult(new { message = result.Message })
         };
 

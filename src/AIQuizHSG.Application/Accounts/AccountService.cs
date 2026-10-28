@@ -9,14 +9,32 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Accounts;
 
-// Quản trị tạo và khóa học sinh. Giáo viên không tạo được tài khoản quản trị.
-public sealed class AccountService(
-    IUnitOfWork unitOfWork,
-    IPasswordHasher passwords,
-    IClock clock,
-    IValidator<CreateStudentRequest> createValidator,
-    IValidator<UpdateStudentRequest> updateValidator)
+public interface IAccountService
 {
+    Task<IReadOnlyList<StudentAccount>> ListAsync(CancellationToken ct);
+    Task<OperationResult<StudentAccount>> CreateAsync(CreateStudentRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<StudentAccount>> UpdateAsync(long id, UpdateStudentRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<StudentAccount>> LockAsync(long id, Actor actor, CancellationToken ct);
+    Task<OperationResult<StudentAccount>> UnlockAsync(long id, Actor actor, CancellationToken ct);
+}
+
+// Quản trị tạo và khóa học sinh. Giáo viên không tạo được tài khoản quản trị.
+public sealed partial class AccountService : AccountBaseService, IAccountService
+{
+    private readonly IValidator<CreateStudentRequest> createValidator;
+    private readonly IValidator<UpdateStudentRequest> updateValidator;
+
+    public AccountService(
+        IUnitOfWork unitOfWork,
+        IPasswordHasher passwords,
+        IClock clock,
+        IValidator<CreateStudentRequest> createValidator,
+        IValidator<UpdateStudentRequest> updateValidator) : base(unitOfWork, passwords, clock)
+    {
+        this.createValidator = createValidator;
+        this.updateValidator = updateValidator;
+    }
+
     public async Task<IReadOnlyList<StudentAccount>> ListAsync(CancellationToken ct)
     {
         var users = await unitOfWork.Users.ListByRoleAsync(RoleCodes.Student, ct);

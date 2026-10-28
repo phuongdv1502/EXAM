@@ -10,7 +10,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Teacher)]
 [Route("api/topics")]
 // Giáo viên và quản trị xem, thêm, sửa chuyên đề. Có thể lọc theo môn.
-public class TopicsController(CatalogService catalog) : ControllerBase
+public class TopicsController(ICatalogService catalog) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<TopicResponse>> List([FromQuery] long? subjectId, CancellationToken ct) =>

@@ -14,4 +14,10 @@ public sealed class RoleRepository(AiQuizDbContext db) : IRoleRepository
 
     public async Task AddRangeAsync(IEnumerable<Role> roles, CancellationToken ct) =>
         await db.Roles.AddRangeAsync(roles, ct);
+
+    public Task<List<Role>> ListAsync(CancellationToken ct) =>
+        db.Roles.AsNoTracking().OrderBy(role => role.Code).ToListAsync(ct);
+
+    public Task<Role?> FindAsync(long id, CancellationToken ct) =>
+        db.Roles.FirstOrDefaultAsync(role => role.Id == id, ct);
 }

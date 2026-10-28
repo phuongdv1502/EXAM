@@ -10,7 +10,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Teacher)]
 [Route("api/question-bank")]
 // Kiểm tra ngân hàng còn đủ câu cho từng mức trước khi sinh đề.
-public class QuestionBankController(ExamGenerationService generation) : ControllerBase
+public class QuestionBankController(IExamGenerationService generation) : ControllerBase
 {
     [HttpPost("availability")]
     public async Task<ActionResult<AvailabilityResponse>> Availability(AvailabilityRequest request, CancellationToken ct) =>

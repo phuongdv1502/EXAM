@@ -23,6 +23,8 @@ public interface IRoleRepository
     Task<bool> AnyAsync(CancellationToken ct);
     Task<Role?> FindByCodeAsync(string code, CancellationToken ct);
     Task AddRangeAsync(IEnumerable<Role> roles, CancellationToken ct);
+    Task<List<Role>> ListAsync(CancellationToken ct);
+    Task<Role?> FindAsync(long id, CancellationToken ct);
 }
 
 // Môn học. Bản ghi cần sửa thì được theo dõi, tra mã khi nhập Excel thì không.
@@ -94,6 +96,7 @@ public interface IAttemptRepository
     Task<ExamAttempt?> FindInProgressAsync(long examId, long userId, CancellationToken ct);
     Task<ExamAttempt?> FindAsync(long id, CancellationToken ct);
     Task<List<ExamAttempt>> ListByUserAsync(long userId, CancellationToken ct);
+    Task<List<ExamAttempt>> ListByUserIdsAsync(IReadOnlyCollection<long> userIds, CancellationToken ct);
     Task AddAsync(ExamAttempt attempt, CancellationToken ct);
     void ReplaceSelections(AttemptAnswer answer, IReadOnlyList<long> optionIds);
 }
@@ -102,4 +105,84 @@ public interface IAttemptRepository
 public interface IAuditLogRepository
 {
     void Add(long? userId, string action, string entityName, long? entityId, string? details, string? ipAddress);
+}
+
+// Trường, năm học và thành viên trường.
+public interface ISchoolRepository
+{
+    Task<List<School>> ListAsync(CancellationToken ct);
+    Task<School?> FindAsync(long id, CancellationToken ct);
+    Task<School?> FindByCodeAsync(string code, CancellationToken ct);
+    Task AddAsync(School school, CancellationToken ct);
+    Task<List<SchoolYear>> ListYearsAsync(long schoolId, CancellationToken ct);
+    Task<SchoolYear?> FindYearAsync(long id, CancellationToken ct);
+    Task<SchoolYear?> FindYearByNameAsync(long schoolId, string name, CancellationToken ct);
+    Task AddYearAsync(SchoolYear year, CancellationToken ct);
+    Task ClearCurrentAsync(long schoolId, long? exceptYearId, CancellationToken ct);
+    Task<bool> HasActiveMembershipAsync(long userId, long schoolId, CancellationToken ct);
+    Task<bool> HasActiveRoleAsync(long userId, long schoolId, SchoolRole role, CancellationToken ct);
+    Task<SchoolMembership?> FindMembershipAsync(long schoolId, long userId, SchoolRole role, CancellationToken ct);
+    Task<List<SchoolMembership>> ListMembershipsAsync(long schoolId, CancellationToken ct);
+    Task AddMembershipAsync(SchoolMembership membership, CancellationToken ct);
+}
+
+// Danh mục khối lớp dùng chung.
+public interface IGradeLevelRepository
+{
+    Task<bool> AnyAsync(CancellationToken ct);
+    Task<List<GradeLevel>> ListAsync(CancellationToken ct);
+    Task<GradeLevel?> FindAsync(long id, CancellationToken ct);
+    Task<GradeLevel?> FindByCodeAsync(string code, CancellationToken ct);
+    Task AddAsync(GradeLevel level, CancellationToken ct);
+    Task AddRangeAsync(IEnumerable<GradeLevel> levels, CancellationToken ct);
+}
+
+// Lớp học và phân công giáo viên bộ môn.
+public interface IClassroomRepository
+{
+    Task<List<Classroom>> ListAsync(long schoolId, long? schoolYearId, CancellationToken ct);
+    Task<Classroom?> FindAsync(long id, CancellationToken ct);
+    Task<Classroom?> FindByCodeAsync(long schoolYearId, string classCode, CancellationToken ct);
+    Task AddAsync(Classroom classroom, CancellationToken ct);
+    Task<int> CountActiveStudentsAsync(long classroomId, CancellationToken ct);
+    Task<bool> TeachesAsync(long classroomId, long userId, CancellationToken ct);
+    Task<ClassMembership?> FindSubjectTeacherAsync(long classroomId, long userId, long subjectId, CancellationToken ct);
+    Task<List<ClassMembership>> ListTeachersAsync(long classroomId, CancellationToken ct);
+    Task AddTeacherAsync(ClassMembership membership, CancellationToken ct);
+}
+
+// Hồ sơ học sinh và lịch sử phân lớp.
+public interface IStudentRecordRepository
+{
+    Task<List<StudentProfile>> SearchAsync(long schoolId, string? keyword, CancellationToken ct);
+    Task<StudentProfile?> FindAsync(long id, CancellationToken ct);
+    Task<StudentProfile?> FindByCodeAsync(long schoolId, string code, CancellationToken ct);
+    Task<StudentProfile?> FindByUserAsync(long userId, CancellationToken ct);
+    Task AddAsync(StudentProfile student, CancellationToken ct);
+    Task<StudentEnrollment?> FindActiveEnrollmentAsync(long studentId, CancellationToken ct);
+    Task<List<StudentProfile>> ListActiveInClassroomAsync(long classroomId, CancellationToken ct);
+    Task AddEnrollmentAsync(StudentEnrollment enrollment, CancellationToken ct);
+}
+
+// Danh mục quyền và quyền của từng vai trò.
+public interface IPermissionRepository
+{
+    Task<bool> AnyAsync(CancellationToken ct);
+    Task<bool> AnyRoleLinkAsync(CancellationToken ct);
+    Task<List<Permission>> ListAsync(string? module, CancellationToken ct);
+    Task<List<Permission>> ListByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct);
+    Task AddRangeAsync(IEnumerable<Permission> permissions, CancellationToken ct);
+    Task<List<string>> ListCodesForUserAsync(long userId, CancellationToken ct);
+    Task<List<Permission>> ListForRoleAsync(long roleId, CancellationToken ct);
+    Task ReplaceRoleAsync(long roleId, IReadOnlyCollection<long> permissionIds, long? actorId, DateTime now, CancellationToken ct);
+    Task AddRoleLinksAsync(IEnumerable<RolePermission> links, CancellationToken ct);
+}
+
+// Giao đề cho lớp hoặc học sinh. Không có dòng giao thì đề vẫn theo danh sách thí sinh cũ.
+public interface IExamAssignmentRepository
+{
+    Task AddAsync(ExamAssignment assignment, CancellationToken ct);
+    Task<ExamAssignment?> FindActiveAsync(long examId, long? classroomId, long? studentId, CancellationToken ct);
+    Task<List<ExamAssignment>> ListByClassroomAsync(long classroomId, CancellationToken ct);
+    Task<bool> AllowsAsync(long examId, long userId, CancellationToken ct);
 }

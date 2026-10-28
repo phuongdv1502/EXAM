@@ -106,6 +106,12 @@ public class LoginServiceTests
         public IQuestionRepository Questions => throw new NotSupportedException();
         public IDifficultyLevelRepository DifficultyLevels => throw new NotSupportedException();
         public IExamProfileRepository ExamProfiles => throw new NotSupportedException();
+        public ISchoolRepository Schools => throw new NotSupportedException();
+        public IGradeLevelRepository GradeLevels => throw new NotSupportedException();
+        public IClassroomRepository Classrooms => throw new NotSupportedException();
+        public IStudentRecordRepository StudentRecords => throw new NotSupportedException();
+        public IPermissionRepository Permissions => throw new NotSupportedException();
+        public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
         public IExamRepository Exams => throw new NotSupportedException();
         public IAttemptRepository Attempts => throw new NotSupportedException();
         public IAuditLogRepository AuditLogs => new AuditSpy(Entries);

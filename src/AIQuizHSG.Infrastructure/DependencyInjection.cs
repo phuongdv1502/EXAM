@@ -3,6 +3,7 @@ using AIQuizHSG.Application.Authentication;
 using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Difficulty;
 using AIQuizHSG.Application.Exams;
+using AIQuizHSG.Application.Organization;
 using AIQuizHSG.Application.Persistence;
 using AIQuizHSG.Application.Questions;
 using AIQuizHSG.Application.Validation;
@@ -43,14 +44,21 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, PasswordHasherService>();
         services.AddSingleton<ITokenIssuer, JwtTokenIssuer>();
         services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
-        services.AddScoped<LoginService>();
-        services.AddScoped<AccountService>();
-        services.AddScoped<CatalogService>();
-        services.AddScoped<QuestionService>();
-        services.AddScoped<ExamService>();
-        services.AddScoped<AttemptService>();
-        services.AddScoped<ExamProfileService>();
-        services.AddScoped<ExamGenerationService>();
+        services.AddScoped<ILoginService, LoginService>();
+        services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<ICatalogService, CatalogService>();
+        services.AddScoped<IQuestionService, QuestionService>();
+        services.AddScoped<IExamService, ExamService>();
+        services.AddScoped<IAttemptService, AttemptService>();
+        services.AddScoped<IExamProfileService, ExamProfileService>();
+        services.AddScoped<IExamGenerationService, ExamGenerationService>();
+        services.AddScoped<ISchoolAccess, SchoolAccess>();
+        services.AddScoped<ISchoolService, SchoolService>();
+        services.AddScoped<IClassroomService, ClassroomService>();
+        services.AddScoped<IStudentRecordService, StudentRecordService>();
+        services.AddScoped<IPermissionAdminService, PermissionAdminService>();
+        services.AddScoped<IExamAssignmentService, ExamAssignmentService>();
+        services.AddScoped<IClassroomReportService, ClassroomReportService>();
         return services;
     }
 }

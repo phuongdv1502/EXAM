@@ -67,3 +67,60 @@ public enum ProfileStatus
     Active,
     Archived
 }
+
+public enum SchoolYearStatus
+{
+    Planned,
+    Open,
+    Closed
+}
+
+public enum ClassroomStatus
+{
+    Active,
+    Archived
+}
+
+public enum StudentProfileStatus
+{
+    Active,
+    Inactive
+}
+
+public enum Gender
+{
+    Male,
+    Female,
+    Other
+}
+
+public enum EnrollmentStatus
+{
+    Active,
+    Transferred,
+    Left
+}
+
+public enum SchoolRole
+{
+    SchoolAdmin,
+    Teacher,
+    Staff
+}
+
+public enum MembershipStatus
+{
+    Active,
+    Ended
+}
+
+public enum ClassRole
+{
+    SubjectTeacher
+}
+
+public enum AssignmentStatus
+{
+    Active,
+    Cancelled
+}

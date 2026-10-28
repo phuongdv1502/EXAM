@@ -11,7 +11,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Teacher)]
 [Route("api/exams")]
 // Giáo viên tạo đề, phát hành và đóng kỳ thi.
-public class ExamsController(ExamService exams, ExamGenerationService generation) : ControllerBase
+public class ExamsController(IExamService exams, IExamGenerationService generation) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<ExamSummary>> List(CancellationToken ct) =>

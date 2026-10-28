@@ -11,13 +11,29 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Difficulty;
 
-// Sinh đề theo ma trận. Thiếu câu thì báo số thiếu, không hạ mức.
-public sealed class ExamGenerationService(
-    IUnitOfWork unitOfWork,
-    IClock clock,
-    IValidator<GenerateExamRequest> generateValidator,
-    IValidator<AvailabilityRequest> availabilityValidator)
+public interface IExamGenerationService
 {
+    Task<OperationResult<AvailabilityResponse>> CheckAsync(AvailabilityRequest request, CancellationToken ct);
+    Task<OperationResult<ExamResponse>> GenerateAsync(GenerateExamRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<ExamValidationResponse>> ValidateAsync(long examId, CancellationToken ct);
+}
+
+// Sinh đề theo ma trận. Thiếu câu thì báo số thiếu, không hạ mức.
+public sealed partial class ExamGenerationService : TimedService, IExamGenerationService
+{
+    private readonly IValidator<GenerateExamRequest> generateValidator;
+    private readonly IValidator<AvailabilityRequest> availabilityValidator;
+
+    public ExamGenerationService(
+        IUnitOfWork unitOfWork,
+        IClock clock,
+        IValidator<GenerateExamRequest> generateValidator,
+        IValidator<AvailabilityRequest> availabilityValidator) : base(unitOfWork, clock)
+    {
+        this.generateValidator = generateValidator;
+        this.availabilityValidator = availabilityValidator;
+    }
+
     public async Task<OperationResult<AvailabilityResponse>> CheckAsync(AvailabilityRequest request, CancellationToken ct)
     {
         request.TopicIds ??= [];

@@ -8,12 +8,25 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Difficulty;
 
-// Tạo và sửa ma trận độ khó của đề. Bản đã dùng hoặc bản hệ thống thì nhân bản, không ghi đè.
-public sealed class ExamProfileService(
-    IUnitOfWork unitOfWork,
-    IClock clock,
-    IValidator<SaveExamProfileRequest> validator)
+public interface IExamProfileService
 {
+    Task<IReadOnlyList<ExamProfileResponse>> ListAsync(CancellationToken ct);
+    Task<OperationResult<ExamProfileResponse>> GetAsync(long id, CancellationToken ct);
+    Task<OperationResult<ExamProfileResponse>> CreateAsync(SaveExamProfileRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<ExamProfileResponse>> UpdateAsync(long id, SaveExamProfileRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<ProfilePreviewResponse>> PreviewAsync(long id, PreviewProfileRequest request, CancellationToken ct);
+}
+
+// Tạo và sửa ma trận độ khó của đề. Bản đã dùng hoặc bản hệ thống thì nhân bản, không ghi đè.
+public sealed partial class ExamProfileService : TimedService, IExamProfileService
+{
+    private readonly IValidator<SaveExamProfileRequest> validator;
+
+    public ExamProfileService(IUnitOfWork unitOfWork, IClock clock, IValidator<SaveExamProfileRequest> validator) : base(unitOfWork, clock)
+    {
+        this.validator = validator;
+    }
+
     public async Task<IReadOnlyList<ExamProfileResponse>> ListAsync(CancellationToken ct)
     {
         var profiles = await unitOfWork.ExamProfiles.ListAsync(ct);

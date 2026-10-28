@@ -26,6 +26,17 @@ public class AiQuizDbContext(DbContextOptions<AiQuizDbContext> options) : DbCont
     public DbSet<AiQuestionRequest> AiQuestionRequests => Set<AiQuestionRequest>();
     public DbSet<AiAnalysisReport> AiAnalysisReports => Set<AiAnalysisReport>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<School> Schools => Set<School>();
+    public DbSet<SchoolYear> SchoolYears => Set<SchoolYear>();
+    public DbSet<GradeLevel> GradeLevels => Set<GradeLevel>();
+    public DbSet<Classroom> Classrooms => Set<Classroom>();
+    public DbSet<StudentProfile> Students => Set<StudentProfile>();
+    public DbSet<StudentEnrollment> StudentEnrollments => Set<StudentEnrollment>();
+    public DbSet<SchoolMembership> SchoolMemberships => Set<SchoolMembership>();
+    public DbSet<ClassMembership> ClassMemberships => Set<ClassMembership>();
+    public DbSet<ExamAssignment> ExamAssignments => Set<ExamAssignment>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

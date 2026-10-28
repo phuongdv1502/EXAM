@@ -10,7 +10,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Student)]
 [Route("api/my-exams")]
 // Đề học sinh được vào và lượt làm đang mở.
-public class MyExamsController(AttemptService attempts) : ControllerBase
+public class MyExamsController(IAttemptService attempts) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ExamSummary>>> List(CancellationToken ct)

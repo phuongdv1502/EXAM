@@ -7,12 +7,31 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Questions;
 
-// Môn học và chuyên đề. Chuyên đề có thể lồng nhau nhưng không được tạo vòng cha-con.
-public sealed class CatalogService(
-    IUnitOfWork unitOfWork,
-    IValidator<SaveSubjectRequest> subjectValidator,
-    IValidator<SaveTopicRequest> topicValidator)
+public interface ICatalogService
 {
+    Task<IReadOnlyList<SubjectResponse>> ListSubjectsAsync(CancellationToken ct);
+    Task<OperationResult<SubjectResponse>> CreateSubjectAsync(SaveSubjectRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<SubjectResponse>> UpdateSubjectAsync(long id, SaveSubjectRequest request, Actor actor, CancellationToken ct);
+    Task<IReadOnlyList<TopicResponse>> ListTopicsAsync(long? subjectId, CancellationToken ct);
+    Task<OperationResult<TopicResponse>> CreateTopicAsync(SaveTopicRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<TopicResponse>> UpdateTopicAsync(long id, SaveTopicRequest request, Actor actor, CancellationToken ct);
+}
+
+// Môn học và chuyên đề. Chuyên đề có thể lồng nhau nhưng không được tạo vòng cha-con.
+public sealed partial class CatalogService : BaseService, ICatalogService
+{
+    private readonly IValidator<SaveSubjectRequest> subjectValidator;
+    private readonly IValidator<SaveTopicRequest> topicValidator;
+
+    public CatalogService(
+        IUnitOfWork unitOfWork,
+        IValidator<SaveSubjectRequest> subjectValidator,
+        IValidator<SaveTopicRequest> topicValidator) : base(unitOfWork)
+    {
+        this.subjectValidator = subjectValidator;
+        this.topicValidator = topicValidator;
+    }
+
     public async Task<IReadOnlyList<SubjectResponse>> ListSubjectsAsync(CancellationToken ct)
     {
         var subjects = await unitOfWork.Subjects.ListAsync(ct);

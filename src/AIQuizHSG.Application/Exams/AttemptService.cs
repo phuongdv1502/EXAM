@@ -8,12 +8,26 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Exams;
 
-// Học sinh vào đề, lưu đáp án và nộp bài. Hết giờ thì máy chủ tự nộp. Chưa tính điểm.
-public sealed class AttemptService(
-    IUnitOfWork unitOfWork,
-    IClock clock,
-    IValidator<SaveAnswerRequest> validator)
+public interface IAttemptService
 {
+    Task<IReadOnlyList<ExamSummary>> ListOpenAsync(long userId, CancellationToken ct);
+    Task<IReadOnlyList<AttemptSummary>> ListMineAsync(long userId, CancellationToken ct);
+    Task<OperationResult<AttemptPaper>> StartAsync(long examId, Actor actor, CancellationToken ct);
+    Task<OperationResult<AttemptPaper>> GetAsync(long id, Actor actor, CancellationToken ct);
+    Task<OperationResult<AttemptPaper>> SaveAnswerAsync(long id, long examQuestionId, SaveAnswerRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<AttemptSummary>> SubmitAsync(long id, Actor actor, CancellationToken ct);
+}
+
+// Học sinh vào đề, lưu đáp án và nộp bài. Hết giờ thì máy chủ tự nộp. Chưa tính điểm.
+public sealed partial class AttemptService : TimedService, IAttemptService
+{
+    private readonly IValidator<SaveAnswerRequest> validator;
+
+    public AttemptService(IUnitOfWork unitOfWork, IClock clock, IValidator<SaveAnswerRequest> validator) : base(unitOfWork, clock)
+    {
+        this.validator = validator;
+    }
+
     public async Task<IReadOnlyList<ExamSummary>> ListOpenAsync(long userId, CancellationToken ct) =>
         await unitOfWork.Exams.ListOpenForStudentAsync(userId, ct);
 
@@ -33,6 +47,9 @@ public sealed class AttemptService(
 
         // Không khai báo thí sinh thì mọi học sinh được vào. Có danh sách thì phải nằm trong đó.
         if (exam.Participants.Count > 0 && exam.Participants.All(participant => participant.UserId != actor.UserId))
+            return OperationResult<AttemptPaper>.Invalid(Messages.ExamNotParticipant);
+        // Có giao đề cho lớp hoặc học sinh thì chỉ hồ sơ nằm trong phạm vi đó mới được vào.
+        if (!await unitOfWork.ExamAssignments.AllowsAsync(exam.Id, actor.UserId, ct))
             return OperationResult<AttemptPaper>.Invalid(Messages.ExamNotParticipant);
 
         var existing = await unitOfWork.Attempts.FindInProgressAsync(exam.Id, actor.UserId, ct);

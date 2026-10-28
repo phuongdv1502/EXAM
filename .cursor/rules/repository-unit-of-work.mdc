@@ -8,7 +8,7 @@ alwaysApply: true
 
 Tầng Application không gọi `DbContext`. Mỗi nhóm dữ liệu có một repository. Chỉ `IUnitOfWork` được `SaveChanges`.
 
-- Service nhận `IUnitOfWork`, gọi `Users`, `Subjects`, `Topics`, `Questions`, `DifficultyLevels`, `ExamProfiles`, `Exams`, `Attempts`, `Roles`, `AuditLogs`.
+- Service nhận `IUnitOfWork`, gọi `Users`, `Subjects`, `Topics`, `Questions`, `DifficultyLevels`, `ExamProfiles`, `Exams`, `Attempts`, `Roles`, `AuditLogs`, `Schools`, `GradeLevels`, `Classrooms`, `StudentRecords`, `Permissions`, `ExamAssignments`.
 - Repository chỉ đọc hoặc gắn entity. Không gọi `SaveChanges` bên trong repository.
 - Thao tác có ghi nhật ký dùng `SaveWithAuditAsync` để nghiệp vụ và nhật ký nằm trong một transaction.
 - Thêm repository mới thì khai báo interface ở Application, cài đặt ở Infrastructure, và gắn vào `UnitOfWork`.

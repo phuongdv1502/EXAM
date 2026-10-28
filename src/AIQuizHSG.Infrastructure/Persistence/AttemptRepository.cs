@@ -28,6 +28,17 @@ public sealed class AttemptRepository(AiQuizDbContext db) : IAttemptRepository
             .ThenByDescending(attempt => attempt.Id)
             .ToListAsync(ct);
 
+    public Task<List<ExamAttempt>> ListByUserIdsAsync(IReadOnlyCollection<long> userIds, CancellationToken ct)
+    {
+        if (userIds.Count == 0)
+            return Task.FromResult(new List<ExamAttempt>());
+
+        return db.ExamAttempts.AsNoTracking()
+            .Include(attempt => attempt.Exam)
+            .Where(attempt => userIds.Contains(attempt.UserId))
+            .ToListAsync(ct);
+    }
+
     public async Task AddAsync(ExamAttempt attempt, CancellationToken ct) =>
         await db.ExamAttempts.AddAsync(attempt, ct);
 

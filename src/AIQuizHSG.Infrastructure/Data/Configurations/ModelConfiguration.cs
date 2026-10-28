@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace AIQuizHSG.Infrastructure.Data.Configurations;
 
-// Tên bảng và cột trùng tên lớp, DbSet và thuộc tính. Enum lưu bằng chuỗi, thời điểm lưu UTC.
+// Cột trùng tên thuộc tính. Bảng ghép thêm dấu _ giữa các từ. Enum lưu bằng chuỗi, thời điểm lưu UTC.
 internal static class ColumnMapping
 {
     public static PropertyBuilder<DateTime> AsUtc(this PropertyBuilder<DateTime> property) =>
@@ -56,7 +56,7 @@ internal sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
 {
     public void Configure(EntityTypeBuilder<UserRole> entity)
     {
-        entity.ToTable("UserRoles");
+        entity.ToTable("User_Roles");
         entity.HasKey(x => new { x.UserId, x.RoleId });
         entity.HasOne(x => x.User).WithMany(x => x.UserRoles).HasForeignKey(x => x.UserId)
             .OnDelete(DeleteBehavior.Cascade);
@@ -122,7 +122,7 @@ internal sealed class QuestionOptionConfiguration : IEntityTypeConfiguration<Que
 {
     public void Configure(EntityTypeBuilder<QuestionOption> entity)
     {
-        entity.ToTable("QuestionOptions");
+        entity.ToTable("Question_Options");
         entity.Property(x => x.Content).HasColumnType("longtext").IsRequired();
         entity.HasOne(x => x.Question).WithMany(x => x.Options).HasForeignKey(x => x.QuestionId)
             .OnDelete(DeleteBehavior.Cascade);
@@ -157,7 +157,7 @@ internal sealed class ExamQuestionConfiguration : IEntityTypeConfiguration<ExamQ
 {
     public void Configure(EntityTypeBuilder<ExamQuestion> entity)
     {
-        entity.ToTable("ExamQuestions");
+        entity.ToTable("Exam_Questions");
         entity.Property(x => x.ContentSnapshot).HasColumnType("longtext").IsRequired();
         entity.Property(x => x.Type).AsEnum();
         entity.Property(x => x.Level).AsEnum();
@@ -174,7 +174,7 @@ internal sealed class ExamOptionConfiguration : IEntityTypeConfiguration<ExamOpt
 {
     public void Configure(EntityTypeBuilder<ExamOption> entity)
     {
-        entity.ToTable("ExamOptions");
+        entity.ToTable("Exam_Options");
         entity.Property(x => x.ContentSnapshot).HasColumnType("longtext").IsRequired();
         entity.HasAlternateKey(x => new { x.Id, x.ExamQuestionId });
         entity.HasOne(x => x.ExamQuestion).WithMany(x => x.Options).HasForeignKey(x => x.ExamQuestionId)
@@ -188,7 +188,7 @@ internal sealed class ExamParticipantConfiguration : IEntityTypeConfiguration<Ex
 {
     public void Configure(EntityTypeBuilder<ExamParticipant> entity)
     {
-        entity.ToTable("ExamParticipants");
+        entity.ToTable("Exam_Participants");
         entity.HasIndex(x => new { x.ExamId, x.UserId }).IsUnique();
         entity.HasOne(x => x.Exam).WithMany(x => x.Participants).HasForeignKey(x => x.ExamId)
             .OnDelete(DeleteBehavior.Cascade);
@@ -201,7 +201,7 @@ internal sealed class ExamAttemptConfiguration : IEntityTypeConfiguration<ExamAt
 {
     public void Configure(EntityTypeBuilder<ExamAttempt> entity)
     {
-        entity.ToTable("ExamAttempts");
+        entity.ToTable("Exam_Attempts");
         entity.Property(x => x.StartedAtUtc).AsUtc();
         entity.Property(x => x.DueAtUtc).AsUtc();
         entity.Property(x => x.SubmittedAtUtc).AsUtc();
@@ -220,7 +220,7 @@ internal sealed class AttemptAnswerConfiguration : IEntityTypeConfiguration<Atte
 {
     public void Configure(EntityTypeBuilder<AttemptAnswer> entity)
     {
-        entity.ToTable("AttemptAnswers");
+        entity.ToTable("Attempt_Answers");
         entity.Property(x => x.UpdatedAtUtc).AsUtc();
         entity.HasIndex(x => new { x.AttemptId, x.ExamQuestionId }).IsUnique();
         entity.HasAlternateKey(x => new { x.Id, x.ExamQuestionId });
@@ -235,7 +235,7 @@ internal sealed class AttemptAnswerOptionConfiguration : IEntityTypeConfiguratio
 {
     public void Configure(EntityTypeBuilder<AttemptAnswerOption> entity)
     {
-        entity.ToTable("AttemptAnswerOptions");
+        entity.ToTable("Attempt_Answer_Options");
         entity.HasKey(x => new { x.AttemptAnswerId, x.ExamOptionId });
         entity.HasOne(x => x.AttemptAnswer).WithMany(x => x.SelectedOptions)
             .HasForeignKey(x => new { x.AttemptAnswerId, x.ExamQuestionId })
@@ -252,7 +252,7 @@ internal sealed class AiQuestionRequestConfiguration : IEntityTypeConfiguration<
 {
     public void Configure(EntityTypeBuilder<AiQuestionRequest> entity)
     {
-        entity.ToTable("AiQuestionRequests");
+        entity.ToTable("Ai_Question_Requests");
         entity.Property(x => x.Level).AsEnum();
         entity.Property(x => x.Type).AsEnum();
         entity.Property(x => x.SourceMaterial).HasColumnType("longtext");
@@ -272,7 +272,7 @@ internal sealed class AiAnalysisReportConfiguration : IEntityTypeConfiguration<A
 {
     public void Configure(EntityTypeBuilder<AiAnalysisReport> entity)
     {
-        entity.ToTable("AiAnalysisReports");
+        entity.ToTable("Ai_Analysis_Reports");
         entity.Property(x => x.Content).HasColumnType("longtext");
         entity.Property(x => x.Status).AsEnum();
         entity.Property(x => x.ErrorMessage).HasColumnType("longtext");
@@ -290,7 +290,7 @@ internal sealed class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
 {
     public void Configure(EntityTypeBuilder<AuditLog> entity)
     {
-        entity.ToTable("AuditLogs");
+        entity.ToTable("Audit_Logs");
         entity.Property(x => x.Action).HasMaxLength(100).IsRequired();
         entity.Property(x => x.EntityName).HasMaxLength(100).IsRequired();
         entity.Property(x => x.Details).HasColumnType("longtext");
@@ -306,7 +306,7 @@ internal sealed class DifficultyLevelConfiguration : IEntityTypeConfiguration<Di
 {
     public void Configure(EntityTypeBuilder<DifficultyLevel> entity)
     {
-        entity.ToTable("DifficultyLevels");
+        entity.ToTable("Difficulty_Levels");
         entity.Property(x => x.Id).ValueGeneratedNever();
         entity.Property(x => x.Code).HasMaxLength(30).IsRequired();
         entity.HasIndex(x => x.Code).IsUnique();
@@ -319,7 +319,7 @@ internal sealed class ExamDifficultyProfileConfiguration : IEntityTypeConfigurat
 {
     public void Configure(EntityTypeBuilder<ExamDifficultyProfile> entity)
     {
-        entity.ToTable("ExamDifficultyProfiles", table =>
+        entity.ToTable("Exam_Difficulty_Profiles", table =>
         {
             table.HasCheckConstraint("CK_ExamDifficultyProfile_Target", "`TargetDifficulty` BETWEEN 1 AND 5");
             table.HasCheckConstraint("CK_ExamDifficultyProfile_BaseCount", "`BaseQuestionCount` > 0");
@@ -338,7 +338,7 @@ internal sealed class ExamDifficultyProfileLevelConfiguration : IEntityTypeConfi
 {
     public void Configure(EntityTypeBuilder<ExamDifficultyProfileLevel> entity)
     {
-        entity.ToTable("ExamDifficultyProfileLevels", table =>
+        entity.ToTable("Exam_Difficulty_Profile_Levels", table =>
         {
             table.HasCheckConstraint("CK_ExamDifficultyProfileLevel_Count", "`BaseQuestionCount` >= 0");
             table.HasCheckConstraint("CK_ExamDifficultyProfileLevel_Ratio", "`Ratio` >= 0 AND `Ratio` <= 1");

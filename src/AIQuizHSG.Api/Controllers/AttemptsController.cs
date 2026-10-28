@@ -10,7 +10,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Student)]
 [Route("api/attempts")]
 // Xem đề, lưu lựa chọn và nộp. Không trả đáp án đúng, cũng chưa trả điểm.
-public class AttemptsController(AttemptService attempts) : ControllerBase
+public class AttemptsController(IAttemptService attempts) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<AttemptSummary>>> Mine(CancellationToken ct)

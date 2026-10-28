@@ -10,7 +10,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Teacher)]
 [Route("api/questions")]
 // Giáo viên và quản trị quản lý ngân hàng câu hỏi.
-public class QuestionsController(QuestionService questions) : ControllerBase
+public class QuestionsController(IQuestionService questions) : ControllerBase
 {
     [HttpGet]
     public async Task<QuestionPage> Search(

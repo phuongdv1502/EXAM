@@ -9,12 +9,26 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Exams;
 
-// Tạo đề, chụp câu đã duyệt lúc phát hành, và quản lý thí sinh. Chưa chấm điểm.
-public sealed class ExamService(
-    IUnitOfWork unitOfWork,
-    IClock clock,
-    IValidator<SaveExamRequest> validator)
+public interface IExamService
 {
+    Task<IReadOnlyList<ExamSummary>> ListAsync(CancellationToken ct);
+    Task<OperationResult<ExamResponse>> GetAsync(long id, CancellationToken ct);
+    Task<OperationResult<ExamResponse>> CreateAsync(SaveExamRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<ExamResponse>> UpdateAsync(long id, SaveExamRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<ExamResponse>> PublishAsync(long id, Actor actor, CancellationToken ct);
+    Task<OperationResult<ExamResponse>> CloseAsync(long id, Actor actor, CancellationToken ct);
+}
+
+// Tạo đề, chụp câu đã duyệt lúc phát hành, và quản lý thí sinh. Chưa chấm điểm.
+public sealed partial class ExamService : TimedService, IExamService
+{
+    private readonly IValidator<SaveExamRequest> validator;
+
+    public ExamService(IUnitOfWork unitOfWork, IClock clock, IValidator<SaveExamRequest> validator) : base(unitOfWork, clock)
+    {
+        this.validator = validator;
+    }
+
     public async Task<IReadOnlyList<ExamSummary>> ListAsync(CancellationToken ct) =>
         await unitOfWork.Exams.ListAsync(ct);
 

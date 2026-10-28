@@ -8,12 +8,34 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Questions;
 
-// Ngân hàng câu hỏi: tạo nháp, gửi duyệt, duyệt hoặc từ chối, và nhập từ Excel.
-public sealed class QuestionService(
-    IUnitOfWork unitOfWork,
-    IValidator<SaveQuestionRequest> questionValidator,
-    IValidator<RejectQuestionRequest> rejectValidator)
+public interface IQuestionService
 {
+    Task<QuestionPage> SearchAsync(QuestionFilter filter, CancellationToken ct);
+    Task<OperationResult<QuestionResponse>> GetAsync(long id, CancellationToken ct);
+    Task<OperationResult<QuestionResponse>> CreateAsync(SaveQuestionRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<QuestionResponse>> UpdateAsync(long id, SaveQuestionRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<QuestionResponse>> SubmitAsync(long id, Actor actor, CancellationToken ct);
+    Task<OperationResult<QuestionResponse>> ApproveAsync(long id, Actor actor, CancellationToken ct);
+    Task<OperationResult<QuestionResponse>> RejectAsync(long id, RejectQuestionRequest request, Actor actor, CancellationToken ct);
+    byte[] CreateImportTemplate();
+    Task<OperationResult<ImportResult>> ImportAsync(Stream stream, Actor actor, CancellationToken ct);
+}
+
+// Ngân hàng câu hỏi: tạo nháp, gửi duyệt, duyệt hoặc từ chối, và nhập từ Excel.
+public sealed partial class QuestionService : BaseService, IQuestionService
+{
+    private readonly IValidator<SaveQuestionRequest> questionValidator;
+    private readonly IValidator<RejectQuestionRequest> rejectValidator;
+
+    public QuestionService(
+        IUnitOfWork unitOfWork,
+        IValidator<SaveQuestionRequest> questionValidator,
+        IValidator<RejectQuestionRequest> rejectValidator) : base(unitOfWork)
+    {
+        this.questionValidator = questionValidator;
+        this.rejectValidator = rejectValidator;
+    }
+
     // Lọc theo môn, chuyên đề, mức độ, trạng thái và từ khóa. Mỗi trang tối đa 100 câu.
     public async Task<QuestionPage> SearchAsync(QuestionFilter filter, CancellationToken ct)
     {

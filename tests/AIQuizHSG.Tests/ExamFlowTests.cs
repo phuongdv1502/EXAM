@@ -154,6 +154,12 @@ public class ExamFlowTests
         public IQuestionRepository Questions { get; }
         public IDifficultyLevelRepository DifficultyLevels => throw new NotSupportedException();
         public IExamProfileRepository ExamProfiles => throw new NotSupportedException();
+        public ISchoolRepository Schools => throw new NotSupportedException();
+        public IGradeLevelRepository GradeLevels => throw new NotSupportedException();
+        public IClassroomRepository Classrooms => throw new NotSupportedException();
+        public IStudentRecordRepository StudentRecords => throw new NotSupportedException();
+        public IPermissionRepository Permissions => throw new NotSupportedException();
+        public IExamAssignmentRepository ExamAssignments { get; } = new OpenAssignments();
         public IExamRepository Exams { get; }
         public IAttemptRepository AttemptsRepo { get; }
         IAttemptRepository IUnitOfWork.Attempts => AttemptsRepo;
@@ -343,6 +349,15 @@ public class ExamFlowTests
             }
 
             public Task<List<ExamAttempt>> ListByUserAsync(long userId, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<ExamAttempt>> ListByUserIdsAsync(IReadOnlyCollection<long> userIds, CancellationToken ct) => throw new NotSupportedException();
+        }
+
+        private sealed class OpenAssignments : IExamAssignmentRepository
+        {
+            public Task<bool> AllowsAsync(long examId, long userId, CancellationToken ct) => Task.FromResult(true);
+            public Task AddAsync(ExamAssignment assignment, CancellationToken ct) => throw new NotSupportedException();
+            public Task<ExamAssignment?> FindActiveAsync(long examId, long? classroomId, long? studentId, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<ExamAssignment>> ListByClassroomAsync(long classroomId, CancellationToken ct) => throw new NotSupportedException();
         }
 
         private sealed class AuditRepo(FlowStore owner) : IAuditLogRepository
@@ -402,6 +417,12 @@ public class AccountServiceTests
         public IQuestionRepository Questions => throw new NotSupportedException();
         public IDifficultyLevelRepository DifficultyLevels => throw new NotSupportedException();
         public IExamProfileRepository ExamProfiles => throw new NotSupportedException();
+        public ISchoolRepository Schools => throw new NotSupportedException();
+        public IGradeLevelRepository GradeLevels => throw new NotSupportedException();
+        public IClassroomRepository Classrooms => throw new NotSupportedException();
+        public IStudentRecordRepository StudentRecords => throw new NotSupportedException();
+        public IPermissionRepository Permissions => throw new NotSupportedException();
+        public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
         public IExamRepository Exams => throw new NotSupportedException();
         public IAttemptRepository Attempts => throw new NotSupportedException();
         public IAuditLogRepository AuditLogs { get; } = new AuditRepo();
@@ -443,6 +464,8 @@ public class AccountServiceTests
 
             public Task<bool> AnyAsync(CancellationToken ct) => throw new NotSupportedException();
             public Task AddRangeAsync(IEnumerable<Role> roles, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<Role>> ListAsync(CancellationToken ct) => throw new NotSupportedException();
+            public Task<Role?> FindAsync(long id, CancellationToken ct) => throw new NotSupportedException();
         }
 
         private sealed class AuditRepo : IAuditLogRepository

@@ -10,7 +10,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Teacher)]
 [Route("api/exam-difficulty-profiles")]
 // Ma trận độ khó của cả đề.
-public class ExamDifficultyProfilesController(ExamProfileService profiles) : ControllerBase
+public class ExamDifficultyProfilesController(IExamProfileService profiles) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<ExamProfileResponse>> List(CancellationToken ct) =>

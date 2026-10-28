@@ -1,4 +1,5 @@
 using AIQuizHSG.Application.Authentication;
+using AIQuizHSG.Domain.Authorization;
 using AIQuizHSG.Application.Persistence;
 using AIQuizHSG.Domain.Common;
 using AIQuizHSG.Domain.Entities;
@@ -71,6 +72,70 @@ public static class DatabaseSeeder
         }
 
         await SeedDifficultyAsync(unitOfWork, config, clock: DateTime.UtcNow, ct);
+        await SeedOrganizationAsync(unitOfWork, ct);
+    }
+
+    // Khối 6–9, vai trò quản trị trường và quyền mẫu. Chạy lại không ghi đè dữ liệu đã có.
+    private static async Task SeedOrganizationAsync(IUnitOfWork unitOfWork, CancellationToken ct)
+    {
+        if (await unitOfWork.Roles.FindByCodeAsync(RoleCodes.SchoolAdmin, ct) is null)
+        {
+            await unitOfWork.Roles.AddRangeAsync(
+                [new Role { Code = RoleCodes.SchoolAdmin, Name = "Quản trị trường" }], ct);
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+
+        if (!await unitOfWork.GradeLevels.AnyAsync(ct))
+        {
+            await unitOfWork.GradeLevels.AddRangeAsync(
+            [
+                new GradeLevel { Code = "6", Name = "Khối 6", EducationLevel = "THCS", SortOrder = 6, IsActive = true },
+                new GradeLevel { Code = "7", Name = "Khối 7", EducationLevel = "THCS", SortOrder = 7, IsActive = true },
+                new GradeLevel { Code = "8", Name = "Khối 8", EducationLevel = "THCS", SortOrder = 8, IsActive = true },
+                new GradeLevel { Code = "9", Name = "Khối 9", EducationLevel = "THCS", SortOrder = 9, IsActive = true }
+            ], ct);
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+
+        if (!await unitOfWork.Permissions.AnyAsync(ct))
+        {
+            var now = DateTime.UtcNow;
+            await unitOfWork.Permissions.AddRangeAsync(PermissionCatalog.All.Select(item => new Permission
+            {
+                Code = item.Code,
+                Name = item.Name,
+                Module = item.Module,
+                IsSystem = true,
+                IsActive = true,
+                CreatedAtUtc = now
+            }), ct);
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+
+        if (await unitOfWork.Permissions.AnyRoleLinkAsync(ct))
+            return;
+
+        var permissions = await unitOfWork.Permissions.ListAsync(null, ct);
+        var byCode = permissions.ToDictionary(item => item.Code);
+        var roles = await unitOfWork.Roles.ListAsync(ct);
+        var links = new List<RolePermission>();
+        foreach (var role in roles)
+        {
+            foreach (var code in PermissionCatalog.ForRole(role.Code))
+            {
+                if (!byCode.TryGetValue(code, out var permission))
+                    continue;
+                links.Add(new RolePermission
+                {
+                    RoleId = role.Id,
+                    PermissionId = permission.Id,
+                    CreatedAtUtc = DateTime.UtcNow
+                });
+            }
+        }
+
+        await unitOfWork.Permissions.AddRoleLinksAsync(links, ct);
+        await unitOfWork.SaveChangesAsync(ct);
     }
 
     // Năm mức câu hỏi và profile Khó gốc. Không gán mức cho câu đã có.

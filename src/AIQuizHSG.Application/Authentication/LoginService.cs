@@ -1,12 +1,27 @@
+using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Mappers;
 using AIQuizHSG.Application.Persistence;
 using AIQuizHSG.Domain.Common;
 
 namespace AIQuizHSG.Application.Authentication;
 
-// Xác thực đăng nhập rồi phát JWT. Sai mật khẩu và không có tài khoản trả cùng một câu.
-public sealed class LoginService(IUnitOfWork unitOfWork, IPasswordHasher passwords, ITokenIssuer tokens)
+public interface ILoginService
 {
+    Task<LoginResult> LoginAsync(LoginRequest request, string? ipAddress, CancellationToken ct);
+}
+
+// Xác thực đăng nhập rồi phát JWT. Sai mật khẩu và không có tài khoản trả cùng một câu.
+public sealed partial class LoginService : BaseService, ILoginService
+{
+    private readonly IPasswordHasher passwords;
+    private readonly ITokenIssuer tokens;
+
+    public LoginService(IUnitOfWork unitOfWork, IPasswordHasher passwords, ITokenIssuer tokens) : base(unitOfWork)
+    {
+        this.passwords = passwords;
+        this.tokens = tokens;
+    }
+
     public const string InvalidCredentialsMessage = Messages.InvalidCredentials;
     public const string LockedAccountMessage = Messages.LockedAccount;
 

@@ -63,7 +63,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.HasIndex("RequestedById");
 
-                    b.ToTable("AiAnalysisReports", (string)null);
+                    b.ToTable("Ai_Analysis_Reports", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.AiQuestionRequest", b =>
@@ -119,7 +119,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.HasIndex("TopicId");
 
-                    b.ToTable("AiQuestionRequests", (string)null);
+                    b.ToTable("Ai_Question_Requests", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.AttemptAnswer", b =>
@@ -146,7 +146,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.HasIndex("AttemptId", "ExamQuestionId")
                         .IsUnique();
 
-                    b.ToTable("AttemptAnswers", (string)null);
+                    b.ToTable("Attempt_Answers", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.AttemptAnswerOption", b =>
@@ -166,7 +166,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.HasIndex("ExamOptionId", "ExamQuestionId");
 
-                    b.ToTable("AttemptAnswerOptions", (string)null);
+                    b.ToTable("Attempt_Answer_Options", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.AuditLog", b =>
@@ -209,7 +209,96 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("Audit_Logs", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.ClassMembership", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ClassRole")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<long>("ClassroomId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SubjectId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ClassroomId", "UserId", "ClassRole", "SubjectId")
+                        .IsUnique();
+
+                    b.ToTable("Class_Memberships", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.Classroom", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int?>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ClassCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<long>("GradeLevelId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("HomeroomTeacherUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<long>("SchoolId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SchoolYearId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GradeLevelId");
+
+                    b.HasIndex("HomeroomTeacherUserId");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("SchoolYearId", "ClassCode")
+                        .IsUnique();
+
+                    b.ToTable("Classrooms", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Classrooms_Capacity", "`Capacity` IS NULL OR `Capacity` > 0");
+                        });
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.DifficultyLevel", b =>
@@ -242,7 +331,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("DifficultyLevels", (string)null);
+                    b.ToTable("Difficulty_Levels", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Exam", b =>
@@ -336,6 +425,54 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.ToTable("Exams", (string)null);
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamAssignment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("AssignedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("AssignedByUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("ClassroomId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("DueAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("ExamId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<long?>("StudentId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedByUserId");
+
+                    b.HasIndex("ClassroomId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("ExamId", "ClassroomId", "StudentId")
+                        .IsUnique();
+
+                    b.ToTable("Exam_Assignments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Exam_Assignments_Target", "(`ClassroomId` IS NULL) <> (`StudentId` IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamAttempt", b =>
                 {
                     b.Property<long>("Id")
@@ -382,7 +519,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.HasIndex("ExamId", "UserId", "AttemptNumber")
                         .IsUnique();
 
-                    b.ToTable("ExamAttempts", (string)null);
+                    b.ToTable("Exam_Attempts", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamDifficultyProfile", b =>
@@ -433,7 +570,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.HasIndex("CreatedById");
 
-                    b.ToTable("ExamDifficultyProfiles", null, t =>
+                    b.ToTable("Exam_Difficulty_Profiles", null, t =>
                         {
                             t.HasCheckConstraint("CK_ExamDifficultyProfile_BaseCount", "`BaseQuestionCount` > 0");
 
@@ -472,7 +609,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.HasIndex("ProfileId", "DifficultyLevelId")
                         .IsUnique();
 
-                    b.ToTable("ExamDifficultyProfileLevels", null, t =>
+                    b.ToTable("Exam_Difficulty_Profile_Levels", null, t =>
                         {
                             t.HasCheckConstraint("CK_ExamDifficultyProfileLevel_Count", "`BaseQuestionCount` >= 0");
 
@@ -510,7 +647,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.HasIndex("SourceOptionId");
 
-                    b.ToTable("ExamOptions", (string)null);
+                    b.ToTable("Exam_Options", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamParticipant", b =>
@@ -534,7 +671,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.HasIndex("ExamId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("ExamParticipants", (string)null);
+                    b.ToTable("Exam_Participants", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamQuestion", b =>
@@ -585,7 +722,88 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.HasIndex("ExamId", "SourceQuestionId")
                         .IsUnique();
 
-                    b.ToTable("ExamQuestions", (string)null);
+                    b.ToTable("Exam_Questions", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.GradeLevel", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("EducationLevel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Grade_Levels", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.Permission", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Permissions", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Question", b =>
@@ -686,7 +904,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.HasIndex("QuestionId");
 
-                    b.ToTable("QuestionOptions", (string)null);
+                    b.ToTable("Question_Options", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Role", b =>
@@ -713,6 +931,274 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Roles", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.RolePermission", b =>
+                {
+                    b.Property<long>("RoleId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("PermissionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("RoleId", "PermissionId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.ToTable("Role_Permissions", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.School", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DistrictCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("ProvinceCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Schools", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.SchoolMembership", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<long>("SchoolId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SchoolRole")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SchoolId", "UserId", "SchoolRole")
+                        .IsUnique();
+
+                    b.ToTable("School_Memberships", (string)null);
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.SchoolYear", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<long>("SchoolId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("School_Years", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_School_Years_Dates", "`EndDate` >= `StartDate`");
+                        });
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.StudentEnrollment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("ClassroomId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("EnrollmentDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("LeaveDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<long>("StudentId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClassroomId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("Student_Enrollments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Student_Enrollments_Leave", "`LeaveDate` IS NULL OR `LeaveDate` >= `EnrollmentDate`");
+                        });
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.StudentProfile", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Gender")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<long>("SchoolId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("StudentCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.HasIndex("SchoolId", "StudentCode")
+                        .IsUnique();
+
+                    b.ToTable("Students", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Subject", b =>
@@ -841,7 +1327,7 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("UserRoles", (string)null);
+                    b.ToTable("User_Roles", (string)null);
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.AiAnalysisReport", b =>
@@ -939,6 +1425,67 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.ClassMembership", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.Classroom", "Classroom")
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Classroom");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.Classroom", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.GradeLevel", "GradeLevel")
+                        .WithMany()
+                        .HasForeignKey("GradeLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", "HomeroomTeacher")
+                        .WithMany()
+                        .HasForeignKey("HomeroomTeacherUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.SchoolYear", "SchoolYear")
+                        .WithMany()
+                        .HasForeignKey("SchoolYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("GradeLevel");
+
+                    b.Navigation("HomeroomTeacher");
+
+                    b.Navigation("School");
+
+                    b.Navigation("SchoolYear");
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Exam", b =>
                 {
                     b.HasOne("AIQuizHSG.Domain.Entities.User", "CreatedBy")
@@ -963,6 +1510,37 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.Navigation("DifficultyProfile");
 
                     b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamAssignment", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.Classroom", "Classroom")
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.Exam", "Exam")
+                        .WithMany()
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.StudentProfile", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Classroom");
+
+                    b.Navigation("Exam");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamAttempt", b =>
@@ -1113,6 +1691,97 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.Navigation("Question");
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.RolePermission", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.Permission", "Permission")
+                        .WithMany()
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.SchoolMembership", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("School");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.SchoolYear", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.StudentEnrollment", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.Classroom", "Classroom")
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.StudentProfile", "Student")
+                        .WithMany("Enrollments")
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Classroom");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.StudentProfile", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("School");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Topic", b =>
                 {
                     b.HasOne("AIQuizHSG.Domain.Entities.Topic", "Parent")
@@ -1185,6 +1854,11 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Role", b =>
                 {
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.StudentProfile", b =>
+                {
+                    b.Navigation("Enrollments");
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Subject", b =>
