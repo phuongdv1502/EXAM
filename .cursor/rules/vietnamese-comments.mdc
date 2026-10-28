@@ -1,0 +1,23 @@
+---
+description: Chú thích tiếng Việt tại các đoạn xử lý nghiệp vụ
+globs: "**/*.cs"
+alwaysApply: true
+---
+
+# Chú thích tiếng Việt
+
+Khi viết hoặc sửa mã C# trong dự án này, thêm chú thích `//` tiếng Việt tại chỗ đang xử lý, để người đọc thấy bước đó làm gì.
+
+- Đặt một dòng ngay trên lớp, phương thức hoặc khối `if` / `foreach` có nghiệp vụ.
+- Viết việc đang làm: kiểm tra gì, đổi trạng thái gì, vì sao từ chối.
+- Không chú thích từng dòng gán thuộc tính, DTO, hay file migration EF sinh tự động.
+- Giữ tên lớp, phương thức, thuộc tính, bảng và cột bằng tiếng Anh. Chỉ phần chú thích là tiếng Việt.
+- Thông báo lỗi trả về người dùng vẫn là tiếng Việt.
+
+```csharp
+// Sửa câu đã duyệt thì đưa về chờ duyệt, xóa người duyệt cũ.
+if (question.Status == QuestionStatus.Approved)
+{
+    question.Status = QuestionStatus.PendingReview;
+}
+```

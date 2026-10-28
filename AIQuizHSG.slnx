@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AIQuizHSG.Api/AIQuizHSG.Api.csproj" />
+    <Project Path="src/AIQuizHSG.Application/AIQuizHSG.Application.csproj" />
+    <Project Path="src/AIQuizHSG.Domain/AIQuizHSG.Domain.csproj" />
+    <Project Path="src/AIQuizHSG.Infrastructure/AIQuizHSG.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AIQuizHSG.Tests/AIQuizHSG.Tests.csproj" />
+  </Folder>
+</Solution>
