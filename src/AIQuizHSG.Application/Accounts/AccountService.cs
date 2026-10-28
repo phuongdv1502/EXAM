@@ -9,15 +9,6 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Accounts;
 
-public interface IAccountService
-{
-    Task<IReadOnlyList<StudentAccount>> ListAsync(CancellationToken ct);
-    Task<OperationResult<StudentAccount>> CreateAsync(CreateStudentRequest request, Actor actor, CancellationToken ct);
-    Task<OperationResult<StudentAccount>> UpdateAsync(long id, UpdateStudentRequest request, Actor actor, CancellationToken ct);
-    Task<OperationResult<StudentAccount>> LockAsync(long id, Actor actor, CancellationToken ct);
-    Task<OperationResult<StudentAccount>> UnlockAsync(long id, Actor actor, CancellationToken ct);
-}
-
 // Quản trị tạo và khóa học sinh. Giáo viên không tạo được tài khoản quản trị.
 public sealed partial class AccountService : AccountBaseService, IAccountService
 {
@@ -37,7 +28,7 @@ public sealed partial class AccountService : AccountBaseService, IAccountService
 
     public async Task<IReadOnlyList<StudentAccount>> ListAsync(CancellationToken ct)
     {
-        var users = await unitOfWork.Users.ListByRoleAsync(RoleCodes.Student, ct);
+        var users = await _unitOfWork.Users.ListByRoleAsync(RoleCodes.Student, ct);
         return users.Select(AccountMapper.ToStudent).ToArray();
     }
 
@@ -47,10 +38,10 @@ public sealed partial class AccountService : AccountBaseService, IAccountService
             return OperationResult<StudentAccount>.Invalid(inputError);
 
         var username = request.Username.Trim();
-        if (await unitOfWork.Users.FindByUsernameAsync(username, ct) is not null)
+        if (await _unitOfWork.Users.FindByUsernameAsync(username, ct) is not null)
             return OperationResult<StudentAccount>.Invalid(Messages.UsernameTaken);
 
-        var role = await unitOfWork.Roles.FindByCodeAsync(RoleCodes.Student, ct);
+        var role = await _unitOfWork.Roles.FindByCodeAsync(RoleCodes.Student, ct);
         if (role is null)
             return OperationResult<StudentAccount>.Invalid(Messages.StudentRoleMissing);
 
@@ -64,8 +55,8 @@ public sealed partial class AccountService : AccountBaseService, IAccountService
             CreatedAtUtc = clock.UtcNow,
             UserRoles = [new UserRole { RoleId = role.Id, Role = role }]
         };
-        await unitOfWork.Users.AddAsync(user, ct);
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CreateStudent, AuditCodes.User, () => user.Id, null, actor.IpAddress, ct);
+        await _unitOfWork.Users.AddAsync(user, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CreateStudent, AuditCodes.User, () => user.Id, null, actor.IpAddress, ct);
         return OperationResult<StudentAccount>.Ok(AccountMapper.ToStudent(user));
     }
 
@@ -84,7 +75,7 @@ public sealed partial class AccountService : AccountBaseService, IAccountService
         if (!string.IsNullOrEmpty(request.Password))
             user.PasswordHash = passwords.Hash(request.Password);
 
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.UpdateStudent, AuditCodes.User, () => user.Id, null, actor.IpAddress, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.UpdateStudent, AuditCodes.User, () => user.Id, null, actor.IpAddress, ct);
         return OperationResult<StudentAccount>.Ok(AccountMapper.ToStudent(user));
     }
 
@@ -110,13 +101,13 @@ public sealed partial class AccountService : AccountBaseService, IAccountService
             return OperationResult<StudentAccount>.Ok(AccountMapper.ToStudent(user));
 
         user.Status = status;
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, action, AuditCodes.User, () => user.Id, status.ToString(), actor.IpAddress, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, action, AuditCodes.User, () => user.Id, status.ToString(), actor.IpAddress, ct);
         return OperationResult<StudentAccount>.Ok(AccountMapper.ToStudent(user));
     }
 
     private async Task<User?> FindStudentAsync(long id, CancellationToken ct)
     {
-        var user = await unitOfWork.Users.FindForUpdateAsync(id, ct);
+        var user = await _unitOfWork.Users.FindForUpdateAsync(id, ct);
         if (user is null || user.UserRoles.All(link => link.Role.Code != RoleCodes.Student))
             return null;
         return user;

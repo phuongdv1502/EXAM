@@ -124,3 +124,10 @@ public enum AssignmentStatus
     Active,
     Cancelled
 }
+
+// Quyền gắn thẳng vào một người. Từ chối thắng quyền được cấp qua vai trò.
+public enum PermissionEffect
+{
+    Allow,
+    Deny
+}

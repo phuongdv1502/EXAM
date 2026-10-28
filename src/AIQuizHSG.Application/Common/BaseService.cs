@@ -7,11 +7,11 @@ namespace AIQuizHSG.Application.Common;
 // Phụ thuộc dùng chung. Service nghiệp vụ kế thừa lớp này, không khai báo lại.
 public abstract class BaseService
 {
-    protected readonly IUnitOfWork unitOfWork;
+    protected readonly IUnitOfWork _unitOfWork;
 
     protected BaseService(IUnitOfWork unitOfWork)
     {
-        this.unitOfWork = unitOfWork;
+        _unitOfWork = unitOfWork;
     }
 }
 

@@ -130,6 +130,9 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("AnswerText")
+                        .HasColumnType("longtext");
+
                     b.Property<long>("AttemptId")
                         .HasColumnType("bigint");
 
@@ -1315,6 +1318,37 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.UserPermission", b =>
+                {
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("PermissionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Effect")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.HasKey("UserId", "PermissionId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.ToTable("User_Permissions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_User_Permissions_Effect", "`Effect` IN ('Allow', 'Deny')");
+                        });
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.UserRole", b =>
                 {
                     b.Property<long>("UserId")
@@ -1798,6 +1832,30 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.Navigation("Parent");
 
                     b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.UserPermission", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.Permission", "Permission")
+                        .WithMany()
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.UserRole", b =>

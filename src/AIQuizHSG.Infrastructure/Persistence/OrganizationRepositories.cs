@@ -209,12 +209,29 @@ public sealed class PermissionRepository(AiQuizDbContext db) : IPermissionReposi
     public async Task AddRangeAsync(IEnumerable<Permission> permissions, CancellationToken ct) =>
         await db.Permissions.AddRangeAsync(permissions, ct);
 
-    public Task<List<string>> ListCodesForUserAsync(long userId, CancellationToken ct) =>
-        db.RolePermissions.AsNoTracking()
+    // Quyền hiệu lực = quyền vai trò, cộng Allow và trừ Deny gắn riêng cho người đó.
+    public async Task<List<string>> ListCodesForUserAsync(long userId, CancellationToken ct)
+    {
+        var codes = await db.RolePermissions.AsNoTracking()
             .Where(link => link.Role.UserRoles.Any(userRole => userRole.UserId == userId) && link.Permission.IsActive)
             .Select(link => link.Permission.Code)
             .Distinct()
             .ToListAsync(ct);
+        var grants = await db.UserPermissions.AsNoTracking()
+            .Where(item => item.UserId == userId && item.Permission.IsActive)
+            .Select(item => new { item.Permission.Code, item.Effect })
+            .ToListAsync(ct);
+        var effective = codes.ToHashSet();
+        foreach (var grant in grants)
+        {
+            if (grant.Effect == PermissionEffect.Deny)
+                effective.Remove(grant.Code);
+            else
+                effective.Add(grant.Code);
+        }
+
+        return effective.OrderBy(code => code).ToList();
+    }
 
     public Task<List<Permission>> ListForRoleAsync(long roleId, CancellationToken ct) =>
         db.RolePermissions.AsNoTracking()

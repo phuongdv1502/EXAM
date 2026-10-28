@@ -15,23 +15,3 @@ public class User
 
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }
-
-// Vai trò ADMIN, TEACHER hoặc STUDENT.
-public class Role
-{
-    public long Id { get; set; }
-    public string Code { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-
-    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
-}
-
-// Một tài khoản có thể gắn nhiều vai trò.
-public class UserRole
-{
-    public long UserId { get; set; }
-    public long RoleId { get; set; }
-
-    public User User { get; set; } = null!;
-    public Role Role { get; set; } = null!;
-}

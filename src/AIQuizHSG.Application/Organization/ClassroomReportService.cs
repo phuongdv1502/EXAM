@@ -4,11 +4,6 @@ using AIQuizHSG.Domain.Common;
 
 namespace AIQuizHSG.Application.Organization;
 
-public interface IClassroomReportService
-{
-    Task<OperationResult<IReadOnlyList<ClassroomExamResult>>> ExamResultsAsync(long classroomId, Actor actor, CancellationToken ct);
-}
-
 // Báo cáo theo lớp từ các đề đã giao. Điểm giữ nguyên giá trị đã lưu, chưa tự tính.
 public sealed partial class ClassroomReportService : OrganizationService, IClassroomReportService
 {
@@ -18,17 +13,17 @@ public sealed partial class ClassroomReportService : OrganizationService, IClass
 
     public async Task<OperationResult<IReadOnlyList<ClassroomExamResult>>> ExamResultsAsync(long classroomId, Actor actor, CancellationToken ct)
     {
-        var room = await unitOfWork.Classrooms.FindAsync(classroomId, ct);
+        var room = await _unitOfWork.Classrooms.FindAsync(classroomId, ct);
         if (room is null)
             return OperationResult<IReadOnlyList<ClassroomExamResult>>.NotFound(Messages.ClassroomNotFound);
         if (await access.DenyClassroomAsync(actor.UserId, room, "report.view", ct) is { } denied)
             return OperationResult<IReadOnlyList<ClassroomExamResult>>.Forbidden(denied);
 
-        var students = await unitOfWork.StudentRecords.ListActiveInClassroomAsync(classroomId, ct);
-        var assignments = await unitOfWork.ExamAssignments.ListByClassroomAsync(classroomId, ct);
+        var students = await _unitOfWork.StudentRecords.ListActiveInClassroomAsync(classroomId, ct);
+        var assignments = await _unitOfWork.ExamAssignments.ListByClassroomAsync(classroomId, ct);
         var examIds = assignments.Select(item => item.ExamId).ToHashSet();
         var userIds = students.Where(student => student.UserId is not null).Select(student => student.UserId!.Value).ToArray();
-        var attempts = await unitOfWork.Attempts.ListByUserIdsAsync(userIds, ct);
+        var attempts = await _unitOfWork.Attempts.ListByUserIdsAsync(userIds, ct);
 
         var lines = students.Select(student =>
         {

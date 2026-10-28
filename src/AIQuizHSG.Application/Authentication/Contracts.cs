@@ -1,19 +1,4 @@
-using AIQuizHSG.Domain.Entities;
-
 namespace AIQuizHSG.Application.Authentication;
-
-// Băm và kiểm tra mật khẩu. Không trả mật khẩu gốc ra ngoài.
-public interface IPasswordHasher
-{
-    string Hash(string password);
-    bool Verify(string password, string passwordHash);
-}
-
-// Phát JWT cho người dùng đã xác thực.
-public interface ITokenIssuer
-{
-    (string Token, DateTime ExpiresAtUtc) Issue(User user);
-}
 
 public sealed class LoginRequest
 {

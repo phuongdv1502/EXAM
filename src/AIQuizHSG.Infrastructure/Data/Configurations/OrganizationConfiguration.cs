@@ -188,3 +188,18 @@ internal sealed class RolePermissionConfiguration : IEntityTypeConfiguration<Rol
         entity.HasOne<User>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
     }
 }
+
+internal sealed class UserPermissionConfiguration : IEntityTypeConfiguration<UserPermission>
+{
+    public void Configure(EntityTypeBuilder<UserPermission> entity)
+    {
+        entity.ToTable("User_Permissions", table =>
+            table.HasCheckConstraint("CK_User_Permissions_Effect", "`Effect` IN ('Allow', 'Deny')"));
+        entity.HasKey(x => new { x.UserId, x.PermissionId });
+        entity.Property(x => x.Effect).AsEnum();
+        entity.Property(x => x.CreatedAtUtc).AsUtc();
+        entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasOne(x => x.Permission).WithMany().HasForeignKey(x => x.PermissionId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasOne<User>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
+    }
+}

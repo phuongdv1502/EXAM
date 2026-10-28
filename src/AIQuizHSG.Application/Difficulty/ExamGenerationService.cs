@@ -11,13 +11,6 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Difficulty;
 
-public interface IExamGenerationService
-{
-    Task<OperationResult<AvailabilityResponse>> CheckAsync(AvailabilityRequest request, CancellationToken ct);
-    Task<OperationResult<ExamResponse>> GenerateAsync(GenerateExamRequest request, Actor actor, CancellationToken ct);
-    Task<OperationResult<ExamValidationResponse>> ValidateAsync(long examId, CancellationToken ct);
-}
-
 // Sinh đề theo ma trận. Thiếu câu thì báo số thiếu, không hạ mức.
 public sealed partial class ExamGenerationService : TimedService, IExamGenerationService
 {
@@ -56,7 +49,7 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
         var key = string.IsNullOrWhiteSpace(request.IdempotencyKey) ? null : request.IdempotencyKey.Trim();
         if (key is not null)
         {
-            var existing = await unitOfWork.Exams.FindByGenerationKeyAsync(key, ct);
+            var existing = await _unitOfWork.Exams.FindByGenerationKeyAsync(key, ct);
             if (existing is not null)
             {
                 // Gửi lại cùng khóa thì trả đề đã sinh, không tạo thêm.
@@ -66,7 +59,7 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
             }
         }
 
-        var subject = await unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
+        var subject = await _unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
         if (subject is null || !subject.IsActive)
             return OperationResult<ExamResponse>.Invalid(Messages.SubjectInactive);
         if (await ParticipantErrorAsync(request.ParticipantUserIds, ct) is { } participantError)
@@ -101,15 +94,15 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
         foreach (var userId in request.ParticipantUserIds.Distinct())
             exam.Participants.Add(new ExamParticipant { UserId = userId });
 
-        await unitOfWork.Exams.AddAsync(exam, ct);
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.GenerateExam, AuditCodes.Exam, () => exam.Id, planned.Profile.Id.ToString(), actor.IpAddress, ct);
+        await _unitOfWork.Exams.AddAsync(exam, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.GenerateExam, AuditCodes.Exam, () => exam.Id, planned.Profile.Id.ToString(), actor.IpAddress, ct);
         var names = await ParticipantNamesAsync(exam, ct);
         return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam, names));
     }
 
     public async Task<OperationResult<ExamValidationResponse>> ValidateAsync(long examId, CancellationToken ct)
     {
-        var exam = await unitOfWork.Exams.FindAsync(examId, ct);
+        var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
         if (exam is null)
             return OperationResult<ExamValidationResponse>.NotFound(Messages.ExamNotFound);
 
@@ -119,7 +112,7 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
 
         if (exam.DifficultyProfileId is long profileId)
         {
-            var profile = await unitOfWork.ExamProfiles.FindAsync(profileId, ct);
+            var profile = await _unitOfWork.ExamProfiles.FindAsync(profileId, ct);
             if (profile is null)
                 errors.Add(new AvailabilityError(DifficultyCodes.InvalidProfile, Messages.ProfileNotFound));
             else if (ExamMatrixCheck.Mismatch(profile, exam.Questions, exam.QuestionCountSnapshot) is { } mismatch)
@@ -137,7 +130,7 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
         QuestionType? type,
         CancellationToken ct)
     {
-        var profile = await unitOfWork.ExamProfiles.FindAsync(profileId, ct);
+        var profile = await _unitOfWork.ExamProfiles.FindAsync(profileId, ct);
         if (profile is null || profile.Status == ProfileStatus.Archived)
             return Plan.Fail(Messages.ProfileNotFound);
 
@@ -153,7 +146,7 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
                 [new AvailabilityError(DifficultyCodes.FixedCountMismatch, scaled.Error)]));
         }
 
-        var eligible = await unitOfWork.Questions.ListEligibleAsync(subjectId, topicIds, type, ct);
+        var eligible = await _unitOfWork.Questions.ListEligibleAsync(subjectId, topicIds, type, ct);
         var available = eligible
             .GroupBy(question => question.DifficultyLevelId ?? 0)
             .ToDictionary(group => group.Key, group => group.Count());
@@ -191,7 +184,7 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
         if (ids.Distinct().Count() != ids.Count)
             return Messages.ExamParticipantDuplicate;
 
-        var users = await unitOfWork.Users.ListByIdsAsync(ids, ct);
+        var users = await _unitOfWork.Users.ListByIdsAsync(ids, ct);
         var allowed = users
             .Where(user => user.Status == UserStatus.Active && user.UserRoles.Any(link => link.Role.Code == RoleCodes.Student))
             .Select(user => user.Id)
@@ -203,7 +196,7 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
     {
         if (exam.Participants.Count == 0)
             return new Dictionary<long, User>();
-        var users = await unitOfWork.Users.ListByIdsAsync(exam.Participants.Select(participant => participant.UserId).ToArray(), ct);
+        var users = await _unitOfWork.Users.ListByIdsAsync(exam.Participants.Select(participant => participant.UserId).ToArray(), ct);
         return users.ToDictionary(user => user.Id);
     }
 

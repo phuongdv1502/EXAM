@@ -221,6 +221,7 @@ internal sealed class AttemptAnswerConfiguration : IEntityTypeConfiguration<Atte
     public void Configure(EntityTypeBuilder<AttemptAnswer> entity)
     {
         entity.ToTable("Attempt_Answers");
+        entity.Property(x => x.AnswerText).HasColumnType("longtext");
         entity.Property(x => x.UpdatedAtUtc).AsUtc();
         entity.HasIndex(x => new { x.AttemptId, x.ExamQuestionId }).IsUnique();
         entity.HasAlternateKey(x => new { x.Id, x.ExamQuestionId });

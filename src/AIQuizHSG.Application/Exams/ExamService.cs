@@ -9,16 +9,6 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Exams;
 
-public interface IExamService
-{
-    Task<IReadOnlyList<ExamSummary>> ListAsync(CancellationToken ct);
-    Task<OperationResult<ExamResponse>> GetAsync(long id, CancellationToken ct);
-    Task<OperationResult<ExamResponse>> CreateAsync(SaveExamRequest request, Actor actor, CancellationToken ct);
-    Task<OperationResult<ExamResponse>> UpdateAsync(long id, SaveExamRequest request, Actor actor, CancellationToken ct);
-    Task<OperationResult<ExamResponse>> PublishAsync(long id, Actor actor, CancellationToken ct);
-    Task<OperationResult<ExamResponse>> CloseAsync(long id, Actor actor, CancellationToken ct);
-}
-
 // Tạo đề, chụp câu đã duyệt lúc phát hành, và quản lý thí sinh. Chưa chấm điểm.
 public sealed partial class ExamService : TimedService, IExamService
 {
@@ -30,11 +20,11 @@ public sealed partial class ExamService : TimedService, IExamService
     }
 
     public async Task<IReadOnlyList<ExamSummary>> ListAsync(CancellationToken ct) =>
-        await unitOfWork.Exams.ListAsync(ct);
+        await _unitOfWork.Exams.ListAsync(ct);
 
     public async Task<OperationResult<ExamResponse>> GetAsync(long id, CancellationToken ct)
     {
-        var exam = await unitOfWork.Exams.FindAsync(id, ct);
+        var exam = await _unitOfWork.Exams.FindAsync(id, ct);
         if (exam is null)
             return OperationResult<ExamResponse>.NotFound(Messages.ExamNotFound);
         return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam));
@@ -46,7 +36,7 @@ public sealed partial class ExamService : TimedService, IExamService
         if (await validator.FirstErrorAsync(request, ct) is { } inputError)
             return OperationResult<ExamResponse>.Invalid(inputError);
 
-        var subject = await unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
+        var subject = await _unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
         if (subject is null || !subject.IsActive)
             return OperationResult<ExamResponse>.Invalid(Messages.SubjectInactive);
         if (await ParticipantErrorAsync(request.ParticipantUserIds, ct) is { } participantError)
@@ -69,8 +59,8 @@ public sealed partial class ExamService : TimedService, IExamService
         foreach (var userId in request.ParticipantUserIds.Distinct())
             exam.Participants.Add(new ExamParticipant { UserId = userId });
 
-        await unitOfWork.Exams.AddAsync(exam, ct);
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CreateExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
+        await _unitOfWork.Exams.AddAsync(exam, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CreateExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
         var names = await ParticipantNamesAsync(exam, ct);
         return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam, names));
     }
@@ -82,13 +72,13 @@ public sealed partial class ExamService : TimedService, IExamService
         if (await validator.FirstErrorAsync(request, ct) is { } inputError)
             return OperationResult<ExamResponse>.Invalid(inputError);
 
-        var exam = await unitOfWork.Exams.FindAsync(id, ct);
+        var exam = await _unitOfWork.Exams.FindAsync(id, ct);
         if (exam is null)
             return OperationResult<ExamResponse>.NotFound(Messages.ExamNotFound);
         if (exam.Status != ExamStatus.Draft)
             return OperationResult<ExamResponse>.Invalid(Messages.ExamLocked);
 
-        var subject = await unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
+        var subject = await _unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
         if (subject is null || !subject.IsActive)
             return OperationResult<ExamResponse>.Invalid(Messages.SubjectInactive);
         if (await ParticipantErrorAsync(request.ParticipantUserIds, ct) is { } participantError)
@@ -100,9 +90,9 @@ public sealed partial class ExamService : TimedService, IExamService
 
         ExamMapper.Apply(exam, request);
         exam.Subject = subject;
-        unitOfWork.Exams.ReplaceQuestions(exam, questions);
-        unitOfWork.Exams.ReplaceParticipants(exam, request.ParticipantUserIds.Distinct().ToArray());
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.UpdateExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
+        _unitOfWork.Exams.ReplaceQuestions(exam, questions);
+        _unitOfWork.Exams.ReplaceParticipants(exam, request.ParticipantUserIds.Distinct().ToArray());
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.UpdateExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
         var names = await ParticipantNamesAsync(exam, ct);
         return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam, names));
     }
@@ -110,7 +100,7 @@ public sealed partial class ExamService : TimedService, IExamService
     // Phát hành thì chụp lại nội dung câu đang duyệt. Sửa ngân hàng sau đó không đổi đề này.
     public async Task<OperationResult<ExamResponse>> PublishAsync(long id, Actor actor, CancellationToken ct)
     {
-        var exam = await unitOfWork.Exams.FindAsync(id, ct);
+        var exam = await _unitOfWork.Exams.FindAsync(id, ct);
         if (exam is null)
             return OperationResult<ExamResponse>.NotFound(Messages.ExamNotFound);
         if (exam.Status != ExamStatus.Draft)
@@ -134,30 +124,30 @@ public sealed partial class ExamService : TimedService, IExamService
         // Đề sinh theo profile phải còn đúng cơ cấu mức độ tại lúc phát hành.
         if (exam.DifficultyProfileId is long profileId)
         {
-            var profile = await unitOfWork.ExamProfiles.FindAsync(profileId, ct);
+            var profile = await _unitOfWork.ExamProfiles.FindAsync(profileId, ct);
             if (profile is null)
                 return OperationResult<ExamResponse>.Invalid(Messages.ProfileNotFound);
             if (ExamMatrixCheck.Mismatch(profile, questions, exam.QuestionCountSnapshot) is { } mismatch)
                 return OperationResult<ExamResponse>.Invalid(mismatch);
         }
 
-        unitOfWork.Exams.ReplaceQuestions(exam, questions);
+        _unitOfWork.Exams.ReplaceQuestions(exam, questions);
         exam.Status = ExamStatus.Published;
         exam.PublishedAtUtc = clock.UtcNow;
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.PublishExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.PublishExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
         return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam));
     }
 
     public async Task<OperationResult<ExamResponse>> CloseAsync(long id, Actor actor, CancellationToken ct)
     {
-        var exam = await unitOfWork.Exams.FindAsync(id, ct);
+        var exam = await _unitOfWork.Exams.FindAsync(id, ct);
         if (exam is null)
             return OperationResult<ExamResponse>.NotFound(Messages.ExamNotFound);
         if (exam.Status != ExamStatus.Published)
             return OperationResult<ExamResponse>.Invalid(Messages.ExamCloseNotPublished);
 
         exam.Status = ExamStatus.Closed;
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CloseExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CloseExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
         return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam));
     }
 
@@ -170,7 +160,7 @@ public sealed partial class ExamService : TimedService, IExamService
         if (ids.Distinct().Count() != ids.Length)
             return (null, Messages.ExamQuestionDuplicate);
 
-        var sources = await unitOfWork.Questions.ListWithOptionsAsync(ids, ct);
+        var sources = await _unitOfWork.Questions.ListWithOptionsAsync(ids, ct);
         var byId = sources.ToDictionary(question => question.Id);
         var snapshots = new List<ExamQuestion>();
         var order = 1;
@@ -196,7 +186,7 @@ public sealed partial class ExamService : TimedService, IExamService
         if (ids.Distinct().Count() != ids.Count)
             return Messages.ExamParticipantDuplicate;
 
-        var users = await unitOfWork.Users.ListByIdsAsync(ids, ct);
+        var users = await _unitOfWork.Users.ListByIdsAsync(ids, ct);
         var allowed = users.Where(IsActiveStudent).Select(user => user.Id).ToHashSet();
         return ids.All(allowed.Contains) ? null : Messages.ExamParticipantInvalid;
     }
@@ -206,7 +196,7 @@ public sealed partial class ExamService : TimedService, IExamService
         if (exam.Participants.Count == 0 || exam.Participants.All(participant => participant.User is not null))
             return exam.Participants.ToDictionary(participant => participant.UserId, participant => participant.User!);
 
-        var users = await unitOfWork.Users.ListByIdsAsync(exam.Participants.Select(participant => participant.UserId).ToArray(), ct);
+        var users = await _unitOfWork.Users.ListByIdsAsync(exam.Participants.Select(participant => participant.UserId).ToArray(), ct);
         return users.ToDictionary(user => user.Id);
     }
 

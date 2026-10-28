@@ -8,16 +8,6 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Exams;
 
-public interface IAttemptService
-{
-    Task<IReadOnlyList<ExamSummary>> ListOpenAsync(long userId, CancellationToken ct);
-    Task<IReadOnlyList<AttemptSummary>> ListMineAsync(long userId, CancellationToken ct);
-    Task<OperationResult<AttemptPaper>> StartAsync(long examId, Actor actor, CancellationToken ct);
-    Task<OperationResult<AttemptPaper>> GetAsync(long id, Actor actor, CancellationToken ct);
-    Task<OperationResult<AttemptPaper>> SaveAnswerAsync(long id, long examQuestionId, SaveAnswerRequest request, Actor actor, CancellationToken ct);
-    Task<OperationResult<AttemptSummary>> SubmitAsync(long id, Actor actor, CancellationToken ct);
-}
-
 // Học sinh vào đề, lưu đáp án và nộp bài. Hết giờ thì máy chủ tự nộp. Chưa tính điểm.
 public sealed partial class AttemptService : TimedService, IAttemptService
 {
@@ -29,17 +19,17 @@ public sealed partial class AttemptService : TimedService, IAttemptService
     }
 
     public async Task<IReadOnlyList<ExamSummary>> ListOpenAsync(long userId, CancellationToken ct) =>
-        await unitOfWork.Exams.ListOpenForStudentAsync(userId, ct);
+        await _unitOfWork.Exams.ListOpenForStudentAsync(userId, ct);
 
     public async Task<IReadOnlyList<AttemptSummary>> ListMineAsync(long userId, CancellationToken ct)
     {
-        var attempts = await unitOfWork.Attempts.ListByUserAsync(userId, ct);
+        var attempts = await _unitOfWork.Attempts.ListByUserAsync(userId, ct);
         return attempts.Select(ExamMapper.ToSummary).ToArray();
     }
 
     public async Task<OperationResult<AttemptPaper>> StartAsync(long examId, Actor actor, CancellationToken ct)
     {
-        var exam = await unitOfWork.Exams.FindAsync(examId, ct);
+        var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
         if (exam is null)
             return OperationResult<AttemptPaper>.NotFound(Messages.ExamNotFound);
         if (!IsOpen(exam, clock.UtcNow))
@@ -49,14 +39,14 @@ public sealed partial class AttemptService : TimedService, IAttemptService
         if (exam.Participants.Count > 0 && exam.Participants.All(participant => participant.UserId != actor.UserId))
             return OperationResult<AttemptPaper>.Invalid(Messages.ExamNotParticipant);
         // Có giao đề cho lớp hoặc học sinh thì chỉ hồ sơ nằm trong phạm vi đó mới được vào.
-        if (!await unitOfWork.ExamAssignments.AllowsAsync(exam.Id, actor.UserId, ct))
+        if (!await _unitOfWork.ExamAssignments.AllowsAsync(exam.Id, actor.UserId, ct))
             return OperationResult<AttemptPaper>.Invalid(Messages.ExamNotParticipant);
 
-        var existing = await unitOfWork.Attempts.FindInProgressAsync(exam.Id, actor.UserId, ct);
+        var existing = await _unitOfWork.Attempts.FindInProgressAsync(exam.Id, actor.UserId, ct);
         if (existing is not null)
             return OperationResult<AttemptPaper>.Ok(ExamMapper.ToPaper(existing, clock.UtcNow));
 
-        var count = await unitOfWork.Attempts.CountAsync(exam.Id, actor.UserId, ct);
+        var count = await _unitOfWork.Attempts.CountAsync(exam.Id, actor.UserId, ct);
         if (count >= exam.MaxAttempts)
             return OperationResult<AttemptPaper>.Invalid(Messages.ExamAttemptLimit);
 
@@ -75,8 +65,8 @@ public sealed partial class AttemptService : TimedService, IAttemptService
             DueAtUtc = due,
             Status = AttemptStatus.InProgress
         };
-        await unitOfWork.Attempts.AddAsync(attempt, ct);
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.StartAttempt, AuditCodes.Attempt, () => attempt.Id, exam.Id.ToString(), actor.IpAddress, ct);
+        await _unitOfWork.Attempts.AddAsync(attempt, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.StartAttempt, AuditCodes.Attempt, () => attempt.Id, exam.Id.ToString(), actor.IpAddress, ct);
         return OperationResult<AttemptPaper>.Ok(ExamMapper.ToPaper(attempt, now));
     }
 
@@ -133,8 +123,8 @@ public sealed partial class AttemptService : TimedService, IAttemptService
             answer.UpdatedAtUtc = clock.UtcNow;
         }
 
-        unitOfWork.Attempts.ReplaceSelections(answer, request.OptionIds);
-        await unitOfWork.SaveChangesAsync(ct);
+        _unitOfWork.Attempts.ReplaceSelections(answer, request.OptionIds);
+        await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<AttemptPaper>.Ok(ExamMapper.ToPaper(attempt, clock.UtcNow));
     }
 
@@ -151,7 +141,7 @@ public sealed partial class AttemptService : TimedService, IAttemptService
 
         var now = clock.UtcNow;
         MarkSubmitted(attempt, now >= attempt.DueAtUtc ? attempt.DueAtUtc : now);
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.SubmitAttempt, AuditCodes.Attempt, () => attempt.Id, null, actor.IpAddress, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.SubmitAttempt, AuditCodes.Attempt, () => attempt.Id, null, actor.IpAddress, ct);
         return OperationResult<AttemptSummary>.Ok(ExamMapper.ToSummary(attempt));
     }
 
@@ -161,7 +151,7 @@ public sealed partial class AttemptService : TimedService, IAttemptService
             return false;
 
         MarkSubmitted(attempt, attempt.DueAtUtc);
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.SubmitAttempt, AuditCodes.Attempt, () => attempt.Id, null, actor.IpAddress, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.SubmitAttempt, AuditCodes.Attempt, () => attempt.Id, null, actor.IpAddress, ct);
         return true;
     }
 
@@ -174,7 +164,7 @@ public sealed partial class AttemptService : TimedService, IAttemptService
 
     private async Task<ExamAttempt?> OwnedAsync(long id, long userId, CancellationToken ct)
     {
-        var attempt = await unitOfWork.Attempts.FindAsync(id, ct);
+        var attempt = await _unitOfWork.Attempts.FindAsync(id, ct);
         return attempt is null || attempt.UserId != userId ? null : attempt;
     }
 

@@ -37,6 +37,7 @@ public class AiQuizDbContext(DbContextOptions<AiQuizDbContext> options) : DbCont
     public DbSet<ExamAssignment> ExamAssignments => Set<ExamAssignment>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

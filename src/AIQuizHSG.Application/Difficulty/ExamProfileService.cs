@@ -8,15 +8,6 @@ using FluentValidation;
 
 namespace AIQuizHSG.Application.Difficulty;
 
-public interface IExamProfileService
-{
-    Task<IReadOnlyList<ExamProfileResponse>> ListAsync(CancellationToken ct);
-    Task<OperationResult<ExamProfileResponse>> GetAsync(long id, CancellationToken ct);
-    Task<OperationResult<ExamProfileResponse>> CreateAsync(SaveExamProfileRequest request, Actor actor, CancellationToken ct);
-    Task<OperationResult<ExamProfileResponse>> UpdateAsync(long id, SaveExamProfileRequest request, Actor actor, CancellationToken ct);
-    Task<OperationResult<ProfilePreviewResponse>> PreviewAsync(long id, PreviewProfileRequest request, CancellationToken ct);
-}
-
 // Tạo và sửa ma trận độ khó của đề. Bản đã dùng hoặc bản hệ thống thì nhân bản, không ghi đè.
 public sealed partial class ExamProfileService : TimedService, IExamProfileService
 {
@@ -29,13 +20,13 @@ public sealed partial class ExamProfileService : TimedService, IExamProfileServi
 
     public async Task<IReadOnlyList<ExamProfileResponse>> ListAsync(CancellationToken ct)
     {
-        var profiles = await unitOfWork.ExamProfiles.ListAsync(ct);
+        var profiles = await _unitOfWork.ExamProfiles.ListAsync(ct);
         return profiles.Select(profile => ToResponse(profile)).ToArray();
     }
 
     public async Task<OperationResult<ExamProfileResponse>> GetAsync(long id, CancellationToken ct)
     {
-        var profile = await unitOfWork.ExamProfiles.FindAsync(id, ct);
+        var profile = await _unitOfWork.ExamProfiles.FindAsync(id, ct);
         if (profile is null)
             return OperationResult<ExamProfileResponse>.NotFound(Messages.ProfileNotFound);
         return OperationResult<ExamProfileResponse>.Ok(ToResponse(profile));
@@ -64,8 +55,8 @@ public sealed partial class ExamProfileService : TimedService, IExamProfileServi
         foreach (var level in built.Levels)
             profile.Levels.Add(level);
 
-        await unitOfWork.ExamProfiles.AddAsync(profile, ct);
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CreateProfile, AuditCodes.DifficultyProfile, () => profile.Id, null, actor.IpAddress, ct);
+        await _unitOfWork.ExamProfiles.AddAsync(profile, ct);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CreateProfile, AuditCodes.DifficultyProfile, () => profile.Id, null, actor.IpAddress, ct);
         return OperationResult<ExamProfileResponse>.Ok(ToResponse(profile, built.Names));
     }
 
@@ -75,14 +66,14 @@ public sealed partial class ExamProfileService : TimedService, IExamProfileServi
         if (built.Error is not null || built.Levels is null)
             return OperationResult<ExamProfileResponse>.Invalid(built.Error ?? Messages.ProfileDistributionInvalid);
 
-        var profile = await unitOfWork.ExamProfiles.FindAsync(id, ct);
+        var profile = await _unitOfWork.ExamProfiles.FindAsync(id, ct);
         if (profile is null)
             return OperationResult<ExamProfileResponse>.NotFound(Messages.ProfileNotFound);
         if (profile.Status == ProfileStatus.Archived)
             return OperationResult<ExamProfileResponse>.Invalid(Messages.ProfileNotEditable);
 
         // Đề đã dùng profile này, hoặc đây là ma trận gốc, thì giữ nguyên bản cũ.
-        if (profile.IsSystemDefault || await unitOfWork.ExamProfiles.IsUsedAsync(profile.Id, ct))
+        if (profile.IsSystemDefault || await _unitOfWork.ExamProfiles.IsUsedAsync(profile.Id, ct))
             return await CopyAsync(profile, request, built, actor, ct);
 
         profile.Name = request.Name.Trim();
@@ -90,14 +81,14 @@ public sealed partial class ExamProfileService : TimedService, IExamProfileServi
         profile.BaseQuestionCount = request.BaseQuestionCount;
         profile.ScalingMode = built.Mode;
         profile.UpdatedAtUtc = clock.UtcNow;
-        unitOfWork.ExamProfiles.ReplaceLevels(profile, built.Levels);
-        await unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.UpdateProfile, AuditCodes.DifficultyProfile, () => profile.Id, null, actor.IpAddress, ct);
+        _unitOfWork.ExamProfiles.ReplaceLevels(profile, built.Levels);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.UpdateProfile, AuditCodes.DifficultyProfile, () => profile.Id, null, actor.IpAddress, ct);
         return OperationResult<ExamProfileResponse>.Ok(ToResponse(profile));
     }
 
     public async Task<OperationResult<ProfilePreviewResponse>> PreviewAsync(long id, PreviewProfileRequest request, CancellationToken ct)
     {
-        var profile = await unitOfWork.ExamProfiles.FindAsync(id, ct);
+        var profile = await _unitOfWork.ExamProfiles.FindAsync(id, ct);
         if (profile is null)
             return OperationResult<ProfilePreviewResponse>.NotFound(Messages.ProfileNotFound);
 
@@ -148,8 +139,8 @@ public sealed partial class ExamProfileService : TimedService, IExamProfileServi
         foreach (var level in built.Levels!)
             copy.Levels.Add(level);
 
-        await unitOfWork.ExamProfiles.AddAsync(copy, ct);
-        await unitOfWork.SaveWithAuditAsync(
+        await _unitOfWork.ExamProfiles.AddAsync(copy, ct);
+        await _unitOfWork.SaveWithAuditAsync(
             actor.UserId,
             AuditCodes.CreateProfile,
             AuditCodes.DifficultyProfile,
@@ -177,7 +168,7 @@ public sealed partial class ExamProfileService : TimedService, IExamProfileServi
             || !DifficultyDistribution.IsCompleteBase(request.BaseQuestionCount, counts))
             return new BuiltProfile(null, default, Messages.ProfileDistributionInvalid, new Dictionary<byte, string>());
 
-        var catalog = await unitOfWork.DifficultyLevels.ListActiveAsync(ct);
+        var catalog = await _unitOfWork.DifficultyLevels.ListActiveAsync(ct);
         var byId = catalog.ToDictionary(level => level.Id);
         var rows = new List<ExamDifficultyProfileLevel>();
         foreach (var item in request.DifficultyDistribution.OrderBy(item => item.Level))
