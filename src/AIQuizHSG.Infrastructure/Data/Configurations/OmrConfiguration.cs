@@ -78,3 +78,15 @@ internal sealed class OmrRecognizedAnswerConfiguration : IEntityTypeConfiguratio
         entity.HasOne(x => x.RecognizedOption).WithMany().HasForeignKey(x => x.RecognizedOptionId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+internal sealed class OmrFormStyleConfiguration : IEntityTypeConfiguration<OmrFormStyle>
+{
+    public void Configure(EntityTypeBuilder<OmrFormStyle> entity)
+    {
+        entity.ToTable("Omr_Form_Styles");
+        entity.Property(x => x.Code).HasMaxLength(30).IsRequired();
+        entity.Property(x => x.Name).HasMaxLength(80).IsRequired();
+        entity.Property(x => x.Description).HasMaxLength(200);
+        entity.HasIndex(x => x.Code).IsUnique();
+    }
+}

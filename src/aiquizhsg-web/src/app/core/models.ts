@@ -368,6 +368,14 @@ export interface StudentProfile {
   classCode: string | null;
 }
 
+export interface OmrFormStyle {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+}
+
 export interface OmrTemplate {
   id: number;
   code: string;
@@ -375,6 +383,7 @@ export interface OmrTemplate {
   questionCount: number;
   choiceCount: number;
   isActive: boolean;
+  style: string | null;
   createdAtUtc: string;
 }
 

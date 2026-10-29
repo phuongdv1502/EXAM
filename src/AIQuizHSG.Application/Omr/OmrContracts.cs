@@ -6,6 +6,7 @@ public sealed class SaveOmrTemplateRequest
     public int Version { get; set; } = 1;
     public int QuestionCount { get; set; }
     public int ChoiceCount { get; set; } = 4;
+    public string? Style { get; set; }
     public bool IsActive { get; set; }
     public string? ConfigJson { get; set; }
 }
@@ -31,6 +32,8 @@ public sealed class ReviewOmrAnswer
     public List<long> SelectedOptionIds { get; set; } = [];
 }
 
+public sealed record OmrFormStyleItem(long Id, string Code, string Name, string? Description, int SortOrder);
+
 public sealed record OmrTemplateSummary(
     long Id,
     string Code,
@@ -38,6 +41,7 @@ public sealed record OmrTemplateSummary(
     int QuestionCount,
     int ChoiceCount,
     bool IsActive,
+    string? Style,
     DateTime CreatedAtUtc);
 
 public sealed record OmrBatchSummary(

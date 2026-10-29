@@ -12,7 +12,7 @@ public static class OmrFormImage
     // Mẫu đúng khung mới thì vẽ phiếu đầy đủ. Mẫu tọa độ cũ thì vẽ đúng ô đã lưu.
     public static byte[] Png(OmrTemplateConfig config)
     {
-        var plan = OmrFormLayout.Measure(config.QuestionCount, config.ChoiceCount);
+        var plan = OmrFormLayout.Measure(config.QuestionCount, config.ChoiceCount, config.Style);
         if (SameLayout(config, plan))
             return Png(plan, null, null, null, null, null);
         return Legacy(config);
@@ -79,7 +79,7 @@ public static class OmrFormImage
         var qr = OmrFormLayout.Pixels(plan.Qr);
         canvas.DrawRect(SKRect.Create(qr.Left - 14, qr.Top - 14, qr.Width + 28, qr.Height + 28), thin);
         canvas.DrawText("PHIẾU TRẢ LỜI", split + 28, header.Top + 58, SKTextAlign.Left, titleFont, ink);
-        canvas.DrawText("Trắc nghiệm", split + 28, header.Top + 92, SKTextAlign.Left, bodyFont, ink);
+        canvas.DrawText(StyleLabel(plan.Style), split + 28, header.Top + 92, SKTextAlign.Left, bodyFont, ink);
         DrawField(canvas, split + 28, header.Top + 150, header.Left + header.Width - 28, "Họ và tên", studentName, labelFont, bodyFont, ink, thin);
         DrawField(canvas, split + 28, header.Top + 214, header.Left + header.Width - 28, "Mã học sinh", studentCode, labelFont, bodyFont, ink, thin);
         DrawField(canvas, split + 28, header.Top + 278, header.Left + header.Width - 28, "Lớp", className, labelFont, bodyFont, ink, thin);
@@ -101,7 +101,7 @@ public static class OmrFormImage
                 canvas.DrawLine(x, frame.Top, x, frame.Top + frame.Height, thin);
             }
 
-            for (var row = 1; row <= column.LastQuestion - column.FirstQuestion; row++)
+            for (var row = 1; row < column.Questions.Count; row++)
             {
                 var y = frame.Top + column.HeaderHeight + row * column.RowHeight;
                 canvas.DrawLine(frame.Left, y, frame.Left + frame.Width, y, thin);
@@ -114,9 +114,11 @@ public static class OmrFormImage
                 canvas.DrawText(ChoiceLetter(choice), x, frame.Top + 32, SKTextAlign.Center, labelFont, ink);
             }
 
-            for (var question = column.FirstQuestion; question <= column.LastQuestion; question++)
+            for (var row = 0; row < column.Questions.Count; row++)
             {
-                var row = question - column.FirstQuestion;
+                var question = column.Questions[row];
+                if (question < 1)
+                    continue;
                 var y = frame.Top + column.HeaderHeight + row * column.RowHeight + column.RowHeight / 2f + 6;
                 canvas.DrawText(question.ToString(), frame.Left + column.Gutter / 2f, y, SKTextAlign.Center, bodyFont, ink);
             }
@@ -211,6 +213,13 @@ public static class OmrFormImage
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
         return data.ToArray();
     }
+
+    private static string StyleLabel(string style) => style switch
+    {
+        OmrFormStyles.MotCot => "Một cột",
+        OmrFormStyles.Luoi => "Lưới ô",
+        _ => "Khung nhiều cột"
+    };
 
     private static string ChoiceLetter(int index) => index < 26 ? ((char)('A' + index)).ToString() : (index + 1).ToString();
 

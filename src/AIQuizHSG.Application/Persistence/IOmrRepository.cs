@@ -4,6 +4,7 @@ namespace AIQuizHSG.Application.Persistence;
 
 public interface IOmrRepository
 {
+    Task<List<OmrFormStyle>> ListFormStylesAsync(CancellationToken ct);
     Task<List<OmrTemplate>> ListTemplatesAsync(CancellationToken ct);
     Task<OmrTemplate?> FindTemplateAsync(long id, CancellationToken ct);
     Task<bool> TemplateCodeExistsAsync(string code, int version, CancellationToken ct);

@@ -6,7 +6,8 @@ public interface IOmrService
 {
     Task<OperationResult<IReadOnlyList<OmrTemplateSummary>>> ListTemplatesAsync(Actor actor, CancellationToken ct);
     Task<OperationResult<OmrTemplateSummary>> CreateTemplateAsync(SaveOmrTemplateRequest request, Actor actor, CancellationToken ct);
-    Task<OperationResult<byte[]>> PreviewTemplateAsync(long? id, int? questionCount, int? choiceCount, Actor actor, CancellationToken ct);
+    Task<OperationResult<IReadOnlyList<OmrFormStyleItem>>> ListFormStylesAsync(Actor actor, CancellationToken ct);
+    Task<OperationResult<byte[]>> PreviewTemplateAsync(long? id, int? questionCount, int? choiceCount, string? style, Actor actor, CancellationToken ct);
     Task<OperationResult<IReadOnlyList<OmrBatchSummary>>> ListBatchesAsync(Actor actor, CancellationToken ct);
     Task<OperationResult<OmrBatchSummary>> CreateBatchAsync(CreateOmrBatchRequest request, Actor actor, CancellationToken ct);
     Task<OperationResult<OmrBatchSummary>> GetBatchAsync(long id, Actor actor, CancellationToken ct);

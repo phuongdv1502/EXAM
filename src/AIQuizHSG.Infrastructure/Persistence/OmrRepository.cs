@@ -8,6 +8,9 @@ namespace AIQuizHSG.Infrastructure.Persistence;
 
 public sealed class OmrRepository(AiQuizDbContext db) : IOmrRepository
 {
+    public Task<List<OmrFormStyle>> ListFormStylesAsync(CancellationToken ct) =>
+        db.OmrFormStyles.AsNoTracking().Where(item => item.IsActive).OrderBy(item => item.SortOrder).ToListAsync(ct);
+
     public Task<List<OmrTemplate>> ListTemplatesAsync(CancellationToken ct) =>
         db.OmrTemplates.AsNoTracking().OrderBy(item => item.Code).ThenByDescending(item => item.Version).ToListAsync(ct);
 

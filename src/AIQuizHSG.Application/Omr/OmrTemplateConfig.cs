@@ -10,6 +10,8 @@ public sealed class OmrTemplateConfig
     public int ChoiceCount { get; set; } = 4;
     public double MarkedRatio { get; set; } = 0.45;
     public double BlankRatio { get; set; } = 0.18;
+    public string? Style { get; set; }
+
     public List<OmrBubbleConfig> Bubbles { get; set; } = [];
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -19,13 +21,15 @@ public sealed class OmrTemplateConfig
     };
 
     // Lưới ô tô nằm dưới phần đầu phiếu, đúng khung OmrFormLayout.
-    public static OmrTemplateConfig Grid(int questionCount, int choiceCount)
+    public static OmrTemplateConfig Grid(int questionCount, int choiceCount, string? style = null)
     {
-        var plan = OmrFormLayout.Measure(questionCount, choiceCount);
+        var code = OmrFormStyles.TryNormalize(style, out var normalized) ? normalized : OmrFormStyles.Khung;
+        var plan = OmrFormLayout.Measure(questionCount, choiceCount, code);
         return new OmrTemplateConfig
         {
             QuestionCount = questionCount,
             ChoiceCount = choiceCount,
+            Style = code,
             Bubbles = plan.Bubbles.Select(slot => new OmrBubbleConfig
             {
                 QuestionNumber = slot.QuestionNumber,

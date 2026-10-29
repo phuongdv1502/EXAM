@@ -180,6 +180,7 @@ public static class Messages
     public const string OmrTemplateNotFound = "Không tìm thấy mẫu phiếu.";
     public const string OmrTemplateInactive = "Mẫu phiếu chưa được kích hoạt.";
     public const string OmrTemplateConfigInvalid = "Cấu hình mẫu phiếu không hợp lệ.";
+    public const string OmrTemplateStyleInvalid = "Hãy chọn một kiểu phiếu có sẵn.";
     public const string OmrQuestionCountInvalid = "Số câu trên phiếu phải từ 1 đến 60.";
     public const string OmrChoiceCountInvalid = "Số lựa chọn phải từ 2 đến 6.";
     public const string OmrBatchNotFound = "Không tìm thấy đợt nhập phiếu.";

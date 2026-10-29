@@ -66,6 +66,20 @@ public static class DatabaseSeeder
         await SeedTopicsAsync(unitOfWork, ct);
         await SeedSchoolSampleAsync(db, unitOfWork, passwords, config, ct);
         await SeedQuestionsAsync(db, unitOfWork, config, ct);
+        await SeedFormStylesAsync(db, ct);
+    }
+
+    // Thêm ba kiểu phiếu nếu bảng còn trống. Không ghi đè kiểu đã có.
+    private static async Task SeedFormStylesAsync(AiQuizDbContext db, CancellationToken ct)
+    {
+        if (await db.OmrFormStyles.AnyAsync(ct))
+            return;
+
+        db.OmrFormStyles.AddRange(
+            new OmrFormStyle { Code = "Khung", Name = "Khung nhiều cột", Description = "Chia câu thành vài cột, mỗi cột một khung.", SortOrder = 1, IsActive = true },
+            new OmrFormStyle { Code = "MotCot", Name = "Một cột", Description = "Cả phiếu một cột, ô to, dễ tô.", SortOrder = 2, IsActive = true },
+            new OmrFormStyle { Code = "Luoi", Name = "Lưới ô", Description = "Câu xếp ngang thành lưới, gọn trên một trang.", SortOrder = 3, IsActive = true });
+        await db.SaveChangesAsync(ct);
     }
 
     // Khối 6–9, vai trò quản trị trường và quyền mẫu. Chạy lại không ghi đè dữ liệu đã có.

@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
-import { OmrTemplate } from '../core/models';
+import { OmrFormStyle, OmrTemplate } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
 
@@ -13,16 +13,19 @@ import { UI } from '../core/ui';
 })
 export class OmrTemplatesPage extends Page implements OnInit {
   items: OmrTemplate[] = [];
+  styles: OmrFormStyle[] = [];
   code = '';
   version = 1;
   questionCount = 10;
   choiceCount = 4;
+  style = 'Khung';
   isActive = true;
   previewOpen = false;
   previewUrl: string | null = null;
   private readonly releasePreview = this.destroyRef.onDestroy(() => this.revokePreview());
 
   ngOnInit(): void {
+    this.watch(this.api.omrFormStyles(), (styles) => (this.styles = styles));
     this.load();
   }
 
@@ -35,6 +38,7 @@ export class OmrTemplatesPage extends Page implements OnInit {
     this.version = 1;
     this.questionCount = 10;
     this.choiceCount = 4;
+    this.style = this.styles[0]?.code ?? 'Khung';
     this.isActive = true;
     this.openForm();
   }
@@ -48,7 +52,11 @@ export class OmrTemplatesPage extends Page implements OnInit {
   }
 
   previewDraft(): void {
-    this.openPreview(this.api.omrTemplateDraft(Number(this.questionCount), Number(this.choiceCount)));
+    this.openPreview(this.api.omrTemplateDraft(Number(this.questionCount), Number(this.choiceCount), this.style));
+  }
+
+  styleName(code: string | null): string {
+    return this.styles.find((item) => item.code === (code || 'Khung'))?.name ?? 'Khung nhiều cột';
   }
 
   onPreviewVisible(open: boolean): void {
@@ -91,6 +99,7 @@ export class OmrTemplatesPage extends Page implements OnInit {
         version: this.version,
         questionCount: this.questionCount,
         choiceCount: this.choiceCount,
+        style: this.style,
         isActive: this.isActive,
       }),
       () => {

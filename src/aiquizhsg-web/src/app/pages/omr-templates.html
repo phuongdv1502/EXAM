@@ -1,7 +1,7 @@
 <div class="page-head">
   <div>
     <h1>Mẫu phiếu OMR</h1>
-    <p>Mỗi mẫu gắn số câu và số lựa chọn. Tọa độ ô tô được sinh theo lưới chuẩn.</p>
+    <p>Mỗi mẫu gắn số câu, số lựa chọn và một kiểu phiếu. Tọa độ ô tô được sinh theo kiểu đã chọn.</p>
   </div>
   <div class="page-actions">
     <p-button label="Thêm mẫu" icon="pi pi-plus" (onClick)="create()" />
@@ -13,6 +13,7 @@
     <ng-template #header>
       <tr>
         <th>Mẫu</th>
+        <th>Kiểu</th>
         <th>Câu</th>
         <th>Lựa chọn</th>
         <th>Trạng thái</th>
@@ -22,6 +23,7 @@
     <ng-template #body let-item>
       <tr>
         <td>{{ item.code }} <span class="muted">v{{ item.version }}</span></td>
+        <td>{{ styleName(item.style) }}</td>
         <td>{{ item.questionCount }}</td>
         <td>{{ item.choiceCount }}</td>
         <td><p-tag [value]="item.isActive ? 'Đang dùng' : 'Ẩn'" [severity]="item.isActive ? 'success' : 'secondary'" /></td>
@@ -29,19 +31,19 @@
       </tr>
     </ng-template>
     <ng-template #emptymessage>
-            <tr><td colspan="5" class="muted">Chưa có mẫu phiếu.</td></tr>
+            <tr><td colspan="6" class="muted">Chưa có mẫu phiếu.</td></tr>
     </ng-template>
   </p-table>
 </p-card>
 @if (formOpen) {
   <div class="account-backdrop" (click)="cancel()"></div>
-  <aside class="account-drawer" role="dialog" aria-modal="true" aria-label="Thêm mẫu">
+  <aside class="account-drawer account-drawer-wide" role="dialog" aria-modal="true" aria-label="Thêm mẫu">
     <form class="batch-form" (ngSubmit)="save()">
       <div class="batch-form-head">
         <span class="batch-form-icon"><i class="pi pi-table"></i></span>
         <div>
           <h2>Thêm mẫu</h2>
-          <p>Mã, phiên bản, số câu và số lựa chọn.</p>
+          <p>Chọn kiểu phiếu, rồi xem trước trước khi lưu.</p>
         </div>
         <button type="button" class="drawer-close" aria-label="Đóng" (click)="cancel()"><i class="pi pi-times"></i></button>
       </div>
@@ -60,6 +62,16 @@
       <div class="field">
         <label for="choiceCount">Số lựa chọn</label>
         <p-inputnumber inputId="choiceCount" name="choiceCount" [(ngModel)]="choiceCount" [min]="2" [max]="6" />
+      </div>
+      <div class="field">
+        <label>Kiểu phiếu</label>
+        <div class="template-picks">
+          @for (item of styles; track item.code) {
+            <button type="button" class="template-pick" [class.on]="style === item.code" (click)="style = item.code">
+              <span><strong>{{ item.name }}</strong><em>{{ item.description }}</em></span>
+            </button>
+          }
+        </div>
       </div>
       <div class="choice" style="margin: 1rem 0">
         <p-toggleswitch inputId="templateActive" name="isActive" [(ngModel)]="isActive" />

@@ -22,6 +22,7 @@ import {
   PermissionItem,
   UserPermissionGrant,
   OmrBatch,
+  OmrFormStyle,
   OmrResultRow,
   OmrSheet,
   OmrSheetDetail,
@@ -319,11 +320,15 @@ export class ApiService {
     return this.blob(`/omr/templates/${id}/preview`);
   }
 
-  omrTemplateDraft(questionCount: number, choiceCount: number): Observable<Blob> {
+  omrTemplateDraft(questionCount: number, choiceCount: number, style: string): Observable<Blob> {
     return this.http.get(`${apiUrl}/omr/templates/preview`, {
-      params: { questionCount, choiceCount },
+      params: { questionCount, choiceCount, style },
       responseType: 'blob',
     });
+  }
+
+  omrFormStyles(): Observable<OmrFormStyle[]> {
+    return this.get('/omr/template-styles');
   }
 
   omrTemplates(): Observable<OmrTemplate[]> {
@@ -335,6 +340,7 @@ export class ApiService {
     version: number;
     questionCount: number;
     choiceCount: number;
+    style: string;
     isActive: boolean;
   }): Observable<OmrTemplate> {
     return this.post('/omr/templates', body);

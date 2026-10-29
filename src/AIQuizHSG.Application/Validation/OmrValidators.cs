@@ -12,6 +12,9 @@ public sealed class SaveOmrTemplateRequestValidator : AbstractValidator<SaveOmrT
         RuleFor(request => request.Version).GreaterThan(0);
         RuleFor(request => request.QuestionCount).InclusiveBetween(1, 60).WithMessage(Messages.OmrQuestionCountInvalid);
         RuleFor(request => request.ChoiceCount).InclusiveBetween(2, 6).WithMessage(Messages.OmrChoiceCountInvalid);
+        RuleFor(request => request.Style)
+            .Must(style => OmrFormStyles.TryNormalize(style, out _))
+            .WithMessage(Messages.OmrTemplateStyleInvalid);
     }
 }
 

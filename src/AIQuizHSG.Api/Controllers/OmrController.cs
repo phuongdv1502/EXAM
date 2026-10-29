@@ -18,12 +18,20 @@ public class OmrController(IOmrService omr) : ControllerBase
         return ApiResults.From(await omr.ListTemplatesAsync(actor, ct));
     }
 
-    [HttpGet("templates/preview")]
-    public async Task<IActionResult> PreviewDraft([FromQuery] int questionCount, [FromQuery] int choiceCount, CancellationToken ct)
+    [HttpGet("template-styles")]
+    public async Task<ActionResult<IReadOnlyList<OmrFormStyleItem>>> TemplateStyles(CancellationToken ct)
     {
         if (!Actors.TryGet(HttpContext, out var actor))
             return ApiResults.Unauthorized();
-        var result = await omr.PreviewTemplateAsync(null, questionCount, choiceCount, actor, ct);
+        return ApiResults.From(await omr.ListFormStylesAsync(actor, ct));
+    }
+
+    [HttpGet("templates/preview")]
+    public async Task<IActionResult> PreviewDraft([FromQuery] int questionCount, [FromQuery] int choiceCount, [FromQuery] string? style, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        var result = await omr.PreviewTemplateAsync(null, questionCount, choiceCount, style, actor, ct);
         if (result.Status != Application.Common.OperationStatus.Ok || result.Value is null)
             return ApiResults.From(result);
         return File(result.Value, "image/png");
@@ -34,7 +42,7 @@ public class OmrController(IOmrService omr) : ControllerBase
     {
         if (!Actors.TryGet(HttpContext, out var actor))
             return ApiResults.Unauthorized();
-        var result = await omr.PreviewTemplateAsync(id, null, null, actor, ct);
+        var result = await omr.PreviewTemplateAsync(id, null, null, null, actor, ct);
         if (result.Status != Application.Common.OperationStatus.Ok || result.Value is null)
             return ApiResults.From(result);
         return File(result.Value, "image/png");

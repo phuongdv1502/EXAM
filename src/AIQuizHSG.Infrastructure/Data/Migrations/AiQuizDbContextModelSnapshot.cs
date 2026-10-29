@@ -765,6 +765,42 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.ToTable("Grade_Levels", (string)null);
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrFormStyle", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Omr_Form_Styles", (string)null);
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrImportBatch", b =>
                 {
                     b.Property<long>("Id")

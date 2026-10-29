@@ -62,9 +62,12 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         if (await _unitOfWork.Omr.TemplateCodeExistsAsync(code, request.Version, ct))
             return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrTemplateCodeExists);
 
+        if (!OmrFormStyles.TryNormalize(request.Style, out var style))
+            return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrTemplateStyleInvalid);
+
         OmrTemplateConfig config;
         if (string.IsNullOrWhiteSpace(request.ConfigJson))
-            config = OmrTemplateConfig.Grid(request.QuestionCount, request.ChoiceCount);
+            config = OmrTemplateConfig.Grid(request.QuestionCount, request.ChoiceCount, style);
         else if (!OmrTemplateConfig.TryParse(request.ConfigJson, out config))
             return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrTemplateConfigInvalid);
 
@@ -85,8 +88,18 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         return OperationResult<OmrTemplateSummary>.Ok(ToTemplate(template));
     }
 
-    // Xem phiếu trống theo mẫu đã lưu, hoặc theo số câu sắp tạo.
-    public async Task<OperationResult<byte[]>> PreviewTemplateAsync(long? id, int? questionCount, int? choiceCount, Actor actor, CancellationToken ct)
+    public async Task<OperationResult<IReadOnlyList<OmrFormStyleItem>>> ListFormStylesAsync(Actor actor, CancellationToken ct)
+    {
+        if (await Deny(actor, TemplatePermission, ct) is { } denied)
+            return OperationResult<IReadOnlyList<OmrFormStyleItem>>.Forbidden(denied);
+        var rows = await _unitOfWork.Omr.ListFormStylesAsync(ct);
+        return OperationResult<IReadOnlyList<OmrFormStyleItem>>.Ok(rows
+            .Select(item => new OmrFormStyleItem(item.Id, item.Code, item.Name, item.Description, item.SortOrder))
+            .ToList());
+    }
+
+    // Xem phiếu trống theo mẫu đã lưu, hoặc theo số câu và kiểu sắp tạo.
+    public async Task<OperationResult<byte[]>> PreviewTemplateAsync(long? id, int? questionCount, int? choiceCount, string? style, Actor actor, CancellationToken ct)
     {
         if (await Deny(actor, TemplatePermission, ct) is not null && await Deny(actor, BatchPermission, ct) is { } denied)
             return OperationResult<byte[]>.Forbidden(denied);
@@ -100,9 +113,9 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             if (!OmrTemplateConfig.TryParse(template.ConfigJson, out config))
                 return OperationResult<byte[]>.Invalid(Messages.OmrTemplateConfigInvalid);
         }
-        else if (questionCount is >= 1 and <= 60 && choiceCount is >= 2 and <= 6)
+        else if (questionCount is >= 1 and <= 60 && choiceCount is >= 2 and <= 6 && OmrFormStyles.TryNormalize(style, out var code))
         {
-            config = OmrTemplateConfig.Grid(questionCount.Value, choiceCount.Value);
+            config = OmrTemplateConfig.Grid(questionCount.Value, choiceCount.Value, code);
         }
         else
         {
@@ -836,7 +849,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
     private static OmrTemplateSummary ToTemplate(OmrTemplate template)
     {
         OmrTemplateConfig.TryParse(template.ConfigJson, out var config);
-        return new OmrTemplateSummary(template.Id, template.Code, template.Version, config.QuestionCount, config.ChoiceCount, template.IsActive, template.CreatedAtUtc);
+        return new OmrTemplateSummary(template.Id, template.Code, template.Version, config.QuestionCount, config.ChoiceCount, template.IsActive, config.Style, template.CreatedAtUtc);
     }
 
     private static OmrBatchSummary ToBatch(OmrImportBatch batch) => new(
