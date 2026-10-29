@@ -18,31 +18,23 @@ public sealed class OmrTemplateConfig
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    // Lưới ô tô nằm dưới phần đầu phiếu, đúng khung OmrFormLayout.
     public static OmrTemplateConfig Grid(int questionCount, int choiceCount)
     {
-        var row = Math.Min(0.02, 0.7 / questionCount);
-        var bubbles = new List<OmrBubbleConfig>(questionCount * choiceCount);
-        for (var question = 1; question <= questionCount; question++)
-        {
-            for (var choice = 0; choice < choiceCount; choice++)
-            {
-                bubbles.Add(new OmrBubbleConfig
-                {
-                    QuestionNumber = question,
-                    ChoiceIndex = choice,
-                    X = 0.40 + choice * 0.09,
-                    Y = 0.22 + (question - 1) * row,
-                    Width = 0.055,
-                    Height = row * 0.72
-                });
-            }
-        }
-
+        var plan = OmrFormLayout.Measure(questionCount, choiceCount);
         return new OmrTemplateConfig
         {
             QuestionCount = questionCount,
             ChoiceCount = choiceCount,
-            Bubbles = bubbles
+            Bubbles = plan.Bubbles.Select(slot => new OmrBubbleConfig
+            {
+                QuestionNumber = slot.QuestionNumber,
+                ChoiceIndex = slot.ChoiceIndex,
+                X = slot.Area.X,
+                Y = slot.Area.Y,
+                Width = slot.Area.Width,
+                Height = slot.Area.Height
+            }).ToList()
         };
     }
 

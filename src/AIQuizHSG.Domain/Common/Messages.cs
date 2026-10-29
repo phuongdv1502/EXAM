@@ -185,7 +185,6 @@ public static class Messages
     public const string OmrBatchNotFound = "Không tìm thấy đợt nhập phiếu.";
     public const string OmrBatchLocked = "Đợt đã công bố, không sửa trực tiếp.";
     public const string OmrExamNotReady = "Chỉ chấm phiếu cho đề đã phát hành hoặc đã đóng.";
-    public const string OmrExamCodeRequired = "Vui lòng nhập mã đề in trên phiếu.";
     public const string OmrSheetNotFound = "Không tìm thấy phiếu.";
     public const string OmrSheetNotReady = "Phiếu chưa đủ điều kiện để chấm.";
     public const string OmrFileEmpty = "Chưa chọn tệp phiếu.";

@@ -1,15 +1,76 @@
-<div class="page-head">
-  <div>
-    <h1>Xin chào, {{ store.user()?.fullName }}</h1>
-    <p>Chọn việc cần làm</p>
+@if (staff()) {
+  <div class="page-head">
+    <div>
+      <h1>Xin chào, {{ store.user()?.fullName }}</h1>
+      <p>Số liệu ngân hàng câu hỏi, đề thi và kết quả.</p>
+    </div>
+    <a pButton routerLink="/reports"><i class="pi pi-chart-bar"></i><span>Xem báo cáo</span></a>
   </div>
-</div>
-<div class="cards">
-  @for (card of visible(); track card.link) {
-    <a class="home-card" [routerLink]="card.link">
-      <p-card [header]="card.title">
-        <p class="muted">{{ card.text }}</p>
+  @if (report) {
+    <div class="kpi-row">
+      <div class="kpi"><span>Câu hỏi</span><strong>{{ report.questionCount }}</strong></div>
+      <div class="kpi"><span>Đề thi</span><strong>{{ report.examCount }}</strong></div>
+      <div class="kpi"><span>Lượt làm bài</span><strong>{{ report.attemptCount }}</strong></div>
+      <div class="kpi"><span>Học sinh</span><strong>{{ report.studentCount }}</strong></div>
+      <div class="kpi"><span>Phiếu OMR</span><strong>{{ report.omrSheetCount }}</strong></div>
+    </div>
+    <div class="chart-grid">
+      <p-card header="Câu hỏi theo trạng thái">
+        @if (hasCount(report.questionStatus)) {
+          <div class="chart-frame"><p-chart type="doughnut" [data]="statusChart(report.questionStatus, labels.questionStatus)" [options]="doughnutOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có câu hỏi.</p> }
       </p-card>
-    </a>
+      <p-card header="Câu hỏi theo độ khó">
+        @if (hasCount(report.questionDifficulty)) {
+          <div class="chart-frame"><p-chart type="bar" [data]="difficultyChart()" [options]="horizontalBarOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có câu hỏi.</p> }
+      </p-card>
+      <p-card header="Câu hỏi theo môn">
+        @if (report.questionsBySubject.length) {
+          <div class="chart-frame"><p-chart type="bar" [data]="subjectChart()" [options]="horizontalBarOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có câu hỏi.</p> }
+      </p-card>
+      <p-card header="Điểm các lượt đã chấm">
+        @if (hasCount(report.scoreBands)) {
+          <div class="chart-frame"><p-chart type="bar" [data]="scoreChart()" [options]="barOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có điểm.</p> }
+      </p-card>
+    </div>
+    <p-card header="Đề thi gần đây">
+      <p-table [value]="recentExams()">
+        <ng-template #header>
+          <tr><th>Đề</th><th>Trạng thái</th><th>Đã nộp</th><th>Điểm trung bình</th></tr>
+        </ng-template>
+        <ng-template #body let-item>
+          <tr>
+            <td>{{ item.title }}<div class="muted">{{ item.subjectName }} · {{ item.questionCount }} câu</div></td>
+            <td><p-tag [value]="label(labels.examStatus, item.status)" [severity]="tagColor(item.status)" /></td>
+            <td>{{ item.submitted }}</td>
+            <td>{{ percent(item.averagePercent) }}</td>
+          </tr>
+        </ng-template>
+        <ng-template #emptymessage>
+          <tr><td colspan="4" class="muted">Chưa có đề thi.</td></tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+  } @else if (loading) {
+    <p class="muted">Đang tải số liệu.</p>
   }
-</div>
+} @else {
+  <div class="page-head">
+    <div>
+      <h1>Xin chào, {{ store.user()?.fullName }}</h1>
+      <p>Chọn việc cần làm</p>
+    </div>
+  </div>
+  <div class="cards">
+    @for (card of visible(); track card.link) {
+      <a class="home-card" [routerLink]="card.link">
+        <p-card [header]="card.title">
+          <p class="muted">{{ card.text }}</p>
+        </p-card>
+      </a>
+    }
+  </div>
+}

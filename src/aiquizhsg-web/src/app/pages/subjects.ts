@@ -26,14 +26,23 @@ export class SubjectsPage extends Page implements OnInit {
     this.watch(this.api.subjects(), (items) => (this.items = items));
   }
 
+  create(): void {
+    this.reset();
+    this.openForm();
+  }
+
   edit(item: Subject): void {
     this.editingId = item.id;
     this.code = item.code;
     this.name = item.name;
     this.description = item.description ?? '';
     this.isActive = item.isActive;
-    this.notice = '';
-    this.error = '';
+    this.openForm();
+  }
+
+  cancel(): void {
+    this.reset();
+    this.closeForm();
   }
 
   reset(): void {
@@ -54,7 +63,7 @@ export class SubjectsPage extends Page implements OnInit {
     this.loading = true;
     this.watch(this.api.saveSubject(body, this.editingId ?? undefined), () => {
       this.showOk(this.editingId ? 'Đã cập nhật môn học.' : 'Đã thêm môn học.');
-      this.reset();
+      this.cancel();
       this.load();
     });
   }

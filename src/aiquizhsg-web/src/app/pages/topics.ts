@@ -41,6 +41,12 @@ export class TopicsPage extends Page implements OnInit {
     return this.subjects.find((item) => item.id === id)?.name ?? '—';
   }
 
+  create(): void {
+    this.reset();
+    this.subjectId = this.filterSubjectId;
+    this.openForm();
+  }
+
   edit(item: Topic): void {
     this.editingId = item.id;
     this.subjectId = item.subjectId;
@@ -49,6 +55,12 @@ export class TopicsPage extends Page implements OnInit {
     this.description = item.description ?? '';
     this.sortOrder = item.sortOrder;
     this.isActive = item.isActive;
+    this.openForm();
+  }
+
+  cancel(): void {
+    this.reset();
+    this.closeForm();
   }
 
   reset(): void {
@@ -62,7 +74,7 @@ export class TopicsPage extends Page implements OnInit {
 
   save(): void {
     if (!this.subjectId) {
-      this.error = 'Hãy chọn môn học.';
+      this.fail('Hãy chọn môn học.');
       return;
     }
     const body = {
@@ -76,7 +88,7 @@ export class TopicsPage extends Page implements OnInit {
     this.loading = true;
     this.watch(this.api.saveTopic(body, this.editingId ?? undefined), () => {
       this.showOk(this.editingId ? 'Đã cập nhật chuyên đề.' : 'Đã thêm chuyên đề.');
-      this.reset();
+      this.cancel();
       this.load();
     });
   }

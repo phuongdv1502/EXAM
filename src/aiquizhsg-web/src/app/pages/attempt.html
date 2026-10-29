@@ -15,7 +15,6 @@
   </div>
   <p-card>
     <div class="stack">
-      @if (error) { <p-message severity="error">{{ error }}</p-message> }
       <div class="question-nav">
         @for (question of paper.questions; track question.examQuestionId; let i = $index) {
           <p-button
@@ -76,8 +75,8 @@
       </div>
     </div>
   </p-card>
-} @else if (error) {
-  <p-message severity="error">{{ error }}</p-message>
+} @else if (loadFailed) {
+  <p class="muted">Không mở được bài làm.</p>
 } @else {
   <div class="row-actions">
     <p-progressspinner strokeWidth="4" [style]="{ width: '32px', height: '32px' }" />

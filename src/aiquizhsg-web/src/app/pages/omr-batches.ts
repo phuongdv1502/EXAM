@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { Observable } from 'rxjs';
 import { ExamSummary, OmrBatch, OmrTemplate } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
@@ -18,8 +19,10 @@ export class OmrBatchesPage extends Page implements OnInit {
   templates: OmrTemplate[] = [];
   examId: number | null = null;
   templateId: number | null = null;
-  examCode = '';
   sourceType = 'Scanner';
+  previewOpen = false;
+  previewUrl: string | null = null;
+  private readonly releasePreview = this.destroyRef.onDestroy(() => this.revokePreview());
 
   ngOnInit(): void {
     this.load();
@@ -33,12 +36,62 @@ export class OmrBatchesPage extends Page implements OnInit {
 
   matchingTemplates(): OmrTemplate[] {
     const exam = this.selectedExam();
-    if (!exam) return this.templates;
+    if (!exam) return [];
     return this.templates.filter((item) => item.questionCount === exam.questionCount);
+  }
+
+  pickExam(id: number | null): void {
+    this.examId = id;
+    if (!this.matchingTemplates().some((item) => item.id === this.templateId))
+      this.templateId = null;
+  }
+
+  pickTemplate(id: number): void {
+    this.templateId = id;
+  }
+
+  previewTemplate(id: number): void {
+    this.openPreview(this.api.omrTemplatePreview(id));
+  }
+
+  onPreviewVisible(open: boolean): void {
+    if (!open) this.closePreview();
+  }
+
+  override closeForm(): void {
+    if (this.previewOpen) {
+      this.closePreview();
+      return;
+    }
+    super.closeForm();
+  }
+
+  private openPreview(source: Observable<Blob>): void {
+    this.watch(source, (blob) => {
+      this.revokePreview();
+      this.previewUrl = URL.createObjectURL(blob);
+      this.previewOpen = true;
+    });
+  }
+
+  private closePreview(): void {
+    this.previewOpen = false;
+    this.revokePreview();
+    this.cdr.markForCheck();
+  }
+
+  private revokePreview(): void {
+    if (!this.previewUrl) return;
+    URL.revokeObjectURL(this.previewUrl);
+    this.previewUrl = null;
   }
 
   selectedExam(): ExamSummary | undefined {
     return this.exams.find((item) => item.id === this.examId);
+  }
+
+  examCodeOf(exam: ExamSummary): string {
+    return `DE${exam.id}`;
   }
 
   selectedTemplate(): OmrTemplate | undefined {
@@ -54,17 +107,26 @@ export class OmrBatchesPage extends Page implements OnInit {
     return Math.round((item.processedSheets / item.totalSheets) * 100);
   }
 
+  create(): void {
+    this.examId = null;
+    this.templateId = null;
+    this.sourceType = 'Scanner';
+    this.openForm();
+  }
+
+  cancel(): void {
+    this.closeForm();
+  }
+
   save(): void {
     const exam = this.exams.find((item) => item.id === this.examId);
     const template = this.templates.find((item) => item.id === this.templateId);
     if (!exam || !template) {
-      this.error = 'Chọn đề đã phát hành và mẫu phiếu đang dùng.';
-      this.notice = '';
+      this.fail('Chọn đề đã phát hành và mẫu phiếu đang dùng.');
       return;
     }
     if (exam.questionCount !== template.questionCount) {
-      this.error = `Mẫu có ${template.questionCount} câu, đề có ${exam.questionCount} câu.`;
-      this.notice = '';
+      this.fail(`Mẫu có ${template.questionCount} câu, đề có ${exam.questionCount} câu.`);
       return;
     }
     this.loading = true;
@@ -72,7 +134,6 @@ export class OmrBatchesPage extends Page implements OnInit {
       this.api.createOmrBatch({
         examId: exam.id,
         templateId: template.id,
-        examCode: this.examCode.trim().toUpperCase(),
         sourceType: this.sourceType,
       }),
       (batch) => {

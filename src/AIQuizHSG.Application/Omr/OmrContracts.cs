@@ -14,7 +14,6 @@ public sealed class CreateOmrBatchRequest
 {
     public long ExamId { get; set; }
     public long TemplateId { get; set; }
-    public string ExamCode { get; set; } = string.Empty;
     public string SourceType { get; set; } = "Scanner";
 }
 

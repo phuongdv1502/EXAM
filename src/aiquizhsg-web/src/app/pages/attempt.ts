@@ -14,6 +14,7 @@ export class AttemptPage extends Page implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   paper: AttemptPaper | null = null;
+  loadFailed = false;
   index = 0;
   remainingSeconds = 0;
   private clockOffset = 0;
@@ -22,7 +23,10 @@ export class AttemptPage extends Page implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.watch(this.api.attempt(id), (paper) => this.bind(paper));
+    this.watch(this.api.attempt(id), (paper) => this.bind(paper), (error) => {
+      this.loadFailed = true;
+      this.showError(error);
+    });
   }
 
   ngOnDestroy(): void {
@@ -92,11 +96,11 @@ export class AttemptPage extends Page implements OnInit, OnDestroy {
     return this.current?.selectedOptionIds.includes(optionId) ?? false;
   }
 
-  submit(auto = false): void {
+  async submit(auto = false): Promise<void> {
     if (!this.paper) return;
     const pending = (this.paper.questions.length - this.answeredCount());
-    if (!auto && pending > 0 && !confirm(`Còn ${pending} câu chưa chọn. Vẫn nộp bài?`)) return;
-    if (!auto && pending === 0 && !confirm('Nộp bài?')) return;
+    if (!auto && pending > 0 && !await this.confirm(`Còn ${pending} câu chưa chọn. Vẫn nộp bài?`)) return;
+    if (!auto && pending === 0 && !await this.confirm('Nộp bài?')) return;
     this.loading = true;
     this.watch(this.api.submitAttempt(this.paper.id), () => {
       void this.router.navigate(['/attempts'], { queryParams: { submitted: '1' } });

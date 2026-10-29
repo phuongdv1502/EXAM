@@ -18,6 +18,28 @@ public class OmrController(IOmrService omr) : ControllerBase
         return ApiResults.From(await omr.ListTemplatesAsync(actor, ct));
     }
 
+    [HttpGet("templates/preview")]
+    public async Task<IActionResult> PreviewDraft([FromQuery] int questionCount, [FromQuery] int choiceCount, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        var result = await omr.PreviewTemplateAsync(null, questionCount, choiceCount, actor, ct);
+        if (result.Status != Application.Common.OperationStatus.Ok || result.Value is null)
+            return ApiResults.From(result);
+        return File(result.Value, "image/png");
+    }
+
+    [HttpGet("templates/{id:long}/preview")]
+    public async Task<IActionResult> Preview(long id, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        var result = await omr.PreviewTemplateAsync(id, null, null, actor, ct);
+        if (result.Status != Application.Common.OperationStatus.Ok || result.Value is null)
+            return ApiResults.From(result);
+        return File(result.Value, "image/png");
+    }
+
     [HttpPost("templates")]
     public async Task<ActionResult<OmrTemplateSummary>> CreateTemplate(SaveOmrTemplateRequest request, CancellationToken ct)
     {

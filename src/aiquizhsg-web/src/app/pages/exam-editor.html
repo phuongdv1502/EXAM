@@ -10,14 +10,6 @@
 </div>
 
 <div class="stack exam-page">
-  @if (error) { <p-message severity="error">{{ error }}</p-message> }
-  @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
-  @if (validationMessages.length) {
-    <p-message [severity]="validationMessages[0] === 'Đề khớp ma trận.' ? 'success' : 'warn'">
-      {{ validationMessages.join(' ') }}
-    </p-message>
-  }
-
   <form class="exam-form" (ngSubmit)="save()">
     <p-card>
       <div class="batch-form-head">

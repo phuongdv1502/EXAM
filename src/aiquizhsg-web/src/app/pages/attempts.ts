@@ -12,10 +12,11 @@ import { UI } from '../core/ui';
 export class AttemptsPage extends Page implements OnInit {
   private readonly route = inject(ActivatedRoute);
   items: AttemptSummary[] = [];
-  submitted = false;
 
   ngOnInit(): void {
-    this.submitted = this.route.snapshot.queryParamMap.get('submitted') === '1';
+    if (this.route.snapshot.queryParamMap.get('submitted') === '1') {
+      this.showOk('Đã nộp bài. Điểm chỉ hiện khi đề được công bố.');
+    }
     this.watch(this.api.attempts(), (items) => (this.items = items));
   }
 }

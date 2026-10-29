@@ -3,12 +3,45 @@
     <h1>Ma trận độ khó</h1>
     <p>Năm mức phải cộng đúng bằng tổng số câu gốc.</p>
   </div>
+  <p-button label="Ma trận mới" icon="pi pi-plus" (onClick)="create()" />
 </div>
-<div class="split">
-  <p-card header="Ma trận mới">
-    @if (error) { <p-message severity="error">{{ error }}</p-message> }
-    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
-    <form (ngSubmit)="save()">
+<div class="stack">
+  <p-card>
+    <div class="field" style="max-width: 220px">
+      <label>Số câu muốn xem trước</label>
+      <p-inputnumber name="previewCount" [(ngModel)]="previewCount" [min]="1" [showButtons]="true" />
+    </div>
+  </p-card>
+  @for (item of items; track item.id) {
+    <p-card [header]="item.name">
+      <div class="row-actions" style="margin-bottom: 0.75rem">
+        <p-tag [value]="label(labels.profileStatus, item.status)" [severity]="tagColor(item.status)" />
+        @if (item.isSystemDefault) { <p-tag value="Hệ thống" severity="secondary" /> }
+      </div>
+      <p class="muted">
+        Mục tiêu {{ item.targetDifficultyName }} · {{ item.baseQuestionCount }} câu · {{ label(labels.scaling, item.scalingMode) }}
+      </p>
+      <p>
+        @for (level of item.levels; track level.level; let last = $last) {
+          {{ level.name || levelName(level.level) }} {{ level.count }}@if (!last) { · }
+        }
+      </p>
+      <p-button label="Xem phân bổ" size="small" severity="secondary" [outlined]="true" (onClick)="showPreview(item)" />
+    </p-card>
+  }
+</div>
+@if (formOpen) {
+  <div class="account-backdrop" (click)="cancel()"></div>
+  <aside class="account-drawer" role="dialog" aria-modal="true" aria-label="Ma trận mới">
+    <form class="batch-form" (ngSubmit)="save()">
+      <div class="batch-form-head">
+        <span class="batch-form-icon"><i class="pi pi-th-large"></i></span>
+        <div>
+          <h2>Ma trận mới</h2>
+          <p>Năm mức cộng đúng bằng tổng số câu gốc.</p>
+        </div>
+        <button type="button" class="drawer-close" aria-label="Đóng" (click)="cancel()"><i class="pi pi-times"></i></button>
+      </div>
       <div class="field">
         <label for="name">Tên</label>
         <input pInputText id="name" name="name" [(ngModel)]="name" />
@@ -30,42 +63,5 @@
       <p class="muted" style="margin-bottom: 1rem">Tổng {{ total() }} câu.</p>
       <p-button label="Tạo ma trận" icon="pi pi-check" type="submit" [loading]="loading" />
     </form>
-  </p-card>
-  <div class="stack">
-    <p-card>
-      <div class="field" style="max-width: 220px">
-        <label>Số câu muốn xem trước</label>
-        <p-inputnumber name="previewCount" [(ngModel)]="previewCount" [min]="1" [showButtons]="true" />
-      </div>
-    </p-card>
-    @for (item of items; track item.id) {
-      <p-card [header]="item.name">
-        <div class="row-actions" style="margin-bottom: 0.75rem">
-          <p-tag [value]="label(labels.profileStatus, item.status)" [severity]="tagColor(item.status)" />
-          @if (item.isSystemDefault) { <p-tag value="Hệ thống" severity="secondary" /> }
-        </div>
-        <p class="muted">
-          Mục tiêu {{ item.targetDifficultyName }} · {{ item.baseQuestionCount }} câu · {{ label(labels.scaling, item.scalingMode) }}
-        </p>
-        <p>
-          @for (level of item.levels; track level.level; let last = $last) {
-            {{ level.name || levelName(level.level) }} {{ level.count }}@if (!last) { · }
-          }
-        </p>
-        <p-button label="Xem phân bổ" size="small" severity="secondary" [outlined]="true" (onClick)="showPreview(item)" />
-        @if (previewId === item.id && preview) {
-          <p-message class="preview-note" [severity]="preview.isValid ? 'success' : 'warn'">
-            <div>
-              {{ preview.message || 'Phân bổ' }}
-              <div>
-                @for (line of preview.distribution; track line.level) {
-                  <span>{{ levelName(line.level) }}: {{ line.count }} </span>
-                }
-              </div>
-            </div>
-          </p-message>
-        }
-      </p-card>
-    }
-  </div>
-</div>
+  </aside>
+}

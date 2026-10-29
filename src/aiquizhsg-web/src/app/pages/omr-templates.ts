@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Observable } from 'rxjs';
 import { OmrTemplate } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
@@ -17,6 +18,9 @@ export class OmrTemplatesPage extends Page implements OnInit {
   questionCount = 10;
   choiceCount = 4;
   isActive = true;
+  previewOpen = false;
+  previewUrl: string | null = null;
+  private readonly releasePreview = this.destroyRef.onDestroy(() => this.revokePreview());
 
   ngOnInit(): void {
     this.load();
@@ -24,6 +28,59 @@ export class OmrTemplatesPage extends Page implements OnInit {
 
   load(): void {
     this.watch(this.api.omrTemplates(), (items) => (this.items = items));
+  }
+
+  create(): void {
+    this.code = '';
+    this.version = 1;
+    this.questionCount = 10;
+    this.choiceCount = 4;
+    this.isActive = true;
+    this.openForm();
+  }
+
+  cancel(): void {
+    this.closeForm();
+  }
+
+  previewSaved(id: number): void {
+    this.openPreview(this.api.omrTemplatePreview(id));
+  }
+
+  previewDraft(): void {
+    this.openPreview(this.api.omrTemplateDraft(Number(this.questionCount), Number(this.choiceCount)));
+  }
+
+  onPreviewVisible(open: boolean): void {
+    if (!open) this.closePreview();
+  }
+
+  override closeForm(): void {
+    if (this.previewOpen) {
+      this.closePreview();
+      return;
+    }
+    super.closeForm();
+  }
+
+  private openPreview(source: Observable<Blob>): void {
+    this.watch(source, (blob) => {
+      this.revokePreview();
+      this.previewUrl = URL.createObjectURL(blob);
+      this.previewOpen = true;
+    });
+  }
+
+  private closePreview(): void {
+    this.previewOpen = false;
+    this.revokePreview();
+    this.cdr.markForCheck();
+  }
+
+  private revokePreview(): void {
+    if (!this.previewUrl) return;
+    URL.revokeObjectURL(this.previewUrl);
+    this.previewUrl = null;
   }
 
   save(): void {
@@ -38,6 +95,7 @@ export class OmrTemplatesPage extends Page implements OnInit {
       }),
       () => {
         this.showOk('Đã lưu mẫu phiếu.');
+        this.closeForm();
         this.code = '';
         this.load();
       },

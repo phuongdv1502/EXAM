@@ -32,10 +32,8 @@ public sealed partial class StudentRecordService : TimedOrganizationService, ISt
             return OperationResult<IReadOnlyList<StudentProfileResponse>>.Forbidden(Messages.ClassScopeDenied);
 
         var students = await _unitOfWork.StudentRecords.SearchAsync(schoolId, keyword, ct);
-        return OperationResult<IReadOnlyList<StudentProfileResponse>>.Ok(students.Select(student =>
-            new StudentProfileResponse(
-                student.Id, student.SchoolId, student.StudentCode, student.FullName, student.DateOfBirth, student.Gender,
-                student.Email, student.Phone, student.Address, student.UserId, student.Status, null, null)).ToArray());
+        return OperationResult<IReadOnlyList<StudentProfileResponse>>.Ok(
+            students.Select(OrganizationMapper.ToStudent).ToArray());
     }
 
     public async Task<OperationResult<StudentProfileResponse>> CreateAsync(long schoolId, SaveStudentProfileRequest request, Actor actor, CancellationToken ct)

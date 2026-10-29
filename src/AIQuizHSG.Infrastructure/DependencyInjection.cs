@@ -8,6 +8,7 @@ using AIQuizHSG.Application.Exams;
 using AIQuizHSG.Application.Organization;
 using AIQuizHSG.Application.Persistence;
 using AIQuizHSG.Application.Questions;
+using AIQuizHSG.Application.Reports;
 using AIQuizHSG.Application.Validation;
 using FluentValidation;
 using AIQuizHSG.Infrastructure.Data;
@@ -65,9 +66,11 @@ public static class DependencyInjection
         services.AddSingleton<OmrJobQueue>();
         services.AddSingleton<IOmrJobQueue>(provider => provider.GetRequiredService<OmrJobQueue>());
         services.AddSingleton<IOmrRecognitionService, OmrRecognitionService>();
+        services.AddSingleton<IOmrFormRenderer, OmrFormRenderer>();
         services.AddSingleton<IOmrPageSplitter, OmrPageSplitter>();
         services.AddSingleton<IOmrFileStore, OmrFileStore>();
         services.AddScoped<IOmrService, OmrService>();
+        services.AddScoped<IReportService, ReportService>();
         services.AddHostedService<OmrProcessingWorker>();
         return services;
     }

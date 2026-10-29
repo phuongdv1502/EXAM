@@ -66,6 +66,7 @@ export class OmrSheetPage extends Page implements OnInit {
       this.examCode = sheet.examCode ?? sheet.expectedExamCode ?? '';
       this.reviewNote = sheet.reviewNote ?? '';
       this.drafts = sheet.answers.map((answer) => this.toDraft(sheet.reviewStatus, answer));
+      if (sheet.failureReason) this.warn(sheet.failureReason);
       this.loadImage();
     });
   }

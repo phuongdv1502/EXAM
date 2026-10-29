@@ -13,18 +13,6 @@
 
 <p-card>
   <div class="stack">
-    @if (error) { <p-message severity="error">{{ error }}</p-message> }
-    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
-    @if (importErrors.length) {
-      <p-message severity="warn">
-        <div>
-          <strong>Một số dòng không nhập được</strong>
-          @for (item of importErrors; track item.row + item.message) {
-            <div>Dòng {{ item.row }}: {{ item.message }}</div>
-          }
-        </div>
-      </p-message>
-    }
     <form class="filters" (ngSubmit)="search()">
       <div class="field span-3">
         <p-select [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" (ngModelChange)="loadTopics()" name="subjectId" placeholder="Mọi môn" [showClear]="true" appendTo="body" />

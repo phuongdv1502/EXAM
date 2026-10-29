@@ -9,15 +9,12 @@
     }
   </div>
 </div>
-@if (error) { <p-message severity="error">{{ error }}</p-message> }
-@if (notice) { <p-message severity="success">{{ notice }}</p-message> }
 @if (sheet) {
   <div class="row-actions" style="margin-bottom: 1rem">
     <p-tag [value]="label(labels.omrSheet, sheet.status)" [severity]="tagColor(sheet.status)" />
     <p-tag [value]="label(labels.omrReview, sheet.reviewStatus)" [severity]="tagColor(sheet.reviewStatus)" />
     <span class="muted">Độ tin cậy {{ percent(sheet.confidence) }}</span>
   </div>
-  @if (sheet.failureReason) { <p-message severity="warn">{{ sheet.failureReason }}</p-message> }
   <div class="split">
     <p-card header="Ảnh phiếu">
       @if (imageUrl) {

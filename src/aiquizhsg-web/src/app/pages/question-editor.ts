@@ -59,6 +59,7 @@ export class QuestionEditorPage extends Page implements OnInit {
   fill(question: QuestionDetail): void {
     this.status = question.status;
     this.rejectionReason = question.rejectionReason ?? '';
+    if (question.status === 'Rejected' && this.rejectionReason) this.warn(`Lý do từ chối: ${this.rejectionReason}`);
     this.subjectId = question.subjectId;
     this.topicId = question.topicId;
     this.content = question.content;
@@ -95,7 +96,7 @@ export class QuestionEditorPage extends Page implements OnInit {
 
   save(): void {
     if (!this.topicId) {
-      this.error = 'Hãy chọn chuyên đề.';
+      this.fail('Hãy chọn chuyên đề.');
       return;
     }
     const body = {
@@ -138,7 +139,7 @@ export class QuestionEditorPage extends Page implements OnInit {
 
   reject(): void {
     if (!this.questionId || !this.rejectionReason.trim()) {
-      this.error = 'Hãy nhập lý do từ chối.';
+      this.fail('Hãy nhập lý do từ chối.');
       return;
     }
     this.watch(this.api.rejectQuestion(this.questionId, this.rejectionReason.trim()), (question) => {

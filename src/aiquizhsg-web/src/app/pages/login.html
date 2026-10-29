@@ -2,7 +2,6 @@
   <div class="login-card">
     <p-card header="Đăng nhập AI Quiz HSG" subheader="Phòng thi trắc nghiệm Tin học THCS">
       <form class="stack" (ngSubmit)="submit()">
-        @if (error) { <p-message severity="error">{{ error }}</p-message> }
         <div class="field">
           <label for="username">Tên đăng nhập</label>
           <input pInputText id="username" name="username" [(ngModel)]="username" autocomplete="username" />
@@ -13,11 +12,6 @@
         </div>
         <p-button label="Đăng nhập" icon="pi pi-sign-in" type="submit" [fluid]="true" [loading]="loading" />
       </form>
-      <p-divider />
-      <p-message severity="info">
-        <strong>Tài khoản mẫu.</strong>
-        admin, teacher, schooladmin, hs26001, hs26002. Mật khẩu: Admin@123456
-      </p-message>
     </p-card>
   </div>
 </div>

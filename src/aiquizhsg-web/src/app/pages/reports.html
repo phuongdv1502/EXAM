@@ -1,0 +1,100 @@
+<div class="page-head">
+  <div>
+    <h1>Báo cáo</h1>
+    <p>Ngân hàng câu hỏi, kết quả đề thi và phiếu OMR.</p>
+  </div>
+</div>
+<p-selectbutton [options]="tabs" [(ngModel)]="tab" optionLabel="label" optionValue="value" />
+@if (report) {
+  @if (tab === 'questions') {
+    <div class="chart-grid" style="margin-top: 1rem">
+      <p-card header="Theo trạng thái">
+        @if (hasCount(report.questionStatus)) {
+          <div class="chart-frame"><p-chart type="doughnut" [data]="namedChart(report.questionStatus, labels.questionStatus)" [options]="doughnutOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có câu hỏi.</p> }
+      </p-card>
+      <p-card header="Theo độ khó">
+        @if (hasCount(report.questionDifficulty)) {
+          <div class="chart-frame"><p-chart type="bar" [data]="difficultyChart()" [options]="horizontalBarOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có câu hỏi.</p> }
+      </p-card>
+      <p-card header="Theo môn">
+        @if (report.questionsBySubject.length) {
+          <div class="chart-frame"><p-chart type="bar" [data]="subjectChart()" [options]="horizontalBarOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có câu hỏi.</p> }
+      </p-card>
+      <p-card header="Số câu từng môn">
+        <p-table [value]="report.questionsBySubject">
+          <ng-template #header>
+            <tr><th>Môn</th><th>Số câu</th></tr>
+          </ng-template>
+          <ng-template #body let-item>
+            <tr><td>{{ item.name }}</td><td>{{ item.count }}</td></tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr><td colspan="2" class="muted">Chưa có câu hỏi.</td></tr>
+          </ng-template>
+        </p-table>
+      </p-card>
+    </div>
+  }
+  @if (tab === 'exams') {
+    <div class="chart-grid" style="margin-top: 1rem">
+      <p-card header="Đề theo trạng thái">
+        @if (hasCount(report.examStatus)) {
+          <div class="chart-frame"><p-chart type="doughnut" [data]="namedChart(report.examStatus, labels.examStatus)" [options]="doughnutOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có đề thi.</p> }
+      </p-card>
+      <p-card header="Lượt làm theo trạng thái">
+        @if (hasCount(report.attemptStatus)) {
+          <div class="chart-frame"><p-chart type="doughnut" [data]="namedChart(report.attemptStatus, labels.attemptStatus)" [options]="doughnutOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có lượt làm bài.</p> }
+      </p-card>
+      <p-card header="Phân bố điểm">
+        @if (hasCount(report.scoreBands)) {
+          <div class="chart-frame"><p-chart type="bar" [data]="scoreChart()" [options]="barOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có điểm.</p> }
+      </p-card>
+      <p-card header="Điểm trung bình từng đề">
+        @if (report.exams.some(item => item.averagePercent !== null)) {
+          <div class="chart-frame"><p-chart type="bar" [data]="averageChart()" [options]="horizontalBarOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có đề đã chấm.</p> }
+      </p-card>
+    </div>
+    <p-card header="Chi tiết đề thi">
+      <p-table [value]="report.exams" [paginator]="report.exams.length > 8" [rows]="8">
+        <ng-template #header>
+          <tr><th>Đề</th><th>Trạng thái</th><th>Đã nộp</th><th>Đang làm</th><th>Điểm trung bình</th></tr>
+        </ng-template>
+        <ng-template #body let-item>
+          <tr>
+            <td>{{ item.title }}<div class="muted">{{ item.subjectName }} · {{ item.questionCount }} câu</div></td>
+            <td><p-tag [value]="label(labels.examStatus, item.status)" [severity]="tagColor(item.status)" /></td>
+            <td>{{ item.submitted }}</td>
+            <td>{{ item.inProgress }}</td>
+            <td>{{ percent(item.averagePercent) }}</td>
+          </tr>
+        </ng-template>
+        <ng-template #emptymessage>
+          <tr><td colspan="5" class="muted">Chưa có đề thi.</td></tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+  }
+  @if (tab === 'omr') {
+    <div class="kpi-row" style="margin-top: 1rem">
+      <div class="kpi"><span>Phiếu</span><strong>{{ report.omrSheetCount }}</strong></div>
+      <div class="kpi"><span>Cần đối soát</span><strong>{{ report.omrNeedsReview }}</strong></div>
+      <div class="kpi"><span>Đợt chấm</span><strong>{{ report.omrStatus.reduce((sum, item) => sum + item.count, 0) }}</strong></div>
+    </div>
+    <div class="chart-grid">
+      <p-card header="Đợt theo trạng thái">
+        @if (hasCount(report.omrStatus)) {
+          <div class="chart-frame"><p-chart type="doughnut" [data]="namedChart(report.omrStatus, labels.omrBatch)" [options]="doughnutOptions" width="100%" height="280px" /></div>
+        } @else { <p class="muted">Chưa có đợt chấm.</p> }
+      </p-card>
+    </div>
+  }
+} @else if (loading) {
+  <p class="muted">Đang tải số liệu.</p>
+}

@@ -21,7 +21,6 @@ public sealed class CreateOmrBatchRequestValidator : AbstractValidator<CreateOmr
     {
         RuleFor(request => request.ExamId).GreaterThan(0);
         RuleFor(request => request.TemplateId).GreaterThan(0);
-        RuleFor(request => request.ExamCode).NotEmpty().WithMessage(Messages.OmrExamCodeRequired).MaximumLength(32);
     }
 }
 

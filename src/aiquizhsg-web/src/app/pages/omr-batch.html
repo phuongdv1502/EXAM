@@ -7,8 +7,6 @@
     <a pButton severity="secondary" [outlined]="true" routerLink="/omr"><i class="pi pi-arrow-left"></i><span>Danh sách</span></a>
   </div>
 </div>
-@if (error) { <p-message severity="error">{{ error }}</p-message> }
-@if (notice) { <p-message severity="success">{{ notice }}</p-message> }
 @if (batch) {
   <p-card>
     <div class="row-actions">

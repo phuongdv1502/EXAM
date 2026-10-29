@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DifficultyLevel, ExamProfile, ProfilePreview } from '../core/models';
+import { DifficultyLevel, ExamProfile } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
 
@@ -17,8 +17,6 @@ export class ProfilesPage extends Page implements OnInit {
   scalingMode = 'PROPORTIONAL';
   counts = [2, 3, 3, 1, 1];
   previewCount = 20;
-  previewId: number | null = null;
-  preview: ProfilePreview | null = null;
 
   ngOnInit(): void {
     this.watch(this.api.difficultyLevels(), (items) => (this.levels = items));
@@ -37,10 +35,19 @@ export class ProfilesPage extends Page implements OnInit {
     return this.levels.find((item) => item.id === level)?.name || fallback || `Mức ${level}`;
   }
 
+  create(): void {
+    this.name = '';
+    this.openForm();
+  }
+
+  cancel(): void {
+    this.closeForm();
+  }
+
   save(): void {
     const total = this.total();
     if (!this.name.trim() || total <= 0) {
-      this.error = 'Nhập tên ma trận và số câu từng mức.';
+      this.fail('Nhập tên ma trận và số câu từng mức.');
       return;
     }
     this.loading = true;
@@ -55,13 +62,18 @@ export class ProfilesPage extends Page implements OnInit {
       () => {
         this.name = '';
         this.showOk('Đã tạo ma trận.');
+        this.closeForm();
         this.load();
       },
     );
   }
 
   showPreview(profile: ExamProfile): void {
-    this.previewId = profile.id;
-    this.watch(this.api.previewProfile(profile.id, Number(this.previewCount)), (result) => (this.preview = result));
+    this.watch(this.api.previewProfile(profile.id, Number(this.previewCount)), (result) => {
+      const lines = result.distribution.map((line) => `${this.levelName(line.level)}: ${line.count}`).join(' · ');
+      const text = [result.message || 'Phân bổ', lines].filter((item) => item).join('. ');
+      if (result.isValid) this.showOk(text);
+      else this.warn(text);
+    });
   }
 }

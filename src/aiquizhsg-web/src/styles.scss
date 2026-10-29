@@ -167,6 +167,47 @@ body {
   gap: 1rem;
 }
 
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.kpi {
+  background: #fff;
+  border: 1px solid var(--p-content-border-color, #e5e7eb);
+  border-radius: 16px;
+  padding: 0.95rem 1.05rem;
+}
+
+.kpi span {
+  color: var(--p-text-muted-color, #6b7280);
+  font-size: 0.82rem;
+}
+
+.kpi strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 1.55rem;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.chart-frame {
+  height: 280px;
+}
+
+.chart-frame .p-chart {
+  width: 100%;
+  height: 100%;
+}
+
 .home-card {
   display: block;
   height: 100%;
@@ -290,6 +331,59 @@ body {
   gap: 0.5rem;
 }
 
+.org-school {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 1rem 1.15rem;
+  background: #fff;
+  border: 1px solid var(--p-content-border-color, #e5e7eb);
+  border-radius: 16px;
+}
+
+.org-school h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.org-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.org-contact {
+  margin-top: 0.2rem;
+}
+
+.org-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.org-pick {
+  display: inline-block;
+  width: 16rem;
+}
+
+.org-page tr.is-selected > td {
+  background: #f0fdf4;
+}
+
+.org-result {
+  display: block;
+  margin-top: 1rem;
+}
+
 .sheet-image {
   width: 100%;
   max-height: 72vh;
@@ -390,12 +484,6 @@ body {
   font-size: 0.92rem;
 }
 
-.code-input {
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
 .omr-page .field .p-inputtext,
 .omr-page .field .p-select {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -437,6 +525,64 @@ body {
 
 .pick-preview p-tag {
   margin-left: auto;
+}
+
+.template-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.template-pick-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.template-look {
+  flex: 0 0 auto;
+  padding: 0 0.85rem;
+  background: #fff;
+  border: 1px solid var(--p-content-border-color, #e5e7eb);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.sheet-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+}
+
+.template-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--p-content-border-color, #e5e7eb);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.template-pick span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.template-pick em {
+  font-style: normal;
+  color: var(--p-text-muted-color, #6b7280);
+  font-size: 0.85rem;
+}
+
+.template-pick.on {
+  border-color: var(--p-primary-color, #10b981);
+  background: #f0fdf4;
 }
 
 .source-pills {
@@ -746,6 +892,10 @@ body {
   width: min(520px, 100%);
 }
 
+.account-drawer-wide {
+  width: min(640px, 100%);
+}
+
 .account-drawer-grants .perm-row {
   grid-template-columns: minmax(0, 1fr);
   gap: 0.4rem;
@@ -944,13 +1094,13 @@ body {
 }
 
 .user-cell strong,
-.user-cell span,
+.user-cell > div span,
 .pick-preview .user-avatar + div strong,
 .pick-preview .user-avatar + div span {
   display: block;
 }
 
-.user-cell span {
+.user-cell > div span {
   color: var(--p-text-muted-color, #6b7280);
   font-size: 0.82rem;
 }
@@ -1060,6 +1210,8 @@ body {
 
 @media (max-width: 1100px) {
   .cards,
+  .kpi-row,
+  .chart-grid,
   .split,
   .split-even,
   .split.omr-page,
@@ -1085,6 +1237,12 @@ body {
   .span-6,
   .span-8 {
     grid-column: span 12;
+  }
+}
+
+@media (max-width: 1100px) {
+  .kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1209,6 +1367,10 @@ body {
 .p-toast-message {
   border-radius: 14px;
   box-shadow: 0 14px 36px rgba(15, 23, 42, 0.16);
+}
+
+.p-toast-detail {
+  white-space: pre-line;
 }
 
 .accounts-page .account-drawer-grants .perm-module {

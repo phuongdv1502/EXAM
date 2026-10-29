@@ -5,8 +5,6 @@
   </div>
 </div>
 <div class="stack">
-  @if (submitted) { <p-message severity="success">Đã nộp bài. Điểm chỉ hiện khi đề được công bố.</p-message> }
-  @if (error) { <p-message severity="error">{{ error }}</p-message> }
   <p-card>
     <p-table [value]="items" [paginator]="items.length > 10" [rows]="10">
       <ng-template #header>

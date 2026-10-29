@@ -26,6 +26,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
     private readonly IOmrPageSplitter splitter;
     private readonly IOmrFileStore fileStore;
     private readonly IOmrJobQueue queue;
+    private readonly IOmrFormRenderer forms;
 
     public OmrService(
         IUnitOfWork unitOfWork,
@@ -34,12 +35,14 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         IOmrRecognitionService recognition,
         IOmrPageSplitter splitter,
         IOmrFileStore fileStore,
-        IOmrJobQueue queue) : base(unitOfWork, clock, access)
+        IOmrJobQueue queue,
+        IOmrFormRenderer forms) : base(unitOfWork, clock, access)
     {
         this.recognition = recognition;
         this.splitter = splitter;
         this.fileStore = fileStore;
         this.queue = queue;
+        this.forms = forms;
     }
 
     public async Task<OperationResult<IReadOnlyList<OmrTemplateSummary>>> ListTemplatesAsync(Actor actor, CancellationToken ct)
@@ -82,6 +85,33 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         return OperationResult<OmrTemplateSummary>.Ok(ToTemplate(template));
     }
 
+    // Xem phiếu trống theo mẫu đã lưu, hoặc theo số câu sắp tạo.
+    public async Task<OperationResult<byte[]>> PreviewTemplateAsync(long? id, int? questionCount, int? choiceCount, Actor actor, CancellationToken ct)
+    {
+        if (await Deny(actor, TemplatePermission, ct) is not null && await Deny(actor, BatchPermission, ct) is { } denied)
+            return OperationResult<byte[]>.Forbidden(denied);
+
+        OmrTemplateConfig config;
+        if (id is long templateId)
+        {
+            var template = await _unitOfWork.Omr.FindTemplateAsync(templateId, ct);
+            if (template is null)
+                return OperationResult<byte[]>.NotFound(Messages.OmrTemplateNotFound);
+            if (!OmrTemplateConfig.TryParse(template.ConfigJson, out config))
+                return OperationResult<byte[]>.Invalid(Messages.OmrTemplateConfigInvalid);
+        }
+        else if (questionCount is >= 1 and <= 60 && choiceCount is >= 2 and <= 6)
+        {
+            config = OmrTemplateConfig.Grid(questionCount.Value, choiceCount.Value);
+        }
+        else
+        {
+            return OperationResult<byte[]>.Invalid(Messages.OmrTemplateConfigInvalid);
+        }
+
+        return OperationResult<byte[]>.Ok(forms.Png(config));
+    }
+
     public async Task<OperationResult<IReadOnlyList<OmrBatchSummary>>> ListBatchesAsync(Actor actor, CancellationToken ct)
     {
         if (await Deny(actor, BatchPermission, ct) is { } denied)
@@ -119,7 +149,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             TemplateId = template.Id,
             Template = template,
             CreatedById = actor.UserId,
-            ExamCode = request.ExamCode.Trim().ToUpperInvariant(),
+            // Mã đề gắn với đề đã chọn, nên đợt chấm không bắt nhập tay.
+            ExamCode = ExamCodeFor(exam),
             SourceType = source,
             Status = OmrBatchStatus.Draft,
             CreatedAtUtc = clock.UtcNow
@@ -870,4 +901,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             answers,
             sheet.Batch.Status.ToString());
     }
+
+    // Cùng một đề thì cùng một mã in trên phiếu.
+    private static string ExamCodeFor(Exam exam) => $"DE{exam.Id}";
 }

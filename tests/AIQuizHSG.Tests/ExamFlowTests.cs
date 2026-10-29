@@ -161,6 +161,7 @@ public class ExamFlowTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments { get; } = new OpenAssignments();
         public IOmrRepository Omr => throw new NotSupportedException();
+        public IReportRepository Reports => throw new NotSupportedException();
         public IExamRepository Exams { get; }
         public IAttemptRepository AttemptsRepo { get; }
         IAttemptRepository IUnitOfWork.Attempts => AttemptsRepo;
@@ -433,6 +434,7 @@ public class AccountServiceTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
         public IOmrRepository Omr => throw new NotSupportedException();
+        public IReportRepository Reports => throw new NotSupportedException();
         public IExamRepository Exams => throw new NotSupportedException();
         public IAttemptRepository Attempts => throw new NotSupportedException();
         public IAuditLogRepository AuditLogs { get; } = new AuditRepo();

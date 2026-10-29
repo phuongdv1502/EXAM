@@ -42,6 +42,12 @@ export const labels = {
   omrReview: { Pending: 'Chưa đối soát', Confirmed: 'Đã xác nhận' },
   omrMark: { Blank: 'Trống', Marked: 'Đã tô', Ambiguous: 'Mơ hồ' },
   omrSource: { Camera: 'Máy ảnh', Scanner: 'Máy quét', Mixed: 'Hỗn hợp' },
+  scoreBand: {
+    Below50: 'Dưới 50%',
+    From50: '50% – 65%',
+    From65: '65% – 80%',
+    From80: 'Từ 80%',
+  },
 };
 
 export function label(group: object, key: string | null | undefined): string {

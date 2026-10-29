@@ -54,7 +54,6 @@ export class ExamEditorPage extends Page implements OnInit {
   rooms: Classroom[] = [];
   assignSchoolId: number | null = null;
   assignRoomId: number | null = null;
-  validationMessages: string[] = [];
 
   ngOnInit(): void {
     this.watch(this.api.subjects(), (items) => (this.subjects = items.filter((item) => item.isActive)));
@@ -117,19 +116,17 @@ export class ExamEditorPage extends Page implements OnInit {
     this.watch(this.api.topics(this.subjectId), (items) => (this.topics = items.filter((item) => item.isActive)));
   }
 
-  draw(): void {
+  async draw(): Promise<void> {
     if (this.locked) return;
     if (!this.subjectId) {
-      this.error = 'Hãy chọn môn học.';
-      this.notice = '';
+      this.fail('Hãy chọn môn học.');
       return;
     }
     if (!this.profileId) {
-      this.error = 'Hãy chọn ma trận.';
-      this.notice = '';
+      this.fail('Hãy chọn ma trận.');
       return;
     }
-    if (this.picked.length > 0 && !confirm('Các câu đang chọn sẽ được thay bằng tập câu mới theo ma trận.')) return;
+    if (this.picked.length > 0 && !await this.confirm('Các câu đang chọn sẽ được thay bằng tập câu mới theo ma trận.')) return;
     this.drawing = true;
     this.watch(
       this.api.drawQuestions({
@@ -214,11 +211,11 @@ export class ExamEditorPage extends Page implements OnInit {
 
   save(): void {
     if (!this.subjectId) {
-      this.error = 'Hãy chọn môn học.';
+      this.fail('Hãy chọn môn học.');
       return;
     }
     if (this.picked.length === 0) {
-      this.error = 'Hãy chọn ít nhất một câu đã duyệt.';
+      this.fail('Hãy chọn ít nhất một câu đã duyệt.');
       return;
     }
     const body = {
@@ -246,16 +243,16 @@ export class ExamEditorPage extends Page implements OnInit {
     });
   }
 
-  publish(): void {
-    if (!this.examId || !confirm('Phát hành đề này? Nội dung câu sẽ được chụp lại.')) return;
+  async publish(): Promise<void> {
+    if (!this.examId || !await this.confirm('Phát hành đề này? Nội dung câu sẽ được chụp lại.')) return;
     this.watch(this.api.publishExam(this.examId), (exam) => {
       this.fill(exam);
       this.showOk('Đã phát hành đề.');
     });
   }
 
-  close(): void {
-    if (!this.examId || !confirm('Đóng đề này? Học sinh sẽ không vào làm tiếp.')) return;
+  async close(): Promise<void> {
+    if (!this.examId || !await this.confirm('Đóng đề này? Học sinh sẽ không vào làm tiếp.')) return;
     this.watch(this.api.closeExam(this.examId), (exam) => {
       this.fill(exam);
       this.showOk('Đã đóng đề.');
@@ -265,11 +262,11 @@ export class ExamEditorPage extends Page implements OnInit {
   validate(): void {
     if (!this.examId) return;
     this.watch(this.api.validateExam(this.examId), (result) => {
-      this.validationMessages = result.isValid
+      const messages = result.isValid
         ? ['Đề khớp ma trận.']
         : result.errors.map((item) => item.message);
-      this.notice = '';
-      this.error = '';
+      if (result.isValid) this.showOk(messages.join(' '));
+      else this.warn('Đề chưa khớp ma trận.', messages.join('\n'));
     });
   }
 
@@ -285,7 +282,7 @@ export class ExamEditorPage extends Page implements OnInit {
 
   assign(): void {
     if (!this.examId || !this.assignRoomId) {
-      this.error = 'Hãy chọn lớp để giao đề.';
+      this.fail('Hãy chọn lớp để giao đề.');
       return;
     }
     this.watch(this.api.assignExam(this.examId, { classroomId: this.assignRoomId, studentId: null }), () => {

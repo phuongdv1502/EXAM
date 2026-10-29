@@ -1,222 +1,158 @@
-<div class="page-head">
-  <div>
-    <h1>Trường học</h1>
-    <p>Năm học, lớp và hồ sơ học sinh</p>
-  </div>
-  <p-button label="Thêm trường" icon="pi pi-plus" severity="secondary" [outlined]="true" (onClick)="resetSchool()" />
-</div>
-
-<div class="split">
-  <p-card header="Danh sách trường">
-    <div class="school-list">
-      @for (school of schools; track school.id) {
-        <p-button
-          [label]="school.name"
-          [severity]="selected?.id === school.id ? 'primary' : 'secondary'"
-          [outlined]="selected?.id !== school.id"
-          [fluid]="true"
-          (onClick)="select(school)"
-        />
-      } @empty {
-        <p class="muted">Chưa có trường trong phạm vi của bạn.</p>
-      }
+<div class="org-page">
+  <div class="page-head">
+    <div>
+      <h1>Trường học</h1>
+      <p>Chọn trường và năm học, rồi xem lớp hoặc học sinh.</p>
     </div>
-  </p-card>
+    <div class="page-actions">
+      <p-select class="org-pick" [options]="schools" optionLabel="name" optionValue="id" [ngModel]="selected?.id ?? null" (ngModelChange)="pickSchool($event)" placeholder="Chọn trường" appendTo="body" />
+      <p-button label="Thêm trường" icon="pi pi-plus" (onClick)="openNewSchool()" />
+    </div>
+  </div>
 
-  <div class="stack">
-    @if (error) { <p-message severity="error">{{ error }}</p-message> }
-    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
-    <p-selectbutton [options]="schoolTabs()" [(ngModel)]="tab" optionLabel="label" optionValue="value" />
+  @if (selected) {
+    <section class="org-school">
+      <div>
+        <h2>{{ selected.name }}</h2>
+        <div class="org-meta">
+          <span class="muted">{{ selected.code }}</span>
+          <p-tag [value]="selected.isActive ? 'Đang hoạt động' : 'Ngừng'" [severity]="selected.isActive ? 'success' : 'secondary'" />
+        </div>
+        <p class="muted org-contact">
+          {{ selected.address || 'Chưa có địa chỉ' }}
+          @if (selected.phone) { · {{ selected.phone }} }
+          @if (selected.email) { · {{ selected.email }} }
+        </p>
+      </div>
+      <p-button label="Sửa trường" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="openEditSchool()" />
+    </section>
 
-    @if (tab === 'info') {
-      <p-card [header]="selected ? 'Sửa trường' : 'Trường mới'">
-        <form (ngSubmit)="saveSchool()">
-          <div class="form-grid">
-            <div class="field span-4">
-              <label for="code">Mã</label>
-              <input pInputText id="code" name="code" [(ngModel)]="code" />
-            </div>
-            <div class="field span-8">
-              <label for="name">Tên</label>
-              <input pInputText id="name" name="name" [(ngModel)]="name" />
-            </div>
-            <div class="field span-12">
-              <label for="address">Địa chỉ</label>
-              <input pInputText id="address" name="address" [(ngModel)]="address" />
-            </div>
-            <div class="field span-6">
-              <label for="phone">Điện thoại</label>
-              <input pInputText id="phone" name="phone" [(ngModel)]="phone" />
-            </div>
-            <div class="field span-6">
-              <label for="email">Email</label>
-              <input pInputText id="email" name="email" [(ngModel)]="email" />
-            </div>
-          </div>
-          <div class="choice" style="margin-bottom: 1rem">
-            <p-toggleswitch inputId="schoolActive" name="isActive" [(ngModel)]="isActive" />
-            <label for="schoolActive">Đang hoạt động</label>
-          </div>
-          <p-button label="Lưu trường" icon="pi pi-check" type="submit" [loading]="loading" />
-        </form>
-      </p-card>
-    }
+    <div class="org-bar">
+      <p-selectbutton [options]="schoolTabs" [(ngModel)]="tab" optionLabel="label" optionValue="value" />
+    </div>
+    <div class="org-bar">
+      <div class="page-actions">
+        @if (tab !== 'years') {
+          <p-select class="org-pick" [options]="years" optionLabel="name" optionValue="id" [ngModel]="yearId" (ngModelChange)="changeYear($event)" placeholder="Chọn năm học" appendTo="body" />
+          @if (selectedYear()?.isCurrent) { <p-tag value="Năm hiện tại" severity="success" /> }
+        }
+      </div>
+      <div class="page-actions">
+        @if (tab === 'years') {
+          <p-button label="Năm học mới" icon="pi pi-plus" (onClick)="openNewYear()" />
+        }
+        @if (tab === 'classes') {
+          <p-button label="Lớp mới" icon="pi pi-plus" (onClick)="openNewRoom()" />
+        }
+        @if (tab === 'students') {
+          <p-button label="Hồ sơ mới" icon="pi pi-plus" (onClick)="openNewStudent()" />
+          <p-button label="Tải mẫu" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="downloadTemplate()" />
+          <p-button label="Nhập Excel" icon="pi pi-upload" severity="secondary" [outlined]="true" (onClick)="excel.click()" />
+          <input #excel type="file" accept=".xlsx" hidden (change)="importFile($event)" />
+        }
+      </div>
+    </div>
 
-    @if (tab === 'years' && selected) {
-      <p-card [header]="editingYearId ? 'Sửa năm học' : 'Năm học mới'">
-        <form (ngSubmit)="saveYear()">
-          <div class="form-grid">
-            <div class="field span-4">
-              <label for="yearName">Tên</label>
-              <input pInputText id="yearName" name="yearName" [(ngModel)]="yearName" placeholder="2026-2027" />
-            </div>
-            <div class="field span-3">
-              <label for="start">Bắt đầu</label>
-              <input pInputText id="start" type="date" name="start" [(ngModel)]="startDate" />
-            </div>
-            <div class="field span-3">
-              <label for="end">Kết thúc</label>
-              <input pInputText id="end" type="date" name="end" [(ngModel)]="endDate" />
-            </div>
-            <div class="field span-2">
-              <label>Trạng thái</label>
-              <p-select name="yearStatus" [options]="choices.yearStatus" optionLabel="label" optionValue="value" [(ngModel)]="yearStatus" appendTo="body" />
-            </div>
-          </div>
-          <div class="choice" style="margin-bottom: 1rem">
-            <p-checkbox [binary]="true" inputId="isCurrent" name="isCurrent" [(ngModel)]="isCurrent" />
-            <label for="isCurrent">Năm hiện tại</label>
-          </div>
-          <p-button label="Lưu năm học" icon="pi pi-check" type="submit" />
-        </form>
-      </p-card>
+    @if (tab === 'years') {
       <p-card>
         <p-table [value]="years">
           <ng-template #header>
-            <tr><th>Năm học</th><th>Trạng thái</th><th></th></tr>
+            <tr><th>Năm học</th><th>Thời gian</th><th>Trạng thái</th><th></th></tr>
           </ng-template>
           <ng-template #body let-year>
-            <tr>
-              <td>{{ year.name }}<div class="muted">{{ formatDate(year.startDate) }} – {{ formatDate(year.endDate) }}</div></td>
+            <tr [class.is-selected]="year.id === yearId">
+              <td>
+                {{ year.name }}
+                @if (year.isCurrent) { <p-tag value="Hiện tại" severity="success" /> }
+              </td>
+              <td>{{ formatDate(year.startDate) }} – {{ formatDate(year.endDate) }}</td>
               <td><p-tag [value]="label(labels.yearStatus, year.status)" [severity]="tagColor(year.status)" /></td>
               <td><p-button label="Sửa" size="small" severity="secondary" [outlined]="true" (onClick)="editYear(year)" /></td>
             </tr>
           </ng-template>
           <ng-template #emptymessage>
-            <tr><td colspan="3" class="muted">Chưa có năm học.</td></tr>
+            <tr><td colspan="4" class="muted">Chưa có năm học.</td></tr>
           </ng-template>
         </p-table>
       </p-card>
     }
 
-    @if (tab === 'classes' && selected) {
-      <p-card [header]="editingRoomId ? 'Sửa lớp' : 'Lớp mới'">
-        <form (ngSubmit)="saveRoom()">
-          <div class="form-grid">
-            <div class="field span-4">
-              <label>Năm học</label>
-              <p-select name="yearId" [options]="years" optionLabel="name" optionValue="id" [(ngModel)]="yearId" (ngModelChange)="loadRooms()" appendTo="body" />
-            </div>
-            <div class="field span-4">
-              <label>Khối</label>
-              <p-select name="grade" [options]="grades" optionLabel="name" optionValue="id" [(ngModel)]="gradeLevelId" placeholder="Chọn khối" appendTo="body" />
-            </div>
-            <div class="field span-4">
-              <label>Sĩ số tối đa</label>
-              <p-inputnumber name="capacity" [(ngModel)]="capacity" [min]="1" [showButtons]="true" />
-            </div>
-            <div class="field span-4">
-              <label for="classCode">Mã lớp</label>
-              <input pInputText id="classCode" name="classCode" [(ngModel)]="classCode" />
-            </div>
-            <div class="field span-8">
-              <label for="className">Tên lớp</label>
-              <input pInputText id="className" name="className" [(ngModel)]="className" />
-            </div>
-          </div>
-          <p-button label="Lưu lớp" icon="pi pi-check" type="submit" />
-        </form>
+    @if (tab === 'classes') {
+      <p-card>
+        <p-table [value]="rooms">
+          <ng-template #header>
+            <tr><th>Lớp</th><th>Khối</th><th>Sĩ số</th><th></th></tr>
+          </ng-template>
+          <ng-template #body let-room>
+            <tr [class.is-selected]="reportRoomId === room.id">
+              <td>
+                {{ room.name }}
+                @if (room.homeroomTeacherName) { <div class="muted">GVCN {{ room.homeroomTeacherName }}</div> }
+              </td>
+              <td>{{ room.gradeLevelName }}</td>
+              <td>{{ room.studentCount }}@if (room.capacity) { <span class="muted"> / {{ room.capacity }}</span> }</td>
+              <td>
+                <div class="row-actions">
+                  <p-button label="Sửa" size="small" severity="secondary" [outlined]="true" (onClick)="editRoom(room)" />
+                  <p-button [label]="reportRoomId === room.id ? 'Ẩn kết quả' : 'Kết quả'" size="small" severity="secondary" [outlined]="true" (onClick)="showReport(room)" />
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr><td colspan="4" class="muted">Năm này chưa có lớp.</td></tr>
+          </ng-template>
+        </p-table>
       </p-card>
-      @for (room of rooms; track room.id) {
-        <p-card [header]="room.name" [subheader]="room.studentCount + ' học sinh'">
-          <div class="row-actions">
-            <p-button label="Sửa" size="small" severity="secondary" [outlined]="true" (onClick)="editRoom(room)" />
-            <p-button label="Kết quả thi" size="small" severity="secondary" [outlined]="true" (onClick)="showReport(room)" />
-          </div>
-          @if (reportRoomId === room.id) {
-            <p-table [value]="report" styleClass="mt">
-              <ng-template #header>
-                <tr><th>Học sinh</th><th>Bài thi</th></tr>
-              </ng-template>
-              <ng-template #body let-row>
-                <tr>
-                  <td>{{ row.fullName }}<div class="muted">{{ row.studentCode }}</div></td>
-                  <td>
-                    @for (exam of row.exams; track exam.examId) {
-                      <div>{{ exam.title }}: {{ exam.score ?? '—' }} / {{ exam.maxScore ?? '—' }}</div>
-                    } @empty { <span class="muted">Chưa có bài</span> }
-                  </td>
-                </tr>
-              </ng-template>
-              <ng-template #emptymessage>
-                <tr><td colspan="2" class="muted">Lớp chưa có kết quả.</td></tr>
-              </ng-template>
-            </p-table>
-          }
+      @if (reportRoom(); as room) {
+        <p-card [header]="'Kết quả ' + room.name" styleClass="org-result">
+          <p-table [value]="report">
+            <ng-template #header>
+              <tr><th>Học sinh</th><th>Bài thi</th></tr>
+            </ng-template>
+            <ng-template #body let-row>
+              <tr>
+                <td>{{ row.fullName }}<div class="muted">{{ row.studentCode }}</div></td>
+                <td>
+                  @for (exam of row.exams; track exam.examId) {
+                    <div>{{ exam.title }}: {{ exam.score ?? '—' }} / {{ exam.maxScore ?? '—' }}</div>
+                  } @empty { <span class="muted">Chưa có bài</span> }
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template #emptymessage>
+              <tr><td colspan="2" class="muted">Lớp chưa có kết quả.</td></tr>
+            </ng-template>
+          </p-table>
         </p-card>
       }
     }
 
-    @if (tab === 'students' && selected) {
-      <p-card [header]="editingStudentId ? 'Sửa hồ sơ' : 'Hồ sơ mới'">
-        <form (ngSubmit)="saveStudent()">
-          <div class="form-grid">
-            <div class="field span-4">
-              <label for="studentCode">Mã học sinh</label>
-              <input pInputText id="studentCode" name="studentCode" [(ngModel)]="studentCode" />
-            </div>
-            <div class="field span-4">
-              <label for="studentName">Họ tên</label>
-              <input pInputText id="studentName" name="studentName" [(ngModel)]="studentName" />
-            </div>
-            <div class="field span-4">
-              <label for="dob">Ngày sinh</label>
-              <input pInputText id="dob" type="date" name="dob" [(ngModel)]="dateOfBirth" />
-            </div>
-            <div class="field span-4">
-              <label>Giới tính</label>
-              <p-select name="gender" [options]="choices.gender" optionLabel="label" optionValue="value" [(ngModel)]="gender" placeholder="Chưa chọn" [showClear]="true" appendTo="body" />
-            </div>
-          </div>
-          <p-button label="Lưu hồ sơ" icon="pi pi-check" type="submit" />
-        </form>
-      </p-card>
-      <div class="row-actions">
-        <p-button label="Tải mẫu Excel" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="downloadTemplate()" />
-        <p-button label="Nhập Excel" icon="pi pi-upload" severity="secondary" [outlined]="true" (onClick)="excel.click()" />
-        <span class="muted">Cột MaLop xếp vào lớp của năm đang chọn.</span>
-      </div>
-      <input #excel type="file" accept=".xlsx" hidden (change)="importFile($event)" />
-      @for (item of importErrors; track item.row + item.message) {
-        <p-message severity="warn">Dòng {{ item.row }}: {{ item.message }}</p-message>
-      }
+    @if (tab === 'students') {
+      <p class="muted" style="margin-bottom: 0.75rem">Học sinh của cả trường. Xếp lớp và cột MaLop trong Excel theo năm {{ selectedYear()?.name || 'đang chọn' }}.</p>
       <p-card>
         <p-table [value]="students" [paginator]="students.length > 8" [rows]="8">
           <ng-template #header>
-            <tr><th>Học sinh</th><th>Lớp</th><th></th></tr>
+            <tr><th>Học sinh</th><th>Lớp năm này</th><th></th></tr>
           </ng-template>
           <ng-template #body let-student>
             <tr>
-              <td>{{ student.fullName }}<div class="muted">{{ student.studentCode }} · {{ student.classCode || 'Chưa có lớp' }}</div></td>
+              <td>
+                {{ student.fullName }}
+                <div class="muted">
+                  {{ student.studentCode }}
+                  @if (student.dateOfBirth) { · {{ formatDate(student.dateOfBirth) }} }
+                  @if (student.classCode && !inYear(student)) { · đang ở {{ student.classCode }} }
+                </div>
+              </td>
               <td>
                 <p-select
                   [options]="rooms"
                   optionLabel="name"
                   optionValue="id"
-                  [ngModel]="null"
+                  [ngModel]="student.classroomId"
                   [name]="'room' + student.id"
-                  [placeholder]="student.classroomId ? 'Chuyển lớp' : 'Xếp lớp'"
-                  [showClear]="true"
+                  placeholder="Chưa có lớp"
                   appendTo="body"
                   (ngModelChange)="enroll(student, $event)"
                 />
@@ -230,5 +166,145 @@
         </p-table>
       </p-card>
     }
-  </div>
+  } @else {
+    <p-card><p class="muted">Chưa có trường trong phạm vi của bạn.</p></p-card>
+  }
 </div>
+
+@if (formOpen) {
+  <div class="account-backdrop" (click)="closeForm()"></div>
+  <aside class="account-drawer account-drawer-wide" role="dialog" aria-modal="true" [attr.aria-label]="drawerTitle()">
+    @if (drawer === 'school') {
+      <form class="batch-form" (ngSubmit)="saveSchool()">
+        <div class="batch-form-head">
+          <span class="batch-form-icon"><i class="pi pi-building"></i></span>
+          <div>
+            <h2>{{ schoolIsNew ? 'Trường mới' : 'Sửa trường' }}</h2>
+            <p>Mã, tên và thông tin liên hệ.</p>
+          </div>
+          <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeForm()"><i class="pi pi-times"></i></button>
+        </div>
+        <div class="field">
+          <label for="code">Mã</label>
+          <input pInputText id="code" name="code" [(ngModel)]="code" />
+        </div>
+        <div class="field">
+          <label for="name">Tên</label>
+          <input pInputText id="name" name="name" [(ngModel)]="name" />
+        </div>
+        <div class="field">
+          <label for="address">Địa chỉ</label>
+          <input pInputText id="address" name="address" [(ngModel)]="address" />
+        </div>
+        <div class="field">
+          <label for="phone">Điện thoại</label>
+          <input pInputText id="phone" name="phone" [(ngModel)]="phone" />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input pInputText id="email" name="email" [(ngModel)]="email" />
+        </div>
+        <div class="choice" style="margin-bottom: 1rem">
+          <p-toggleswitch inputId="schoolActive" name="isActive" [(ngModel)]="isActive" />
+          <label for="schoolActive">Đang hoạt động</label>
+        </div>
+        <p-button label="Lưu trường" icon="pi pi-check" type="submit" [loading]="loading" />
+      </form>
+    }
+    @if (drawer === 'year') {
+      <form class="batch-form" (ngSubmit)="saveYear()">
+        <div class="batch-form-head">
+          <span class="batch-form-icon"><i class="pi pi-calendar"></i></span>
+          <div>
+            <h2>{{ editingYearId ? 'Sửa năm học' : 'Năm học mới' }}</h2>
+            <p>Tên, thời gian và trạng thái.</p>
+          </div>
+          <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeForm()"><i class="pi pi-times"></i></button>
+        </div>
+        <div class="field">
+          <label for="yearName">Tên</label>
+          <input pInputText id="yearName" name="yearName" [(ngModel)]="yearName" placeholder="2026-2027" />
+        </div>
+        <div class="field">
+          <label for="start">Bắt đầu</label>
+          <input pInputText id="start" type="date" name="start" [(ngModel)]="startDate" />
+        </div>
+        <div class="field">
+          <label for="end">Kết thúc</label>
+          <input pInputText id="end" type="date" name="end" [(ngModel)]="endDate" />
+        </div>
+        <div class="field">
+          <label>Trạng thái</label>
+          <p-select name="yearStatus" [options]="choices.yearStatus" optionLabel="label" optionValue="value" [(ngModel)]="yearStatus" appendTo="body" />
+        </div>
+        <div class="choice" style="margin-bottom: 1rem">
+          <p-checkbox [binary]="true" inputId="isCurrent" name="isCurrent" [(ngModel)]="isCurrent" />
+          <label for="isCurrent">Năm hiện tại</label>
+        </div>
+        <p-button label="Lưu năm học" icon="pi pi-check" type="submit" [loading]="loading" />
+      </form>
+    }
+    @if (drawer === 'room') {
+      <form class="batch-form" (ngSubmit)="saveRoom()">
+        <div class="batch-form-head">
+          <span class="batch-form-icon"><i class="pi pi-users"></i></span>
+          <div>
+            <h2>{{ editingRoomId ? 'Sửa lớp' : 'Lớp mới' }}</h2>
+            <p>Năm học, khối và tên lớp.</p>
+          </div>
+          <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeForm()"><i class="pi pi-times"></i></button>
+        </div>
+        <div class="field">
+          <label>Năm học</label>
+          <p-select name="yearId" [options]="years" optionLabel="name" optionValue="id" [(ngModel)]="yearId" (ngModelChange)="loadRooms()" appendTo="body" />
+        </div>
+        <div class="field">
+          <label>Khối</label>
+          <p-select name="grade" [options]="grades" optionLabel="name" optionValue="id" [(ngModel)]="gradeLevelId" placeholder="Chọn khối" appendTo="body" />
+        </div>
+        <div class="field">
+          <label>Sĩ số tối đa</label>
+          <p-inputnumber name="capacity" [(ngModel)]="capacity" [min]="1" [showButtons]="true" />
+        </div>
+        <div class="field">
+          <label for="classCode">Mã lớp</label>
+          <input pInputText id="classCode" name="classCode" [(ngModel)]="classCode" />
+        </div>
+        <div class="field">
+          <label for="className">Tên lớp</label>
+          <input pInputText id="className" name="className" [(ngModel)]="className" />
+        </div>
+        <p-button label="Lưu lớp" icon="pi pi-check" type="submit" [loading]="loading" />
+      </form>
+    }
+    @if (drawer === 'student') {
+      <form class="batch-form" (ngSubmit)="saveStudent()">
+        <div class="batch-form-head">
+          <span class="batch-form-icon"><i class="pi pi-id-card"></i></span>
+          <div>
+            <h2>{{ editingStudentId ? 'Sửa hồ sơ' : 'Hồ sơ mới' }}</h2>
+            <p>Mã học sinh và thông tin cá nhân.</p>
+          </div>
+          <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeForm()"><i class="pi pi-times"></i></button>
+        </div>
+        <div class="field">
+          <label for="studentCode">Mã học sinh</label>
+          <input pInputText id="studentCode" name="studentCode" [(ngModel)]="studentCode" />
+        </div>
+        <div class="field">
+          <label for="studentName">Họ tên</label>
+          <input pInputText id="studentName" name="studentName" [(ngModel)]="studentName" />
+        </div>
+        <div class="field">
+          <label for="dob">Ngày sinh</label>
+          <input pInputText id="dob" type="date" name="dob" [(ngModel)]="dateOfBirth" />
+        </div>
+        <div class="field">
+          <label>Giới tính</label>
+          <p-select name="gender" [options]="choices.gender" optionLabel="label" optionValue="value" [(ngModel)]="gender" placeholder="Chưa chọn" [showClear]="true" appendTo="body" />
+        </div>
+        <p-button label="Lưu hồ sơ" icon="pi pi-check" type="submit" [loading]="loading" />
+      </form>
+    }
+  </aside>
+}

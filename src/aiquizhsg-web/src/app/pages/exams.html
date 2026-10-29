@@ -8,7 +8,6 @@
     <a pButton severity="secondary" [outlined]="true" routerLink="/exams/generate"><i class="pi pi-sparkles"></i><span>Sinh theo ma trận</span></a>
   </div>
 </div>
-@if (error) { <p-message severity="error">{{ error }}</p-message> }
 <p-card>
   <p-table [value]="items" [paginator]="items.length > 10" [rows]="10">
     <ng-template #header>

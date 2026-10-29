@@ -9,11 +9,6 @@
 <p-card>
   <div class="stack">
     @if (status) { <p-tag [value]="label(labels.questionStatus, status)" [severity]="tagColor(status)" /> }
-    @if (error) { <p-message severity="error">{{ error }}</p-message> }
-    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
-    @if (status === 'Rejected' && rejectionReason) {
-      <p-message severity="warn">Lý do từ chối: {{ rejectionReason }}</p-message>
-    }
     <form (ngSubmit)="save()">
       <div class="form-grid">
         <div class="field span-6">

@@ -10,8 +10,6 @@
       </div>
     }
   </div>
-  @if (notice && !formOpen && !grantUser) { <p-message severity="success" class="account-note">{{ notice }}</p-message> }
-  @if (error && !formOpen && !grantUser) { <p-message severity="error" class="account-note">{{ error }}</p-message> }
   <div class="account-main">
       <p-card>
         <div class="account-toolbar">
@@ -101,7 +99,6 @@
           </div>
           <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeForm()"><i class="pi pi-times"></i></button>
         </div>
-        @if (error) { <p-message severity="error">{{ error }}</p-message> }
         @if (editingId) {
           <div class="pick-preview">
             <span class="user-avatar">{{ initials(fullName || username) }}</span>
@@ -167,8 +164,6 @@
         </div>
         <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeGrants()"><i class="pi pi-times"></i></button>
       </div>
-      @if (notice) { <p-message severity="success" class="account-note">{{ notice }}</p-message> }
-      @if (error) { <p-message severity="error" class="account-note">{{ error }}</p-message> }
       @if (permissions.length === 0) {
         <p class="muted pick-empty">Đang tải danh mục quyền.</p>
       }

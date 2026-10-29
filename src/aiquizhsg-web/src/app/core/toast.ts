@@ -12,4 +12,12 @@ export class Toasts {
   error(detail: string): void {
     this.messages.add({ severity: 'error', summary: detail, life: 6000 });
   }
+
+  warn(summary: string, detail?: string): void {
+    this.messages.add({ severity: 'warn', summary, detail, life: detail ? 9000 : 7000 });
+  }
+
+  info(detail: string): void {
+    this.messages.add({ severity: 'info', summary: detail, life: 8000 });
+  }
 }

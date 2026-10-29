@@ -8,6 +8,7 @@ import {
   Availability,
   Classroom,
   ClassroomExamResult,
+  DashboardReport,
   DifficultyLevel,
   DrawnQuestion,
   ExamAssignment,
@@ -47,6 +48,10 @@ type Query = Record<string, string | number | null | undefined>;
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
+
+  dashboard(): Observable<DashboardReport> {
+    return this.get('/reports/dashboard');
+  }
 
   subjects(): Observable<Subject[]> {
     return this.get('/subjects');
@@ -310,6 +315,17 @@ export class ApiService {
     return this.get(`/reports/classrooms/${classroomId}/exam-results`);
   }
 
+  omrTemplatePreview(id: number): Observable<Blob> {
+    return this.blob(`/omr/templates/${id}/preview`);
+  }
+
+  omrTemplateDraft(questionCount: number, choiceCount: number): Observable<Blob> {
+    return this.http.get(`${apiUrl}/omr/templates/preview`, {
+      params: { questionCount, choiceCount },
+      responseType: 'blob',
+    });
+  }
+
   omrTemplates(): Observable<OmrTemplate[]> {
     return this.get('/omr/templates');
   }
@@ -332,7 +348,7 @@ export class ApiService {
     return this.get(`/omr/batches/${id}`);
   }
 
-  createOmrBatch(body: { examId: number; templateId: number; examCode: string; sourceType: string }): Observable<OmrBatch> {
+  createOmrBatch(body: { examId: number; templateId: number; sourceType: string }): Observable<OmrBatch> {
     return this.post('/omr/batches', body);
   }
 

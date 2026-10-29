@@ -2,7 +2,7 @@ using AIQuizHSG.Domain.Common;
 
 namespace AIQuizHSG.Domain.Entities;
 
-// Một đợt nhập phiếu của một đề. Mã đề trên phiếu phải khớp ExamCode đã khóa.
+// Một đợt nhập phiếu của một đề. Mã đề lấy theo đề đã chọn, không do người dùng nhập.
 public class OmrImportBatch
 {
     public long Id { get; set; }

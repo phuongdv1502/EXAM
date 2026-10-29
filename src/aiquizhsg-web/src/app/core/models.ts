@@ -463,6 +463,51 @@ export interface OmrResultRow {
   status: string;
 }
 
+export interface CountItem {
+  key: string;
+  count: number;
+}
+
+export interface SubjectCount {
+  name: string;
+  count: number;
+}
+
+export interface DifficultyCount {
+  name: string;
+  sortOrder: number;
+  count: number;
+}
+
+export interface ExamReportLine {
+  id: number;
+  title: string;
+  subjectName: string;
+  status: string;
+  questionCount: number;
+  submitted: number;
+  inProgress: number;
+  averagePercent: number | null;
+}
+
+export interface DashboardReport {
+  questionCount: number;
+  examCount: number;
+  attemptCount: number;
+  studentCount: number;
+  subjectCount: number;
+  omrSheetCount: number;
+  omrNeedsReview: number;
+  questionStatus: CountItem[];
+  questionDifficulty: DifficultyCount[];
+  questionsBySubject: SubjectCount[];
+  examStatus: CountItem[];
+  attemptStatus: CountItem[];
+  scoreBands: CountItem[];
+  exams: ExamReportLine[];
+  omrStatus: CountItem[];
+}
+
 export interface ClassroomExamResult {
   studentId: number;
   studentCode: string;

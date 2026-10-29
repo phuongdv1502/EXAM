@@ -31,8 +31,9 @@ export class RolesPage extends Page implements OnInit {
   select(id: number): void {
     const token = ++this.token;
     this.selectedId = id;
-    this.error = '';
-    this.notice = '';
+    if (this.selectedRole()?.code === 'ADMIN') {
+      this.warn('Tài khoản quản trị luôn đi qua mọi quyền. Bỏ chọn ở đây không thu hẹp những tài khoản đó.');
+    }
     this.watch(this.api.rolePermissions(id), (items) => {
       if (token !== this.token) return;
       this.selectedIds = new Set(items.map((item) => item.id));

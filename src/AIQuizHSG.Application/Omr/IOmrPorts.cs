@@ -23,3 +23,9 @@ public interface IOmrJobQueue
 {
     void Enqueue(long sheetId);
 }
+
+// Vẽ ảnh phiếu trống từ cấu hình mẫu, để xem trước bản in.
+public interface IOmrFormRenderer
+{
+    byte[] Png(OmrTemplateConfig config);
+}

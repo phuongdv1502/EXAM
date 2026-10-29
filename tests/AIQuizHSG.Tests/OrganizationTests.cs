@@ -190,6 +190,7 @@ public class OrganizationTests
         public IAttemptRepository Attempts => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
         public IOmrRepository Omr => throw new NotSupportedException();
+        public IReportRepository Reports => throw new NotSupportedException();
         public IAuditLogRepository AuditLogs { get; } = new AuditRepo();
 
         public Task<int> SaveChangesAsync(CancellationToken ct)

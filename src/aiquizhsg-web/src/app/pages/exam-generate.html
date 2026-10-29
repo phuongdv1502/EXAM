@@ -7,8 +7,6 @@
 </div>
 <p-card>
   <div class="stack">
-    @if (error) { <p-message severity="error">{{ error }}</p-message> }
-    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
     <form>
       <div class="form-grid">
         <div class="field span-6">
@@ -72,17 +70,6 @@
             </div>
           }
         </div>
-      }
-      @if (availability) {
-        <p-message [severity]="availability.canGenerate ? 'success' : 'warn'">
-          <div>
-            Cần {{ availability.requiredQuestionCount }} câu, ngân hàng có {{ availability.availableQuestionCount }} câu.
-            @for (line of availability.shortages; track line.level) {
-              <div>{{ levelName(line.level) }}: thiếu {{ line.missing }} (cần {{ line.required }}, có {{ line.available }})</div>
-            }
-            @for (item of availability.errors; track item.code) { <div>{{ item.message }}</div> }
-          </div>
-        </p-message>
       }
       <div class="row-actions" style="margin-top: 1rem">
         <p-button label="Kiểm tra ngân hàng" severity="secondary" [outlined]="true" type="button" [loading]="loading" (onClick)="check()" />

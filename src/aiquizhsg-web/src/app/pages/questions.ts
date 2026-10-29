@@ -25,7 +25,6 @@ export class QuestionsPage extends Page implements OnInit {
   keyword = '';
   rejectingId: number | null = null;
   rejectReason = '';
-  importErrors: { row: number; message: string }[] = [];
 
   ngOnInit(): void {
     this.watch(this.api.subjects(), (items) => (this.subjects = items));
@@ -85,8 +84,10 @@ export class QuestionsPage extends Page implements OnInit {
     if (!file) return;
     this.loading = true;
     this.watch(this.api.importQuestions(file), (result) => {
-      this.importErrors = result.errors;
       this.showOk(`Đã nhập ${result.imported} câu.`);
+      if (result.errors.length) {
+        this.warn('Một số dòng không nhập được', result.errors.map((item) => `Dòng ${item.row}: ${item.message}`).join('\n'));
+      }
       this.load();
     });
   }
@@ -107,7 +108,7 @@ export class QuestionsPage extends Page implements OnInit {
 
   reject(item: QuestionSummary): void {
     if (!this.rejectReason.trim()) {
-      this.error = 'Hãy nhập lý do từ chối.';
+      this.fail('Hãy nhập lý do từ chối.');
       return;
     }
     this.watch(this.api.rejectQuestion(item.id, this.rejectReason.trim()), () => {

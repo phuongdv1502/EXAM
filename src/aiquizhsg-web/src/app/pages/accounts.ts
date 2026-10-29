@@ -24,7 +24,6 @@ export class AccountsPage extends Page implements OnInit {
   filtered: AccountUser[] = [];
   roles: AccountRole[] = [];
   keyword = '';
-  formOpen = false;
   editingId: number | null = null;
   editingRoles: AccountRole[] = [];
   username = '';
@@ -54,8 +53,6 @@ export class AccountsPage extends Page implements OnInit {
   openCreate(): void {
     this.dismissGrants();
     this.reset();
-    this.error = '';
-    this.notice = '';
     this.setDrawer(true);
   }
 
@@ -135,8 +132,6 @@ export class AccountsPage extends Page implements OnInit {
     this.password = '';
     this.roleIds = item.roles.map((role) => role.id);
     this.editingRoles = item.roles;
-    this.error = '';
-    this.notice = '';
     this.dismissGrants();
     this.setDrawer(true);
   }
@@ -146,8 +141,7 @@ export class AccountsPage extends Page implements OnInit {
     else if (this.grantUser) this.closeGrants();
   }
 
-  closeForm(): void {
-    this.error = '';
+  override closeForm(): void {
     this.setDrawer(false);
     this.reset();
   }
@@ -168,8 +162,7 @@ export class AccountsPage extends Page implements OnInit {
 
   save(): void {
     if (this.showRolePicker() && this.roleIds.length === 0) {
-      this.error = 'Chọn ít nhất một vai trò.';
-      this.notice = '';
+      this.fail('Chọn ít nhất một vai trò.');
       this.cdr.markForCheck();
       return;
     }
@@ -223,8 +216,6 @@ export class AccountsPage extends Page implements OnInit {
     this.grantUser = item;
     this.permissions = [];
     this.grantEffects = {};
-    this.error = '';
-    this.notice = '';
     this.syncScroll();
     this.watch(this.api.permissionCatalog(), (permissions) => {
       if (token !== this.grantToken) return;

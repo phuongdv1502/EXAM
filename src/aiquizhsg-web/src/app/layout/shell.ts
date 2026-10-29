@@ -25,6 +25,7 @@ export class Shell {
 
   private readonly items: NavItem[] = [
     { path: '/', label: 'Tổng quan', icon: 'pi pi-home', exact: true, roles: [] },
+    { path: '/reports', label: 'Báo cáo', icon: 'pi pi-chart-bar', exact: false, roles: ['ADMIN', 'TEACHER', 'SCHOOL_ADMIN'] },
     { path: '/subjects', label: 'Môn học', icon: 'pi pi-book', exact: false, roles: ['ADMIN', 'TEACHER'] },
     { path: '/topics', label: 'Chuyên đề', icon: 'pi pi-bookmark', exact: false, roles: ['ADMIN', 'TEACHER'] },
     { path: '/questions', label: 'Câu hỏi', icon: 'pi pi-question-circle', exact: false, roles: ['ADMIN', 'TEACHER'] },

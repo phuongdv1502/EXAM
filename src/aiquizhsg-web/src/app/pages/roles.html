@@ -4,8 +4,6 @@
     <p>Quyền lưu ở đây áp dụng cho mọi tài khoản mang vai trò đó. Quyền riêng từng người đặt ở màn Tài khoản.</p>
   </div>
 </div>
-@if (error) { <p-message severity="error" class="preview-note">{{ error }}</p-message> }
-@if (notice) { <p-message severity="success" class="preview-note">{{ notice }}</p-message> }
 <div class="split">
   <p-card header="Vai trò">
     <div class="role-list">
@@ -15,9 +13,6 @@
     </div>
   </p-card>
   <p-card [header]="selectedRole() ? selectedRole()!.name : 'Chọn vai trò'">
-    @if (selectedRole()?.code === 'ADMIN') {
-      <p-message severity="warn" class="preview-note">Tài khoản quản trị luôn đi qua mọi quyền. Bỏ chọn ở đây không thu hẹp những tài khoản đó.</p-message>
-    }
     @for (module of modules(); track module) {
       <section class="perm-module">
         <h3>{{ module }}</h3>

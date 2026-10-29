@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 export function apiMessage(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
     if (error.status === 0) {
-      return 'Không kết nối được máy chủ. Hãy chạy API ở http://localhost:5080.';
+      return 'Không kết nối được máy chủ.';
     }
     const body = error.error as { message?: unknown } | null;
     if (body && typeof body === 'object' && typeof body.message === 'string' && body.message.trim()) {

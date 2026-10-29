@@ -48,6 +48,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(RoleCodes.Admin, policy => policy.RequireRole(RoleCodes.Admin));
     options.AddPolicy(RoleCodes.Teacher, policy => policy.RequireRole(RoleCodes.Teacher, RoleCodes.Admin));
     options.AddPolicy(RoleCodes.Student, policy => policy.RequireRole(RoleCodes.Student, RoleCodes.Admin));
+    // Báo cáo mở cho giáo viên, quản trị trường và quản trị hệ thống.
+    options.AddPolicy("Staff", policy => policy.RequireRole(RoleCodes.Admin, RoleCodes.Teacher, RoleCodes.SchoolAdmin));
 });
 
 builder.Services.AddCors(options =>

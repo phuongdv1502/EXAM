@@ -5,7 +5,6 @@ import {
   Classroom,
   ClassroomExamResult,
   GradeLevel,
-  ImportError,
   School,
   SchoolYear,
   StudentProfile,
@@ -25,22 +24,19 @@ export class SchoolsPage extends Page implements OnInit {
   rooms: Classroom[] = [];
   students: StudentProfile[] = [];
   selected: School | null = null;
-  tab: 'info' | 'years' | 'classes' | 'students' = 'info';
+  tab: 'years' | 'classes' | 'students' = 'classes';
+  drawer: 'school' | 'year' | 'room' | 'student' | null = null;
+  schoolIsNew = false;
 
-  schoolTabs(): { label: string; value: string; disabled?: boolean }[] {
-    const locked = !this.selected;
-    return [
-      { label: 'Thông tin', value: 'info' },
-      { label: 'Năm học', value: 'years', disabled: locked },
-      { label: 'Lớp', value: 'classes', disabled: locked },
-      { label: 'Học sinh', value: 'students', disabled: locked },
-    ];
-  }
+  readonly schoolTabs = [
+    { label: 'Lớp', value: 'classes' },
+    { label: 'Học sinh', value: 'students' },
+    { label: 'Năm học', value: 'years' },
+  ];
   yearId: number | null = null;
   editingYearId: number | null = null;
   editingRoomId: number | null = null;
   editingStudentId: number | null = null;
-  importErrors: ImportError[] = [];
   report: ClassroomExamResult[] = [];
   reportRoomId: number | null = null;
 
@@ -78,7 +74,30 @@ export class SchoolsPage extends Page implements OnInit {
   }
 
   loadSchools(): void {
-    this.watch(this.api.schools(), (items) => (this.schools = items));
+    this.watch(this.api.schools(), (items) => {
+      this.schools = items;
+      if (!this.selected && items[0]) {
+        this.select(items[0]);
+        return;
+      }
+      this.selected = items.find((item) => item.id === this.selected?.id) ?? null;
+    });
+  }
+
+  pickSchool(id: number | null): void {
+    const school = this.schools.find((item) => item.id === id);
+    if (school) this.select(school);
+  }
+
+  selectedYear(): SchoolYear | undefined {
+    return this.years.find((item) => item.id === this.yearId);
+  }
+
+  changeYear(id: number | null): void {
+    this.yearId = id;
+    this.report = [];
+    this.reportRoomId = null;
+    this.loadRooms();
   }
 
   select(school: School): void {
@@ -94,17 +113,77 @@ export class SchoolsPage extends Page implements OnInit {
     this.loadStudents();
   }
 
-  resetSchool(): void {
-    this.selected = null;
+  protected override closeForm(): void {
+    this.drawer = null;
+    super.closeForm();
+  }
+
+  openNewSchool(): void {
+    this.schoolIsNew = true;
     this.code = '';
     this.name = '';
     this.address = '';
     this.phone = '';
     this.email = '';
     this.isActive = true;
-    this.years = [];
-    this.rooms = [];
-    this.students = [];
+    this.openDrawer('school');
+  }
+
+  openEditSchool(): void {
+    if (!this.selected) return;
+    this.schoolIsNew = false;
+    this.code = this.selected.code;
+    this.name = this.selected.name;
+    this.address = this.selected.address ?? '';
+    this.phone = this.selected.phone ?? '';
+    this.email = this.selected.email ?? '';
+    this.isActive = this.selected.isActive;
+    this.openDrawer('school');
+  }
+
+  openNewYear(): void {
+    this.editingYearId = null;
+    this.yearName = '';
+    this.startDate = '';
+    this.endDate = '';
+    this.yearStatus = 'Planned';
+    this.isCurrent = false;
+    this.openDrawer('year');
+  }
+
+  openNewRoom(): void {
+    this.editingRoomId = null;
+    this.gradeLevelId = null;
+    this.classCode = '';
+    this.className = '';
+    this.capacity = null;
+    this.roomStatus = 'Active';
+    this.openDrawer('room');
+  }
+
+  openNewStudent(): void {
+    this.editingStudentId = null;
+    this.studentCode = '';
+    this.studentName = '';
+    this.dateOfBirth = '';
+    this.gender = null;
+    this.studentEmail = '';
+    this.studentPhone = '';
+    this.studentAddress = '';
+    this.studentUserId = null;
+    this.openDrawer('student');
+  }
+
+  drawerTitle(): string {
+    if (this.drawer === 'school') return this.schoolIsNew ? 'Trường mới' : 'Sửa trường';
+    if (this.drawer === 'year') return this.editingYearId ? 'Sửa năm học' : 'Năm học mới';
+    if (this.drawer === 'room') return this.editingRoomId ? 'Sửa lớp' : 'Lớp mới';
+    return this.editingStudentId ? 'Sửa hồ sơ' : 'Hồ sơ mới';
+  }
+
+  private openDrawer(kind: 'school' | 'year' | 'room' | 'student'): void {
+    this.drawer = kind;
+    this.openForm();
   }
 
   saveSchool(): void {
@@ -112,15 +191,17 @@ export class SchoolsPage extends Page implements OnInit {
       code: this.code.trim(),
       name: this.name.trim(),
       address: blankToNull(this.address),
-      provinceCode: this.selected?.provinceCode ?? null,
-      districtCode: this.selected?.districtCode ?? null,
+      provinceCode: this.schoolIsNew ? null : this.selected?.provinceCode ?? null,
+      districtCode: this.schoolIsNew ? null : this.selected?.districtCode ?? null,
       phone: blankToNull(this.phone),
       email: blankToNull(this.email),
       isActive: this.isActive,
     };
     this.loading = true;
-    this.watch(this.api.saveSchool(body, this.selected?.id), (school) => {
-      this.showOk(this.selected ? 'Đã cập nhật trường.' : 'Đã thêm trường.');
+    const id = this.schoolIsNew ? undefined : this.selected?.id;
+    this.watch(this.api.saveSchool(body, id), (school) => {
+      this.showOk(id ? 'Đã cập nhật trường.' : 'Đã thêm trường.');
+      this.closeForm();
       this.select(school);
       this.loadSchools();
     });
@@ -143,6 +224,7 @@ export class SchoolsPage extends Page implements OnInit {
     this.endDate = year.endDate.slice(0, 10);
     this.yearStatus = year.status;
     this.isCurrent = year.isCurrent;
+    this.openDrawer('year');
   }
 
   saveYear(): void {
@@ -158,6 +240,7 @@ export class SchoolsPage extends Page implements OnInit {
     this.watch(this.api.saveSchoolYear(this.selected.id, body, this.editingYearId ?? undefined), () => {
       this.editingYearId = null;
       this.yearName = '';
+      this.closeForm();
       this.showOk('Đã lưu năm học.');
       this.loadYears();
     });
@@ -170,7 +253,7 @@ export class SchoolsPage extends Page implements OnInit {
 
   saveRoom(): void {
     if (!this.selected || !this.yearId || !this.gradeLevelId) {
-      this.error = 'Chọn năm học và khối trước khi lưu lớp.';
+      this.fail('Chọn năm học và khối trước khi lưu lớp.');
       return;
     }
     const body = {
@@ -188,6 +271,7 @@ export class SchoolsPage extends Page implements OnInit {
       this.classCode = '';
       this.className = '';
       this.capacity = null;
+      this.closeForm();
       this.showOk('Đã lưu lớp.');
       this.loadRooms();
     });
@@ -201,6 +285,7 @@ export class SchoolsPage extends Page implements OnInit {
     this.className = room.name;
     this.capacity = room.capacity;
     this.roomStatus = room.status;
+    this.openDrawer('room');
   }
 
   loadStudents(): void {
@@ -232,6 +317,7 @@ export class SchoolsPage extends Page implements OnInit {
       this.studentPhone = '';
       this.studentAddress = '';
       this.studentUserId = null;
+      this.closeForm();
       this.showOk('Đã lưu hồ sơ học sinh.');
       this.loadStudents();
     });
@@ -247,11 +333,12 @@ export class SchoolsPage extends Page implements OnInit {
     this.studentPhone = student.phone ?? '';
     this.studentAddress = student.address ?? '';
     this.studentUserId = student.userId;
+    this.openDrawer('student');
   }
 
   enroll(student: StudentProfile, value: Event | number | string | null): void {
     const classroomId = value instanceof Event ? Number((value.target as HTMLSelectElement).value) : Number(value);
-    if (!classroomId) return;
+    if (!classroomId || classroomId === student.classroomId) return;
     const request = student.classroomId
       ? this.api.transfer(student.id, classroomId)
       : this.api.enroll(classroomId, student.id);
@@ -272,19 +359,34 @@ export class SchoolsPage extends Page implements OnInit {
     const file = input.files?.[0];
     input.value = '';
     if (!file || !this.selected || !this.yearId) {
-      this.error = 'Chọn năm học trước khi nhập Excel.';
+      this.fail('Chọn năm học trước khi nhập Excel.');
       return;
     }
     this.watch(this.api.importStudents(this.selected.id, this.yearId, file), (result) => {
-      this.importErrors = result.errors;
       this.showOk(`Đã nhập ${result.imported} học sinh.`);
+      if (result.errors.length) {
+        this.warn('Một số dòng không nhập được', result.errors.map((item) => `Dòng ${item.row}: ${item.message}`).join('\n'));
+      }
       this.loadStudents();
       this.loadRooms();
     });
   }
 
   showReport(room: Classroom): void {
+    if (this.reportRoomId === room.id) {
+      this.reportRoomId = null;
+      this.report = [];
+      return;
+    }
     this.reportRoomId = room.id;
     this.watch(this.api.classroomResults(room.id), (items) => (this.report = items));
+  }
+
+  reportRoom(): Classroom | undefined {
+    return this.rooms.find((item) => item.id === this.reportRoomId);
+  }
+
+  inYear(student: StudentProfile): boolean {
+    return this.rooms.some((room) => room.id === student.classroomId);
   }
 }

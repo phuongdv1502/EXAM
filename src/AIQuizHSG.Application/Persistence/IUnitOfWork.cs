@@ -20,6 +20,7 @@ public interface IUnitOfWork
     IPermissionRepository Permissions { get; }
     IExamAssignmentRepository ExamAssignments { get; }
     IOmrRepository Omr { get; }
+    IReportRepository Reports { get; }
 
     // Ghi các thay đổi đang theo dõi. Chưa commit nếu đang nằm trong transaction.
     Task<int> SaveChangesAsync(CancellationToken ct);

@@ -145,9 +145,13 @@ public sealed class ClassroomRepository(AiQuizDbContext db) : IClassroomReposito
 
 public sealed class StudentRecordRepository(AiQuizDbContext db) : IStudentRecordRepository
 {
+    // Kèm lớp đang học để danh sách hồ sơ hiện đúng lớp, không chỉ đếm sĩ số.
     public Task<List<StudentProfile>> SearchAsync(long schoolId, string? keyword, CancellationToken ct)
     {
-        var query = db.Students.AsNoTracking().Where(student => student.SchoolId == schoolId);
+        var query = db.Students.AsNoTracking()
+            .Include(student => student.Enrollments)
+            .ThenInclude(enrollment => enrollment.Classroom)
+            .Where(student => student.SchoolId == schoolId);
         if (!string.IsNullOrWhiteSpace(keyword))
         {
             var text = keyword.Trim();

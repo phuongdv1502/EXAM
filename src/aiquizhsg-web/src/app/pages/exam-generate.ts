@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { Availability, DifficultyLevel, ExamProfile, Subject, Topic } from '../core/models';
+import { DifficultyLevel, ExamProfile, Subject, Topic } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
 import { blankToNull } from '../core/format';
@@ -31,7 +31,6 @@ export class ExamGeneratePage extends Page implements OnInit {
   shuffleQuestions = true;
   shuffleOptions = true;
   publishResults = false;
-  availability: Availability | null = null;
   private readonly idempotencyKey = crypto.randomUUID();
 
   ngOnInit(): void {
@@ -42,7 +41,6 @@ export class ExamGeneratePage extends Page implements OnInit {
 
   loadTopics(): void {
     this.topicIds = [];
-    this.availability = null;
     if (!this.subjectId) {
       this.topics = [];
       return;
@@ -60,7 +58,7 @@ export class ExamGeneratePage extends Page implements OnInit {
 
   private body(): Record<string, unknown> | null {
     if (!this.subjectId || !this.profileId) {
-      this.error = 'Hãy chọn môn và ma trận.';
+      this.fail('Hãy chọn môn và ma trận.');
       return null;
     }
     return {
@@ -77,17 +75,22 @@ export class ExamGeneratePage extends Page implements OnInit {
     if (!body) return;
     this.loading = true;
     this.watch(this.api.availability(body), (result) => {
-      this.availability = result;
       this.loading = false;
-      this.error = result.canGenerate ? '' : 'Ngân hàng chưa đủ câu cho ma trận này.';
-      this.notice = result.canGenerate ? 'Đủ câu để sinh đề.' : '';
+      const lines = [
+        `Cần ${result.requiredQuestionCount} câu, ngân hàng có ${result.availableQuestionCount} câu.`,
+        ...result.shortages.map((line) => `${this.levelName(line.level)}: thiếu ${line.missing} (cần ${line.required}, có ${line.available})`),
+        ...result.errors.map((item) => item.message),
+      ];
+      if (result.canGenerate) this.showOk(`Đủ câu để sinh đề. ${lines[0]}`);
+      else this.warn('Ngân hàng chưa đủ câu cho ma trận này.', lines.join('\n'));
     });
   }
 
   generate(): void {
     const shared = this.body();
-    if (!shared || !this.title.trim()) {
-      this.error = this.title.trim() ? this.error : 'Hãy nhập tên đề.';
+    if (!shared) return;
+    if (!this.title.trim()) {
+      this.fail('Hãy nhập tên đề.');
       return;
     }
     this.loading = true;

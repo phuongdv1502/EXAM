@@ -17,6 +17,7 @@ import { OmrTemplatesPage } from './pages/omr-templates';
 import { ProfilesPage } from './pages/profiles';
 import { QuestionEditorPage } from './pages/question-editor';
 import { QuestionsPage } from './pages/questions';
+import { ReportsPage } from './pages/reports';
 import { RolesPage } from './pages/roles';
 import { SchoolsPage } from './pages/schools';
 import { SubjectsPage } from './pages/subjects';
@@ -33,6 +34,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', component: HomePage },
+      { path: 'reports', component: ReportsPage, canActivate: [roleGuard], data: { roles: ['ADMIN', 'TEACHER', 'SCHOOL_ADMIN'] } },
       { path: 'subjects', component: SubjectsPage, canActivate: [roleGuard], data: { roles: staff } },
       { path: 'topics', component: TopicsPage, canActivate: [roleGuard], data: { roles: staff } },
       { path: 'questions', component: QuestionsPage, canActivate: [roleGuard], data: { roles: staff } },

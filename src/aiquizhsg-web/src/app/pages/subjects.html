@@ -3,12 +3,46 @@
     <h1>Môn học</h1>
     <p>Ngân hàng câu hỏi</p>
   </div>
+  <p-button label="Thêm môn" icon="pi pi-plus" (onClick)="create()" />
 </div>
-<div class="split">
-  <p-card [header]="editingId ? 'Sửa môn' : 'Thêm môn'">
-    @if (error) { <p-message severity="error">{{ error }}</p-message> }
-    @if (notice) { <p-message severity="success">{{ notice }}</p-message> }
-    <form (ngSubmit)="save()">
+<p-card>
+  <p-table [value]="items" [paginator]="items.length > 8" [rows]="8">
+    <ng-template #header>
+      <tr>
+        <th>Mã</th>
+        <th>Tên</th>
+        <th>Trạng thái</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-item>
+      <tr>
+        <td>{{ item.code }}</td>
+        <td>
+          {{ item.name }}
+          @if (item.description) { <div class="muted">{{ item.description }}</div> }
+        </td>
+        <td><p-tag [value]="item.isActive ? 'Đang dùng' : 'Ẩn'" [severity]="item.isActive ? 'success' : 'secondary'" /></td>
+        <td><p-button label="Sửa" size="small" severity="secondary" [outlined]="true" (onClick)="edit(item)" /></td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr><td colspan="4" class="muted">Chưa có môn học.</td></tr>
+    </ng-template>
+  </p-table>
+</p-card>
+@if (formOpen) {
+  <div class="account-backdrop" (click)="cancel()"></div>
+  <aside class="account-drawer" role="dialog" aria-modal="true" [attr.aria-label]="editingId ? 'Sửa môn' : 'Thêm môn'">
+    <form class="batch-form" (ngSubmit)="save()">
+      <div class="batch-form-head">
+        <span class="batch-form-icon"><i class="pi pi-book"></i></span>
+        <div>
+          <h2>{{ editingId ? 'Sửa môn' : 'Thêm môn' }}</h2>
+          <p>Mã, tên và mô tả môn học.</p>
+        </div>
+        <button type="button" class="drawer-close" aria-label="Đóng" (click)="cancel()"><i class="pi pi-times"></i></button>
+      </div>
       <div class="field">
         <label for="code">Mã môn</label>
         <input pInputText id="code" name="code" [(ngModel)]="code" />
@@ -25,38 +59,7 @@
         <p-toggleswitch inputId="subjectActive" name="isActive" [(ngModel)]="isActive" />
         <label for="subjectActive">Đang dùng</label>
       </div>
-      <div class="row-actions">
-        <p-button label="Lưu" icon="pi pi-check" type="submit" [loading]="loading" />
-        @if (editingId) {
-          <p-button label="Hủy sửa" severity="secondary" [outlined]="true" type="button" (onClick)="reset()" />
-        }
-      </div>
+      <p-button label="Lưu" icon="pi pi-check" type="submit" [loading]="loading" />
     </form>
-  </p-card>
-  <p-card>
-    <p-table [value]="items" [paginator]="items.length > 8" [rows]="8">
-      <ng-template #header>
-        <tr>
-          <th>Mã</th>
-          <th>Tên</th>
-          <th>Trạng thái</th>
-          <th></th>
-        </tr>
-      </ng-template>
-      <ng-template #body let-item>
-        <tr>
-          <td>{{ item.code }}</td>
-          <td>
-            {{ item.name }}
-            @if (item.description) { <div class="muted">{{ item.description }}</div> }
-          </td>
-          <td><p-tag [value]="item.isActive ? 'Đang dùng' : 'Ẩn'" [severity]="item.isActive ? 'success' : 'secondary'" /></td>
-          <td><p-button label="Sửa" size="small" severity="secondary" [outlined]="true" (onClick)="edit(item)" /></td>
-        </tr>
-      </ng-template>
-      <ng-template #emptymessage>
-        <tr><td colspan="4" class="muted">Chưa có môn học.</td></tr>
-      </ng-template>
-    </p-table>
-  </p-card>
-</div>
+  </aside>
+}
