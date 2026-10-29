@@ -172,7 +172,8 @@ public class QuestionServiceTests
             QuestionsRepo = new MemoryQuestions(this);
         }
 
-        public IUserRepository Users => throw new NotSupportedException();
+        public IUserRepository Users { get; } = new AdminUsers();
+        public ITeacherSubjectRepository TeacherSubjects => throw new NotSupportedException();
         public IRoleRepository Roles => throw new NotSupportedException();
         public ISubjectRepository Subjects => SubjectsRepo;
         public ITopicRepository Topics => TopicsRepo;
@@ -196,6 +197,24 @@ public class QuestionServiceTests
         public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken ct) => action(ct);
 
         public Task<bool> CanConnectAsync(CancellationToken ct) => Task.FromResult(true);
+    }
+
+    private sealed class AdminUsers : IUserRepository
+    {
+        public Task<User?> FindByIdAsync(long id, CancellationToken ct) =>
+            Task.FromResult<User?>(new User
+            {
+                Id = id,
+                UserRoles = [new UserRole { Role = new Role { Code = RoleCodes.Admin } }]
+            });
+
+        public Task<bool> AnyAsync(CancellationToken ct) => throw new NotSupportedException();
+        public Task<User?> FindByUsernameAsync(string username, CancellationToken ct) => throw new NotSupportedException();
+        public Task<User?> FindForUpdateAsync(long id, CancellationToken ct) => throw new NotSupportedException();
+        public Task<List<User>> ListByRoleAsync(string roleCode, CancellationToken ct) => throw new NotSupportedException();
+        public Task<List<User>> ListAsync(CancellationToken ct) => throw new NotSupportedException();
+        public Task<List<User>> ListByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct) => throw new NotSupportedException();
+        public Task AddAsync(User user, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class MemorySubjects : ISubjectRepository

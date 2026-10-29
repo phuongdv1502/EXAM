@@ -1,3 +1,4 @@
+using AIQuizHSG.Application.Accounts;
 using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Mappers;
 using AIQuizHSG.Application.Persistence;
@@ -85,6 +86,8 @@ public sealed partial class CatalogService : BaseService, ICatalogService
         var subject = await _unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
         if (subject is null || !subject.IsActive)
             return OperationResult<TopicResponse>.Invalid(Messages.SubjectInactive);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, subject.Id, ct) is { } denied)
+            return OperationResult<TopicResponse>.Invalid(denied);
 
         var parentError = await ValidateParentAsync(null, request.SubjectId, request.ParentTopicId, ct);
         if (parentError is not null)
@@ -108,6 +111,8 @@ public sealed partial class CatalogService : BaseService, ICatalogService
         var subject = await _unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
         if (subject is null)
             return OperationResult<TopicResponse>.Invalid(Messages.SubjectMissing);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, subject.Id, ct) is { } denied)
+            return OperationResult<TopicResponse>.Invalid(denied);
         var parentError = await ValidateParentAsync(id, request.SubjectId, request.ParentTopicId, ct);
         if (parentError is not null)
             return OperationResult<TopicResponse>.Invalid(parentError);

@@ -7,11 +7,12 @@ public interface IOmrService
     Task<OperationResult<IReadOnlyList<OmrTemplateSummary>>> ListTemplatesAsync(Actor actor, CancellationToken ct);
     Task<OperationResult<OmrTemplateSummary>> CreateTemplateAsync(SaveOmrTemplateRequest request, Actor actor, CancellationToken ct);
     Task<OperationResult<IReadOnlyList<OmrFormStyleItem>>> ListFormStylesAsync(Actor actor, CancellationToken ct);
-    Task<OperationResult<byte[]>> PreviewTemplateAsync(long? id, int? questionCount, int? choiceCount, string? style, Actor actor, CancellationToken ct);
+    Task<OperationResult<byte[]>> PreviewTemplateAsync(long? id, int? questionCount, int? choiceCount, string? style, string? sections, Actor actor, CancellationToken ct);
     Task<OperationResult<IReadOnlyList<OmrBatchSummary>>> ListBatchesAsync(Actor actor, CancellationToken ct);
     Task<OperationResult<OmrBatchSummary>> CreateBatchAsync(CreateOmrBatchRequest request, Actor actor, CancellationToken ct);
     Task<OperationResult<OmrBatchSummary>> GetBatchAsync(long id, Actor actor, CancellationToken ct);
     Task<OperationResult<UploadOmrSheetsResult>> UploadAsync(long batchId, string? sourceType, IReadOnlyList<OmrUploadFile> files, Actor actor, CancellationToken ct);
+    Task<OperationResult<OmrScanResult>> ScanAsync(long? batchId, byte[] content, Actor actor, CancellationToken ct);
     Task<OperationResult<OmrSheetPage>> ListSheetsAsync(long batchId, string? status, int page, int pageSize, Actor actor, CancellationToken ct);
     Task<OperationResult<OmrSheetDetail>> GetSheetAsync(long id, Actor actor, CancellationToken ct);
     Task<OperationResult<(byte[] Content, string ContentType, string FileName)>> OpenFileAsync(long id, Actor actor, CancellationToken ct);

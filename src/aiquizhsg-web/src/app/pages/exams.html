@@ -4,12 +4,16 @@
     <p>Đề nháp mới sửa được. Phát hành xong thì nội dung câu được chụp lại.</p>
   </div>
   <div class="page-actions">
+    <p-button label="Chia đề ngẫu nhiên" icon="pi pi-sitemap" severity="secondary" [outlined]="true" (onClick)="openDraw()" />
     <a pButton routerLink="/exams/new"><i class="pi pi-plus"></i><span>Tạo đề</span></a>
     <a pButton severity="secondary" [outlined]="true" routerLink="/exams/generate"><i class="pi pi-sparkles"></i><span>Sinh theo ma trận</span></a>
   </div>
 </div>
 <p-card>
-  <p-table [value]="items" [paginator]="items.length > 10" [rows]="10">
+  <div class="field" style="max-width: 280px">
+    <p-select [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="listSubjectId" name="listSubjectId" placeholder="Mọi môn được dạy" [showClear]="true" appendTo="body" />
+  </div>
+  <p-table [value]="shown()" [paginator]="true" [rows]="10" [alwaysShowPaginator]="true">
     <ng-template #header>
       <tr>
         <th>Đề</th>
@@ -34,7 +38,63 @@
       </tr>
     </ng-template>
     <ng-template #emptymessage>
-      <tr><td colspan="6" class="muted">Chưa có đề thi.</td></tr>
+      <tr><td colspan="6" class="muted">{{ emptyText() }}</td></tr>
     </ng-template>
   </p-table>
 </p-card>
+
+<p-dialog header="Chia đề ngẫu nhiên" [modal]="true" [visible]="drawOpen" [style]="{ width: 'min(720px, 96vw)' }" (visibleChange)="drawOpen = $event">
+  <p class="muted">Chọn một lớp và vài đề đã phát hành. Mỗi học sinh nhận đúng một đề, các đề được chia gần đều.</p>
+  <div class="form-grid">
+    <div class="field span-4">
+      <label for="drawSchoolId">Trường</label>
+      <p-select inputId="drawSchoolId" [options]="schools" optionLabel="name" optionValue="id" [(ngModel)]="drawSchoolId" (ngModelChange)="loadRooms()" name="drawSchoolId" placeholder="Chọn trường" appendTo="body" />
+    </div>
+    <div class="field span-4">
+      <label for="drawRoomId">Lớp</label>
+      <p-select inputId="drawRoomId" [options]="rooms" optionLabel="name" optionValue="id" [(ngModel)]="drawRoomId" name="drawRoomId" placeholder="Chọn lớp" appendTo="body" />
+    </div>
+    <div class="field span-4">
+      <label for="drawSubjectId">Môn</label>
+      <p-select inputId="drawSubjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="drawSubjectId" (ngModelChange)="onDrawSubject()" name="drawSubjectId" placeholder="Chọn môn" appendTo="body" />
+    </div>
+    @if (drawSubjectId) {
+      <div class="field span-12">
+        <label>Các đề</label>
+        <div class="draw-exams">
+          @for (item of drawChoices(); track item.id) {
+            <label class="draw-exam" [for]="'drawExam' + item.id">
+              <p-checkbox [binary]="true" [inputId]="'drawExam' + item.id" [name]="'drawExam' + item.id" [ngModel]="drawExamIds.includes(item.id)" (ngModelChange)="toggleExam(item.id, $event)" />
+              <span>{{ item.title }}</span>
+              <span class="muted">{{ item.subjectName }}</span>
+              <p-tag [value]="label(labels.examStatus, item.status)" [severity]="tagColor(item.status)" />
+            </label>
+          } @empty {
+            <p class="muted">{{ drawEmptyText() }}</p>
+          }
+        </div>
+      </div>
+    } @else {
+      <p class="muted span-12">{{ drawEmptyText() }}</p>
+    }
+  </div>
+  <div class="row-actions">
+    <p-button label="Chia cho học sinh" icon="pi pi-check" (onClick)="draw()" />
+  </div>
+  @if (seats.length) {
+    <p-table [value]="seats" [rows]="8" [paginator]="seats.length > 8">
+      <ng-template #header>
+        <tr>
+          <th>Học sinh</th>
+          <th>Đề được nhận</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-item>
+        <tr>
+          <td>{{ item.fullName }} <span class="muted">{{ item.studentCode }}</span></td>
+          <td>{{ item.examTitle }}</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+</p-dialog>

@@ -78,6 +78,8 @@ public static class AuditCodes
     public const string LockAccount = "LockAccount";
     public const string UnlockAccount = "UnlockAccount";
     public const string AssignExam = "AssignExam";
+    public const string ReplaceTeachingSubjects = "ReplaceTeachingSubjects";
+    public const string DrawExams = "DrawExams";
 
     public const string OmrTemplate = "OmrTemplate";
     public const string OmrBatch = "OmrImportBatch";
@@ -85,6 +87,7 @@ public static class AuditCodes
     public const string CreateOmrTemplate = "CreateOmrTemplate";
     public const string CreateOmrBatch = "CreateOmrBatch";
     public const string UploadOmrSheets = "UploadOmrSheets";
+    public const string ScanOmrSheet = "ScanOmrSheet";
     public const string ReviewOmrSheet = "ReviewOmrSheet";
     public const string GradeOmrBatch = "GradeOmrBatch";
     public const string ApproveOmrBatch = "ApproveOmrBatch";

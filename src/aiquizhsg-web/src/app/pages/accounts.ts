@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { SessionStore } from '../core/auth.service';
 import { blankToNull } from '../core/format';
-import { AccountRole, AccountUser, PermissionItem } from '../core/models';
+import { AccountRole, AccountUser, PermissionItem, Subject } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
 
@@ -31,6 +31,8 @@ export class AccountsPage extends Page implements OnInit {
   fullName = '';
   email = '';
   roleIds: number[] = [];
+  subjectCatalog: Subject[] = [];
+  subjectIds: number[] = [];
 
   grantUser: AccountUser | null = null;
   permissions: PermissionItem[] = [];
@@ -43,6 +45,7 @@ export class AccountsPage extends Page implements OnInit {
       document.body.style.overflow = '';
     });
     this.load();
+    this.watch(this.api.teachingSubjectCatalog(), (items) => (this.subjectCatalog = items), () => (this.subjectCatalog = []));
   }
 
   @HostListener('document:keydown.escape')
@@ -132,8 +135,13 @@ export class AccountsPage extends Page implements OnInit {
     this.password = '';
     this.roleIds = item.roles.map((role) => role.id);
     this.editingRoles = item.roles;
+    this.subjectIds = [];
     this.dismissGrants();
     this.setDrawer(true);
+    if (item.roles.some((role) => role.code === 'TEACHER'))
+      this.watch(this.api.userTeachingSubjects(item.id), (subjects) => {
+        if (this.editingId === item.id) this.subjectIds = subjects.map((subject) => subject.id);
+      });
   }
 
   closeOverlay(): void {
@@ -154,10 +162,20 @@ export class AccountsPage extends Page implements OnInit {
     this.fullName = '';
     this.email = '';
     this.roleIds = [];
+    this.subjectIds = [];
   }
 
   toggleRole(id: number, checked: boolean): void {
     this.roleIds = checked ? [...this.roleIds, id] : this.roleIds.filter((item) => item !== id);
+  }
+
+  showTeaching(): boolean {
+    const teacher = this.roles.find((role) => role.code === 'TEACHER');
+    return !!teacher && this.roleIds.includes(teacher.id);
+  }
+
+  toggleSubject(id: number, checked: boolean): void {
+    this.subjectIds = checked ? [...this.subjectIds, id] : this.subjectIds.filter((item) => item !== id);
   }
 
   save(): void {
@@ -173,17 +191,32 @@ export class AccountsPage extends Page implements OnInit {
       email: blankToNull(this.email),
       password: this.password.trim() || null,
     };
+    const willTeach = this.showTeaching();
+    const subjectIds = [...this.subjectIds];
+    const wasTeacher = this.editingRoles.some((role) => role.code === 'TEACHER');
     if (this.editingId) {
       const id = this.editingId;
       const roleIds = [...this.roleIds];
       const current = this.users.find((item) => item.id === id);
       const changeRoles = this.store.hasRole('ADMIN') && !this.sameIds(current?.roles.map((role) => role.id) ?? [], roleIds);
       const update = () => this.watch(this.api.updateAccount(id, profile), () => this.finish('Đã cập nhật tài khoản.'));
-      if (!changeRoles) {
-        update();
+      const saveSubjects = (next: () => void) => {
+        if (!willTeach && !wasTeacher) {
+          next();
+          return;
+        }
+        this.watch(this.api.saveTeachingSubjects(id, willTeach ? subjectIds : []), () => next());
+      };
+      // Gỡ vai trò giáo viên thì xóa môn trước. Thêm vai trò giáo viên thì gán vai trò trước rồi mới ghi môn.
+      if (!willTeach && wasTeacher) {
+        saveSubjects(() => (changeRoles ? this.watch(this.api.replaceUserRoles(id, roleIds), () => update()) : update()));
         return;
       }
-      this.watch(this.api.replaceUserRoles(id, roleIds), () => update());
+      if (changeRoles) {
+        this.watch(this.api.replaceUserRoles(id, roleIds), () => saveSubjects(update));
+        return;
+      }
+      saveSubjects(update);
       return;
     }
 
@@ -195,7 +228,13 @@ export class AccountsPage extends Page implements OnInit {
         email: profile.email,
         roleIds: this.roleIds,
       }),
-      () => this.finish('Đã tạo tài khoản.'),
+      (created) => {
+        if (!willTeach) {
+          this.finish('Đã tạo tài khoản.');
+          return;
+        }
+        this.watch(this.api.saveTeachingSubjects(created.id, subjectIds), () => this.finish('Đã tạo tài khoản.'));
+      },
     );
   }
 

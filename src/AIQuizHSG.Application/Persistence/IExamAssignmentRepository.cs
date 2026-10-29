@@ -9,5 +9,7 @@ public interface IExamAssignmentRepository
     Task<ExamAssignment?> FindActiveAsync(long examId, long? classroomId, long? studentId, CancellationToken ct);
     Task<List<ExamAssignment>> ListByClassroomAsync(long classroomId, CancellationToken ct);
     Task<List<ExamAssignment>> ListByExamAsync(long examId, CancellationToken ct);
+    Task<List<ExamAssignment>> ListActiveByStudentIdsAsync(IReadOnlyCollection<long> studentIds, CancellationToken ct);
+    Task RemoveClassroomPoolAsync(long classroomId, IReadOnlyCollection<long> examIds, CancellationToken ct);
     Task<bool> AllowsAsync(long examId, long userId, CancellationToken ct);
 }

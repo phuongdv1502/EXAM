@@ -113,6 +113,16 @@ public sealed class AssignExamRequest
     public DateTime? DueAtUtc { get; set; }
 }
 
+public sealed class DrawExamsRequest
+{
+    public long ClassroomId { get; set; }
+    public List<long> ExamIds { get; set; } = [];
+}
+
+public sealed record ExamDrawSeatResponse(long StudentId, string StudentCode, string FullName, long ExamId, string ExamTitle);
+
+public sealed record ExamDrawResponse(long ClassroomId, string ClassroomName, IReadOnlyList<ExamDrawSeatResponse> Seats);
+
 public sealed record ExamAssignmentResponse(
     long Id,
     long ExamId,

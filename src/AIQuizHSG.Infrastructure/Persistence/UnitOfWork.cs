@@ -23,6 +23,7 @@ public sealed class UnitOfWork(AiQuizDbContext db) : IUnitOfWork
     public IStudentRecordRepository StudentRecords { get; } = new StudentRecordRepository(db);
     public IPermissionRepository Permissions { get; } = new PermissionRepository(db);
     public IExamAssignmentRepository ExamAssignments { get; } = new ExamAssignmentRepository(db);
+    public ITeacherSubjectRepository TeacherSubjects { get; } = new TeacherSubjectRepository(db);
     public IOmrRepository Omr { get; } = new OmrRepository(db);
     public IReportRepository Reports { get; } = new ReportRepository(db);
 

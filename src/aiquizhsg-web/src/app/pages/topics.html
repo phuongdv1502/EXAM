@@ -40,6 +40,7 @@
       <div class="field">
         <label>Môn học</label>
         <p-select name="subjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" placeholder="Chọn môn" appendTo="body" />
+        @if (!subjects.length) { <p class="muted">Chưa được phân môn giảng dạy.</p> }
       </div>
       <div class="field">
         <label>Chuyên đề cha</label>

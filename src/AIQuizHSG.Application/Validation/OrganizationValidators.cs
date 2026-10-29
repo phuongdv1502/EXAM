@@ -82,6 +82,18 @@ public sealed class AssignExamRequestValidator : AbstractValidator<AssignExamReq
     }
 }
 
+public sealed class DrawExamsRequestValidator : AbstractValidator<DrawExamsRequest>
+{
+    public DrawExamsRequestValidator()
+    {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+        RuleFor(x => x.ClassroomId).GreaterThan(0).WithMessage(Messages.ClassroomNotFound);
+        RuleFor(x => x.ExamIds)
+            .Must(ids => ids != null && ids.Where(id => id > 0).Distinct().Count() >= 2)
+            .WithMessage(Messages.ExamDrawNeedsSeveral);
+    }
+}
+
 public sealed class ReplacePermissionsRequestValidator : AbstractValidator<ReplacePermissionsRequest>
 {
     public ReplacePermissionsRequestValidator()

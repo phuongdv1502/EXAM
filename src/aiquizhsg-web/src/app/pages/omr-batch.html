@@ -30,15 +30,20 @@
 
 @if (!locked()) {
   <p-card header="Tải phiếu">
-    <p class="muted">Chụp phiếu mở camera của máy tính hoặc điện thoại. Tải ảnh hoặc PDF khi quét nhiều phiếu, tối đa 20 tệp, mỗi tệp 12 MB.</p>
+    <p class="muted">Quét chấm giữ camera mở: phiếu nào đứng yên thì hệ thống tự nhận mẫu và chấm. Chụp từng phiếu hoặc tải ảnh, PDF khi cần, tối đa 20 tệp, mỗi tệp 12 MB.</p>
     <div class="row-actions">
-      <p-button label="Chụp phiếu" icon="pi pi-camera" (onClick)="openCamera()" />
+      <p-button label="Quét chấm" icon="pi pi-camera" (onClick)="openScan()" />
+      <p-button label="Chụp phiếu" icon="pi pi-camera" severity="secondary" [outlined]="true" (onClick)="openCamera()" />
       <label pButton severity="secondary" [outlined]="true">
         <i class="pi pi-upload"></i><span>Tải ảnh hoặc PDF</span>
         <input type="file" accept="image/*,application/pdf" multiple hidden (change)="onFiles($event, 'Scanner')" />
       </label>
     </div>
   </p-card>
+}
+
+@if (scanOpen) {
+  <app-omr-scan [batchId]="batchId()" (closed)="closeScan()" (scanned)="refresh()" />
 }
 
 @if (cameraOpen) {
@@ -55,8 +60,10 @@
       <div class="camera-stage">
         <video #preview autoplay playsinline muted></video>
         @if (cameraError) { <p class="camera-fallback">{{ cameraError }}</p> }
+        @else if (cameraNote) { <p class="camera-fallback">{{ cameraNote }}</p> }
       </div>
       <div class="row-actions">
+        <p-button [label]="facing === 'environment' ? 'Camera trước' : 'Camera sau'" icon="pi pi-sync" severity="secondary" [outlined]="true" (onClick)="flipCamera()" />
         <p-button label="Chụp và nhận phiếu" icon="pi pi-camera" [disabled]="!!cameraError" [loading]="loading" (onClick)="shoot()" />
         <p-button label="Đóng" severity="secondary" [outlined]="true" (onClick)="closeCamera()" />
       </div>

@@ -37,7 +37,7 @@ export class QuestionEditorPage extends Page implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.watch(this.api.subjects(), (items) => (this.subjects = items.filter((item) => item.isActive)));
+    this.watch(this.api.teachingSubjects(), (items) => (this.subjects = items.filter((item) => item.isActive)));
     this.watch(this.api.difficultyLevels(), (items) => (this.levels = items));
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const raw = params.get('id');

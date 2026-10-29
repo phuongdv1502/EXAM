@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<ILoginService, LoginService>();
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
+        services.AddScoped<ITeachingSubjectService, TeachingSubjectService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IQuestionService, QuestionService>();
         services.AddScoped<IExamService, ExamService>();

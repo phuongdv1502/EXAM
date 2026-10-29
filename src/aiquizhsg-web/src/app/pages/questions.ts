@@ -27,7 +27,7 @@ export class QuestionsPage extends Page implements OnInit {
   rejectReason = '';
 
   ngOnInit(): void {
-    this.watch(this.api.subjects(), (items) => (this.subjects = items));
+    this.watch(this.api.teachingSubjects(), (items) => (this.subjects = items));
     this.loadTopics();
     this.load();
   }

@@ -112,6 +112,7 @@ public class LoginServiceTests
         public IStudentRecordRepository StudentRecords => throw new NotSupportedException();
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
+        public ITeacherSubjectRepository TeacherSubjects => throw new NotSupportedException();
         public IOmrRepository Omr => throw new NotSupportedException();
         public IReportRepository Reports => throw new NotSupportedException();
         public IExamRepository Exams => throw new NotSupportedException();

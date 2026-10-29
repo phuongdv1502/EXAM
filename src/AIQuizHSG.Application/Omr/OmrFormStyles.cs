@@ -6,6 +6,8 @@ public static class OmrFormStyles
     public const string Khung = "Khung";
     public const string MotCot = "MotCot";
     public const string Luoi = "Luoi";
+    public const string NhieuPhan = "NhieuPhan";
+    public const string PhieuThi = "PhieuThi";
 
     public static bool TryNormalize(string? style, out string code)
     {
@@ -16,7 +18,7 @@ public static class OmrFormStyles
             return true;
         }
 
-        if (code is Khung or MotCot or Luoi)
+        if (code is Khung or MotCot or Luoi or NhieuPhan or PhieuThi)
             return true;
 
         code = string.Empty;

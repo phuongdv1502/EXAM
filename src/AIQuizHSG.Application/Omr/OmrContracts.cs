@@ -9,6 +9,13 @@ public sealed class SaveOmrTemplateRequest
     public string? Style { get; set; }
     public bool IsActive { get; set; }
     public string? ConfigJson { get; set; }
+    public List<OmrTemplateSectionInput> Sections { get; set; } = [];
+}
+
+public sealed class OmrTemplateSectionInput
+{
+    public string Kind { get; set; } = OmrSectionKinds.BonDapAn;
+    public int QuestionCount { get; set; }
 }
 
 public sealed class CreateOmrBatchRequest
@@ -34,6 +41,8 @@ public sealed class ReviewOmrAnswer
 
 public sealed record OmrFormStyleItem(long Id, string Code, string Name, string? Description, int SortOrder);
 
+public sealed record OmrTemplateSectionItem(int QuestionCount, int ChoiceCount, string Kind, int ItemCount);
+
 public sealed record OmrTemplateSummary(
     long Id,
     string Code,
@@ -42,7 +51,8 @@ public sealed record OmrTemplateSummary(
     int ChoiceCount,
     bool IsActive,
     string? Style,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    IReadOnlyList<OmrTemplateSectionItem> Sections);
 
 public sealed record OmrBatchSummary(
     long Id,
@@ -77,6 +87,27 @@ public sealed record UploadedOmrSheet(long SheetId, string FileName, int PageNum
 
 public sealed record UploadOmrSheetsResult(long BatchId, IReadOnlyList<UploadedOmrSheet> Sheets);
 
+public sealed record OmrScanResult(
+    bool Accepted,
+    string Message,
+    long? BatchId,
+    long? SheetId,
+    string? TemplateCode,
+    string? ExamTitle,
+    string? StudentCode,
+    string? StudentName,
+    string? ExamCode,
+    decimal? Score,
+    decimal? MaxScore,
+    int Correct,
+    int Wrong,
+    int Blank,
+    string? Status)
+{
+    public static OmrScanResult Miss(string message) =>
+        new(false, message, null, null, null, null, null, null, null, null, null, 0, 0, 0, null);
+}
+
 public sealed record OmrChoiceDetail(long Id, string Content, int SortOrder);
 
 public sealed record OmrAnswerDetail(
@@ -88,7 +119,8 @@ public sealed record OmrAnswerDetail(
     decimal Confidence,
     long? RecognizedOptionId,
     IReadOnlyList<long> ConfirmedOptionIds,
-    IReadOnlyList<OmrChoiceDetail> Choices);
+    IReadOnlyList<OmrChoiceDetail> Choices,
+    string? RecognizedText);
 
 public sealed record OmrSheetDetail(
     long Id,

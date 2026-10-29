@@ -4,10 +4,15 @@
     <p>Mỗi đợt gắn một đề đã phát hành. Mã đề trên phiếu do hệ thống gán theo đề.</p>
   </div>
   <div class="page-actions">
-    <p-button label="Tạo đợt" icon="pi pi-plus" (onClick)="create()" />
+    <p-button label="Quét chấm" icon="pi pi-camera" (onClick)="openScan()" />
+    <p-button label="Tạo đợt" icon="pi pi-plus" severity="secondary" [outlined]="true" (onClick)="create()" />
     <a pButton severity="secondary" [outlined]="true" routerLink="/omr/templates"><i class="pi pi-th-large"></i><span>Mẫu phiếu</span></a>
   </div>
 </div>
+@if (scanOpen) {
+  <app-omr-scan (closed)="closeScan()" (scanned)="load()" />
+}
+
 <p-card>
   <p-table [value]="items" [paginator]="items.length > 8" [rows]="8">
     <ng-template #header>
@@ -78,7 +83,7 @@
                   <i class="pi pi-table"></i>
                   <span>
                     <strong>{{ template.code }}</strong>
-                    <em>v{{ template.version }} · {{ template.questionCount }} câu · {{ template.choiceCount }} lựa chọn</em>
+                    <em>{{ templateHint(template) }}</em>
                   </span>
                 </button>
                 <button type="button" class="template-look" (click)="previewTemplate(template.id)">Xem</button>

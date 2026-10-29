@@ -49,6 +49,9 @@
             <strong>Câu {{ draft.answer.questionNumber }}</strong>
             <p-tag [value]="label(labels.omrMark, draft.answer.recognitionStatus)" [severity]="tagColor(draft.answer.recognitionStatus)" />
             <p>{{ draft.answer.content || 'Không gắn được câu trong đề.' }}</p>
+            @if (draft.answer.recognizedText) {
+              <p class="muted">Đã đọc: {{ draft.answer.recognizedText }}</p>
+            }
             <div class="choice-list">
               @for (choice of draft.answer.choices; track choice.id; let index = $index) {
                 <div class="choice">

@@ -56,7 +56,7 @@ export class ExamEditorPage extends Page implements OnInit {
   assignRoomId: number | null = null;
 
   ngOnInit(): void {
-    this.watch(this.api.subjects(), (items) => (this.subjects = items.filter((item) => item.isActive)));
+    this.watch(this.api.teachingSubjects(), (items) => (this.subjects = items.filter((item) => item.isActive)));
     this.watch(this.api.profiles(), (items) => (this.profiles = items.filter((item) => item.status !== 'Archived')));
     if (this.store.hasRole('ADMIN', 'TEACHER', 'SCHOOL_ADMIN')) {
       this.watch(this.api.schools(), (items) => (this.schools = items), () => (this.schools = []));

@@ -10,11 +10,34 @@ public sealed class SaveOmrTemplateRequestValidator : AbstractValidator<SaveOmrT
     {
         RuleFor(request => request.Code).NotEmpty().WithMessage(Messages.OmrTemplateCodeRequired).MaximumLength(50);
         RuleFor(request => request.Version).GreaterThan(0);
-        RuleFor(request => request.QuestionCount).InclusiveBetween(1, 60).WithMessage(Messages.OmrQuestionCountInvalid);
-        RuleFor(request => request.ChoiceCount).InclusiveBetween(2, 6).WithMessage(Messages.OmrChoiceCountInvalid);
         RuleFor(request => request.Style)
             .Must(style => OmrFormStyles.TryNormalize(style, out _))
             .WithMessage(Messages.OmrTemplateStyleInvalid);
+        RuleFor(request => request).Custom((request, context) =>
+        {
+            if (!OmrFormStyles.TryNormalize(request.Style, out var style))
+                return;
+            if (style == OmrFormStyles.NhieuPhan)
+            {
+                var parts = (request.Sections ?? []).Select(item => (item.Kind, item.QuestionCount)).ToList();
+                if (!OmrTemplateConfig.TryFromParts(parts, out _))
+                    context.AddFailure(Messages.OmrSectionsInvalid);
+                return;
+            }
+
+            // Phiếu thi cổ điển luôn bốn đáp án, tối đa bốn cột mỗi cột 30 câu.
+            if (style == OmrFormStyles.PhieuThi)
+            {
+                if (request.QuestionCount is < 1 or > 120 || request.ChoiceCount != 4)
+                    context.AddFailure(Messages.OmrClassicQuestionCountInvalid);
+                return;
+            }
+
+            if (request.QuestionCount is < 1 or > 60)
+                context.AddFailure(nameof(request.QuestionCount), Messages.OmrQuestionCountInvalid);
+            if (request.ChoiceCount is < 2 or > 6)
+                context.AddFailure(nameof(request.ChoiceCount), Messages.OmrChoiceCountInvalid);
+        });
     }
 }
 

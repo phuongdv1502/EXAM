@@ -6,10 +6,12 @@ import { forkJoin, interval, switchMap, takeWhile } from 'rxjs';
 import { OmrBatch, OmrResultRow, OmrSheet } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
+import { CameraFacing, cameraDeviceId, openCameraStream } from './omr-camera';
+import { OmrScanPanel } from './omr-scan';
 
 @Component({
   selector: 'app-omr-batch',
-  imports: [FormsModule, RouterLink, ...UI],
+  imports: [FormsModule, RouterLink, OmrScanPanel, ...UI],
   templateUrl: './omr-batch.html',
 })
 export class OmrBatchPage extends Page implements OnInit {
@@ -26,6 +28,9 @@ export class OmrBatchPage extends Page implements OnInit {
   showResults = false;
   cameraOpen = false;
   cameraError = '';
+  cameraNote = '';
+  facing: CameraFacing = 'environment';
+  scanOpen = false;
 
   @ViewChild('preview') private preview?: ElementRef<HTMLVideoElement>;
   private stream: MediaStream | null = null;
@@ -71,9 +76,23 @@ export class OmrBatchPage extends Page implements OnInit {
     this.refresh();
   }
 
+  openScan(): void {
+    if (this.locked() || this.scanOpen) return;
+    this.closeCamera();
+    this.scanOpen = true;
+  }
+
+  closeScan(): void {
+    this.scanOpen = false;
+    this.cdr.markForCheck();
+  }
+
   openCamera(): void {
     if (this.locked() || this.cameraOpen) return;
+    this.scanOpen = false;
     this.cameraError = '';
+    this.cameraNote = '';
+    this.facing = 'environment';
     this.cameraOpen = true;
     document.body.style.overflow = 'hidden';
     this.cdr.detectChanges();
@@ -84,6 +103,7 @@ export class OmrBatchPage extends Page implements OnInit {
     this.stopStream();
     this.cameraOpen = false;
     this.cameraError = '';
+    this.cameraNote = '';
     document.body.style.overflow = '';
     this.cdr.markForCheck();
   }
@@ -184,6 +204,25 @@ export class OmrBatchPage extends Page implements OnInit {
     });
   }
 
+  async flipCamera(): Promise<void> {
+    const previousId = cameraDeviceId(this.stream);
+    this.facing = this.facing === 'environment' ? 'user' : 'environment';
+    this.cameraError = '';
+    this.cameraNote = '';
+    this.stopStream();
+    this.cdr.markForCheck();
+    await this.startCamera();
+    if (this.cameraError) {
+      this.facing = this.facing === 'user' ? 'environment' : 'user';
+      this.cameraError = '';
+      await this.startCamera();
+      if (!this.cameraError) this.cameraNote = 'Không mở được camera kia. Vẫn dùng camera đang mở.';
+    } else if (previousId && cameraDeviceId(this.stream) === previousId) {
+      this.cameraNote = 'Máy này không đổi được camera. Hãy dùng camera đang mở.';
+    }
+    this.cdr.markForCheck();
+  }
+
   private async startCamera(): Promise<void> {
     if (!navigator.mediaDevices?.getUserMedia) {
       this.cameraError = 'Trình duyệt này không mở được camera. Hãy dùng nút tải ảnh.';
@@ -191,18 +230,11 @@ export class OmrBatchPage extends Page implements OnInit {
       return;
     }
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      });
+      this.stream = await openCameraStream(this.facing, 1920, 1080);
     } catch {
-      try {
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
-      } catch {
-        this.cameraError = 'Không mở được camera. Cho phép quyền camera trên trình duyệt, hoặc tải ảnh phiếu lên.';
-        this.cdr.markForCheck();
-        return;
-      }
+      this.cameraError = 'Không mở được camera. Cho phép quyền camera trên trình duyệt, hoặc tải ảnh phiếu lên.';
+      this.cdr.markForCheck();
+      return;
     }
     if (!this.cameraOpen) {
       this.stopStream();

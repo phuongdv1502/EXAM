@@ -31,6 +31,7 @@
         <div class="field span-6">
           <label for="subjectId">Môn</label>
           <p-select inputId="subjectId" name="subjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" (ngModelChange)="onSubject()" [disabled]="locked" placeholder="Chọn môn" appendTo="body" />
+          @if (!subjects.length) { <p class="muted">Chưa được phân môn giảng dạy.</p> }
         </div>
         <div class="field span-3">
           <label for="duration">Số phút</label>
@@ -201,7 +202,7 @@
         <span class="batch-form-icon"><i class="pi pi-users"></i></span>
         <div>
           <h2>Giao cho cả lớp</h2>
-          <p>Chọn một lớp là mọi học sinh đang học lớp đó đều thấy đề.</p>
+          <p>Mọi học sinh trong lớp đều làm cùng đề này. Muốn mỗi học sinh một đề khác nhau thì dùng Chia đề ngẫu nhiên ở danh sách đề.</p>
         </div>
       </div>
       <div class="form-grid">

@@ -40,6 +40,118 @@ public class OmrTests
     }
 
     [Fact]
+    public void MultiPart_BuildsFourChoiceThenTrueFalseThenDigits()
+    {
+        var ok = OmrTemplateConfig.TryFromParts(
+            [("BonDapAn", 10), ("DungSai", 2), ("DienSo", 1)],
+            out var config);
+
+        Assert.True(ok);
+        Assert.Equal(10 + 8 + 1, config.QuestionCount);
+        Assert.Equal(4, config.Bubbles.Count(item => item.QuestionNumber == 1));
+        Assert.Equal(2, config.Bubbles.Count(item => item.QuestionNumber == 11));
+        Assert.Equal(48, config.Bubbles.Count(item => item.QuestionNumber == 19));
+        Assert.True(config.Bubbles.Where(item => item.QuestionNumber <= 10).Max(item => item.Y) < config.Bubbles.Where(item => item.QuestionNumber == 11).Min(item => item.Y));
+        Assert.True(config.Bubbles.Max(item => item.Y + item.Height) <= 1);
+        Assert.True(OmrTemplateConfig.TryParse(config.ToJson(), out var roundTrip));
+        Assert.Equal(config.Bubbles.Count, roundTrip.Bubbles.Count);
+        Assert.True(config.OptionCountsFit([..Enumerable.Repeat(4, 10), ..Enumerable.Repeat(2, 8), 2]));
+        Assert.False(config.OptionCountsFit(Enumerable.Repeat(4, 19).ToList()));
+
+        var png = OmrFormImage.Png(config);
+        Assert.True(png.Length > 1000);
+        Assert.Equal(0x89, png[0]);
+    }
+
+    [Fact]
+    public void Khung_PlacesIdentityGridAboveTheQuestions()
+    {
+        var plan = OmrFormLayout.Measure(10, 4, OmrFormStyles.Khung);
+        var headerBottom = plan.Header.Y + plan.Header.Height;
+
+        Assert.Equal(60, plan.Codes[0].Bubbles.Count);
+        Assert.Equal(30, plan.Codes[1].Bubbles.Count);
+        Assert.True(plan.Bubbles.Min(item => item.Area.Y) > headerBottom);
+        Assert.True(plan.Codes.SelectMany(grid => grid.Bubbles).Max(item => item.Area.Y + item.Area.Height) < headerBottom + 0.01);
+        Assert.True(plan.Qr.Y + plan.Qr.Height < 1d / 3d);
+        Assert.True(plan.Bubbles.Max(item => item.Area.Y + item.Area.Height) <= 1);
+
+        var png = OmrFormImage.Png(OmrTemplateConfig.Grid(10, 4, OmrFormStyles.Khung));
+        Assert.Equal(0x89, png[0]);
+
+        var wide = OmrFormLayout.Measure(20, 4, OmrFormStyles.Khung);
+        Assert.Equal(4, wide.Columns.Count);
+        Assert.Equal(wide.Columns[0].Area.Y, wide.Columns[3].Area.Y, 3);
+        var separation = wide.Columns[1].Area.X - (wide.Columns[0].Area.X + wide.Columns[0].Area.Width);
+        Assert.True(separation >= 16d / OmrFormLayout.PageWidth);
+
+        var wrapped = OmrFormLayout.Measure(25, 4, OmrFormStyles.Khung);
+        Assert.Equal(5, wrapped.Columns.Count);
+        Assert.Equal(wrapped.Columns[0].Area.X, wrapped.Columns[4].Area.X, 3);
+        Assert.True(wrapped.Columns[4].Area.Y > wrapped.Columns[0].Area.Y);
+    }
+
+    [Fact]
+    public void ClassicSheet_StacksThirtyQuestionsInEachOfFourColumns()
+    {
+        var plan = OmrFormLayout.Measure(120, 4, OmrFormStyles.PhieuThi);
+
+        Assert.Equal(480, plan.Bubbles.Count);
+        Assert.Equal(4, plan.Columns.Count);
+        Assert.Equal(Enumerable.Range(1, 30), plan.Columns[0].Questions);
+        Assert.Equal(Enumerable.Range(91, 30), plan.Columns[3].Questions);
+        Assert.Equal(60, plan.Codes[0].Bubbles.Count);
+        Assert.Equal(30, plan.Codes[1].Bubbles.Count);
+        Assert.True(plan.Bubbles.Min(item => item.Area.Y) > plan.Header.Y + plan.Header.Height);
+        Assert.True(plan.Qr.Y + plan.Qr.Height < 1d / 3d);
+        Assert.True(plan.Qr.X + plan.Qr.Width < 0.5);
+        Assert.True(plan.Bubbles.Max(item => item.Area.Y + item.Area.Height) <= 1);
+
+        var first = plan.Bubbles.First(item => item.QuestionNumber == 1 && item.ChoiceIndex == 0);
+        var nextColumn = plan.Bubbles.First(item => item.QuestionNumber == 31 && item.ChoiceIndex == 0);
+        Assert.True(first.Area.X < nextColumn.Area.X);
+        Assert.Equal(first.Area.Y, nextColumn.Area.Y, 3);
+
+        var png = OmrFormImage.Png(OmrTemplateConfig.Grid(120, 4, OmrFormStyles.PhieuThi));
+        Assert.Equal(0x89, png[0]);
+
+        var shorter = OmrFormLayout.Measure(40, 4, OmrFormStyles.PhieuThi);
+        Assert.Equal(160, shorter.Bubbles.Count);
+        Assert.Equal(2, shorter.Columns.Count);
+        Assert.Equal(40, shorter.Bubbles.Max(item => item.QuestionNumber));
+    }
+
+    [Fact]
+    public void ScanChoice_PrefersAClearQrSheetOverANoisyFrame()
+    {
+        var noisy = Read(qr: false, ambiguous: 8, clear: 2);
+        var clean = Read(qr: true, ambiguous: 0, clear: 8);
+
+        Assert.False(OmrScanChoice.Accepts(noisy));
+        Assert.True(OmrScanChoice.Accepts(clean));
+        Assert.True(OmrScanChoice.Score(clean) > OmrScanChoice.Score(noisy));
+    }
+
+    [Fact]
+    public void DigitGrid_ReadsSignedDecimalAndRejectsTwoMarksInOneColumn()
+    {
+        var marks = new List<(int, string)>
+        {
+            (OmrDigitGrid.Index(0, 0), "Marked"),
+            (OmrDigitGrid.Index(1, 3), "Marked"),
+            (OmrDigitGrid.Index(2, 1), "Marked"),
+            (OmrDigitGrid.Index(3, 7), "Marked")
+        };
+
+        Assert.True(OmrDigitGrid.TryRead(marks, out var text));
+        Assert.Equal("-1,5", text);
+        Assert.True(OmrDigitGrid.SameValue(" -1.5 ", text));
+
+        marks.Add((OmrDigitGrid.Index(1, 4), "Marked"));
+        Assert.False(OmrDigitGrid.TryRead(marks, out _));
+    }
+
+    [Fact]
     public void Recognize_ReadsQrAndFilledBubbles()
     {
         var config = OmrTemplateConfig.Grid(2, 2);
@@ -54,6 +166,16 @@ public class OmrTests
         Assert.Equal(nameof(OmrMarkStatus.Blank), Bubble(read, 1, 1));
         Assert.Equal(nameof(OmrMarkStatus.Blank), Bubble(read, 2, 0));
         Assert.Equal(nameof(OmrMarkStatus.Blank), Bubble(read, 2, 1));
+    }
+
+    private static OmrRecognitionResult Read(bool qr, int ambiguous, int clear)
+    {
+        var bubbles = new List<OmrBubbleReading>();
+        for (var index = 0; index < ambiguous; index++)
+            bubbles.Add(new OmrBubbleReading { QuestionNumber = 1, ChoiceIndex = index, Status = nameof(OmrMarkStatus.Ambiguous) });
+        for (var index = 0; index < clear; index++)
+            bubbles.Add(new OmrBubbleReading { QuestionNumber = 1, ChoiceIndex = ambiguous + index, Status = nameof(OmrMarkStatus.Blank) });
+        return new OmrRecognitionResult { QrFound = qr, ExamCode = qr ? "DE1" : null, Bubbles = bubbles };
     }
 
     private static string Bubble(OmrRecognitionResult read, int question, int choice) =>

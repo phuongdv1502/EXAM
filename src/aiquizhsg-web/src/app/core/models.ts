@@ -97,6 +97,20 @@ export interface ImportResult {
   errors: ImportError[];
 }
 
+export interface ExamDrawSeat {
+  studentId: number;
+  studentCode: string;
+  fullName: string;
+  examId: number;
+  examTitle: string;
+}
+
+export interface ExamDrawResult {
+  classroomId: number;
+  classroomName: string;
+  seats: ExamDrawSeat[];
+}
+
 export interface ExamAssignment {
   id: number;
   examId: number;
@@ -376,6 +390,25 @@ export interface OmrFormStyle {
   sortOrder: number;
 }
 
+export interface OmrTemplateSection {
+  questionCount: number;
+  choiceCount: number;
+  kind: string;
+  itemCount: number;
+}
+
+export function omrChoiceLabel(template: { choiceCount: number; sections?: OmrTemplateSection[] }): string {
+  const parts = template.sections ?? [];
+  if (!parts.length) return String(template.choiceCount);
+  return parts
+    .map((part) => {
+      if (part.kind === 'DungSai') return `${part.questionCount} đúng/sai`;
+      if (part.kind === 'DienSo') return `${part.questionCount} số`;
+      return `${part.questionCount}×4`;
+    })
+    .join(' · ');
+}
+
 export interface OmrTemplate {
   id: number;
   code: string;
@@ -385,6 +418,7 @@ export interface OmrTemplate {
   isActive: boolean;
   style: string | null;
   createdAtUtc: string;
+  sections?: OmrTemplateSection[];
 }
 
 export interface OmrBatch {
@@ -437,6 +471,7 @@ export interface OmrAnswer {
   recognizedOptionId: number | null;
   confirmedOptionIds: number[];
   choices: OmrChoice[];
+  recognizedText?: string | null;
 }
 
 export interface OmrSheetDetail {
@@ -452,6 +487,24 @@ export interface OmrSheetDetail {
   reviewNote: string | null;
   answers: OmrAnswer[];
   batchStatus: string;
+}
+
+export interface OmrScanResult {
+  accepted: boolean;
+  message: string;
+  batchId: number | null;
+  sheetId: number | null;
+  templateCode: string | null;
+  examTitle: string | null;
+  studentCode: string | null;
+  studentName: string | null;
+  examCode: string | null;
+  score: number | null;
+  maxScore: number | null;
+  correct: number;
+  wrong: number;
+  blank: number;
+  status: string | null;
 }
 
 export interface OmrUploadResult {

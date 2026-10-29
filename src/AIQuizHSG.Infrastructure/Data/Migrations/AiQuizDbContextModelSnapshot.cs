@@ -1529,6 +1529,21 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.ToTable("Subjects", (string)null);
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.TeacherSubject", b =>
+                {
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SubjectId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("UserId", "SubjectId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("Teacher_Subjects", (string)null);
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.Topic", b =>
                 {
                     b.Property<long>("Id")
@@ -2192,6 +2207,25 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("School");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.TeacherSubject", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AIQuizHSG.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subject");
 
                     b.Navigation("User");
                 });

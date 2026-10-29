@@ -141,6 +141,17 @@ internal sealed class ClassMembershipConfiguration : IEntityTypeConfiguration<Cl
     }
 }
 
+internal sealed class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubject>
+{
+    public void Configure(EntityTypeBuilder<TeacherSubject> entity)
+    {
+        entity.ToTable("Teacher_Subjects");
+        entity.HasKey(x => new { x.UserId, x.SubjectId });
+        entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasOne(x => x.Subject).WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 internal sealed class ExamAssignmentConfiguration : IEntityTypeConfiguration<ExamAssignment>
 {
     public void Configure(EntityTypeBuilder<ExamAssignment> entity)

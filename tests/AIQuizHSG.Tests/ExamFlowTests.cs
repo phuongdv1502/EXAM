@@ -160,6 +160,7 @@ public class ExamFlowTests
         public IStudentRecordRepository StudentRecords => throw new NotSupportedException();
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments { get; } = new OpenAssignments();
+        public ITeacherSubjectRepository TeacherSubjects => throw new NotSupportedException();
         public IOmrRepository Omr => throw new NotSupportedException();
         public IReportRepository Reports => throw new NotSupportedException();
         public IExamRepository Exams { get; }
@@ -269,7 +270,17 @@ public class ExamFlowTests
 
             public Task<bool> AnyAsync(CancellationToken ct) => throw new NotSupportedException();
             public Task<User?> FindByUsernameAsync(string username, CancellationToken ct) => throw new NotSupportedException();
-            public Task<User?> FindByIdAsync(long id, CancellationToken ct) => throw new NotSupportedException();
+            public Task<User?> FindByIdAsync(long id, CancellationToken ct)
+            {
+                var found = owner.UsersData.FirstOrDefault(user => user.Id == id);
+                if (found is not null)
+                    return Task.FromResult<User?>(found);
+                return Task.FromResult<User?>(new User
+                {
+                    Id = id,
+                    UserRoles = [new UserRole { Role = new Role { Code = RoleCodes.Admin } }]
+                });
+            }
             public Task<User?> FindForUpdateAsync(long id, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<User>> ListByRoleAsync(string roleCode, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<User>> ListAsync(CancellationToken ct) => throw new NotSupportedException();
@@ -368,6 +379,8 @@ public class ExamFlowTests
             public Task<ExamAssignment?> FindActiveAsync(long examId, long? classroomId, long? studentId, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<ExamAssignment>> ListByClassroomAsync(long classroomId, CancellationToken ct) => throw new NotSupportedException();
             public Task<List<ExamAssignment>> ListByExamAsync(long examId, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<ExamAssignment>> ListActiveByStudentIdsAsync(IReadOnlyCollection<long> studentIds, CancellationToken ct) => throw new NotSupportedException();
+            public Task RemoveClassroomPoolAsync(long classroomId, IReadOnlyCollection<long> examIds, CancellationToken ct) => throw new NotSupportedException();
         }
 
         private sealed class AuditRepo(FlowStore owner) : IAuditLogRepository
@@ -433,6 +446,7 @@ public class AccountServiceTests
         public IStudentRecordRepository StudentRecords => throw new NotSupportedException();
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
+        public ITeacherSubjectRepository TeacherSubjects => throw new NotSupportedException();
         public IOmrRepository Omr => throw new NotSupportedException();
         public IReportRepository Reports => throw new NotSupportedException();
         public IExamRepository Exams => throw new NotSupportedException();

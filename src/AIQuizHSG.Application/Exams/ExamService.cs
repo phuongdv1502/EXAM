@@ -1,3 +1,4 @@
+using AIQuizHSG.Application.Accounts;
 using AIQuizHSG.Application.Difficulty;
 using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Mappers;
@@ -39,6 +40,8 @@ public sealed partial class ExamService : TimedService, IExamService
         var subject = await _unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
         if (subject is null || !subject.IsActive)
             return OperationResult<ExamResponse>.Invalid(Messages.SubjectInactive);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, subject.Id, ct) is { } denied)
+            return OperationResult<ExamResponse>.Invalid(denied);
         if (await ParticipantErrorAsync(request.ParticipantUserIds, ct) is { } participantError)
             return OperationResult<ExamResponse>.Invalid(participantError);
 
@@ -81,6 +84,8 @@ public sealed partial class ExamService : TimedService, IExamService
         var subject = await _unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
         if (subject is null || !subject.IsActive)
             return OperationResult<ExamResponse>.Invalid(Messages.SubjectInactive);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, subject.Id, ct) is { } denied)
+            return OperationResult<ExamResponse>.Invalid(denied);
         if (await ParticipantErrorAsync(request.ParticipantUserIds, ct) is { } participantError)
             return OperationResult<ExamResponse>.Invalid(participantError);
 

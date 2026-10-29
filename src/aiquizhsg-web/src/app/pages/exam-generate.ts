@@ -34,7 +34,7 @@ export class ExamGeneratePage extends Page implements OnInit {
   private readonly idempotencyKey = crypto.randomUUID();
 
   ngOnInit(): void {
-    this.watch(this.api.subjects(), (items) => (this.subjects = items.filter((item) => item.isActive)));
+    this.watch(this.api.teachingSubjects(), (items) => (this.subjects = items.filter((item) => item.isActive)));
     this.watch(this.api.profiles(), (items) => (this.profiles = items));
     this.watch(this.api.difficultyLevels(), (items) => (this.levels = items));
   }

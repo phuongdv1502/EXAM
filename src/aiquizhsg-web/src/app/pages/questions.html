@@ -15,7 +15,8 @@
   <div class="stack">
     <form class="filters" (ngSubmit)="search()">
       <div class="field span-3">
-        <p-select [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" (ngModelChange)="loadTopics()" name="subjectId" placeholder="Mọi môn" [showClear]="true" appendTo="body" />
+        <p-select [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="subjectId" (ngModelChange)="loadTopics()" name="subjectId" placeholder="Mọi môn được dạy" [showClear]="true" appendTo="body" />
+        @if (!subjects.length) { <p class="muted">Chưa được phân môn giảng dạy.</p> }
       </div>
       <div class="field span-3">
         <p-select [options]="topics" optionLabel="name" optionValue="id" [(ngModel)]="topicId" name="topicId" placeholder="Mọi chuyên đề" [showClear]="true" appendTo="body" />

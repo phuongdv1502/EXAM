@@ -306,6 +306,30 @@ public sealed class PermissionRepository(AiQuizDbContext db) : IPermissionReposi
     }
 }
 
+public sealed class TeacherSubjectRepository(AiQuizDbContext db) : ITeacherSubjectRepository
+{
+    public Task<List<Subject>> ListAsync(long userId, CancellationToken ct) =>
+        db.TeacherSubjects.AsNoTracking()
+            .Where(item => item.UserId == userId)
+            .Select(item => item.Subject)
+            .OrderBy(subject => subject.Name)
+            .ToListAsync(ct);
+
+    public Task<bool> AllowsAsync(long userId, long subjectId, CancellationToken ct) =>
+        db.TeacherSubjects.AsNoTracking().AnyAsync(item => item.UserId == userId && item.SubjectId == subjectId, ct);
+
+    // Thay cả danh sách môn của giáo viên. Môn bỏ chọn thì gỡ, môn mới thì thêm.
+    public async Task ReplaceAsync(long userId, IReadOnlyCollection<long> subjectIds, CancellationToken ct)
+    {
+        var wanted = subjectIds.Distinct().ToHashSet();
+        var rows = await db.TeacherSubjects.Where(item => item.UserId == userId).ToListAsync(ct);
+        db.TeacherSubjects.RemoveRange(rows.Where(item => !wanted.Contains(item.SubjectId)));
+        var have = rows.Select(item => item.SubjectId).ToHashSet();
+        foreach (var subjectId in wanted.Where(id => !have.Contains(id)))
+            db.TeacherSubjects.Add(new TeacherSubject { UserId = userId, SubjectId = subjectId });
+    }
+}
+
 public sealed class ExamAssignmentRepository(AiQuizDbContext db) : IExamAssignmentRepository
 {
     public async Task AddAsync(ExamAssignment assignment, CancellationToken ct) =>
@@ -331,6 +355,25 @@ public sealed class ExamAssignmentRepository(AiQuizDbContext db) : IExamAssignme
             .Where(item => item.ExamId == examId && item.Status == AssignmentStatus.Active)
             .OrderBy(item => item.Id)
             .ToListAsync(ct);
+
+    public Task<List<ExamAssignment>> ListActiveByStudentIdsAsync(IReadOnlyCollection<long> studentIds, CancellationToken ct) =>
+        db.ExamAssignments.AsNoTracking()
+            .Where(item => item.StudentId != null
+                && studentIds.Contains(item.StudentId.Value)
+                && item.Status == AssignmentStatus.Active)
+            .OrderBy(item => item.Id)
+            .ToListAsync(ct);
+
+    // Bỏ giao cả lớp của các đề sắp chia, để học sinh chỉ còn đề được chỉ cho mình.
+    public async Task RemoveClassroomPoolAsync(long classroomId, IReadOnlyCollection<long> examIds, CancellationToken ct)
+    {
+        var rows = await db.ExamAssignments
+            .Where(item => item.ClassroomId == classroomId
+                && item.StudentId == null
+                && examIds.Contains(item.ExamId))
+            .ToListAsync(ct);
+        db.ExamAssignments.RemoveRange(rows);
+    }
 
     // Không giao cho lớp hay học sinh thì không ai được vào nhờ bản giao.
     public async Task<bool> AllowsAsync(long examId, long userId, CancellationToken ct)

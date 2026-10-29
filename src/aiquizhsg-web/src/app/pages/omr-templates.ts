@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
-import { OmrFormStyle, OmrTemplate } from '../core/models';
+import { omrChoiceLabel, OmrFormStyle, OmrTemplate } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
 
@@ -19,6 +19,9 @@ export class OmrTemplatesPage extends Page implements OnInit {
   questionCount = 10;
   choiceCount = 4;
   style = 'Khung';
+  partOne = 40;
+  partTwo = 8;
+  partThree = 6;
   isActive = true;
   previewOpen = false;
   previewUrl: string | null = null;
@@ -38,6 +41,9 @@ export class OmrTemplatesPage extends Page implements OnInit {
     this.version = 1;
     this.questionCount = 10;
     this.choiceCount = 4;
+    this.partOne = 40;
+    this.partTwo = 8;
+    this.partThree = 6;
     this.style = this.styles[0]?.code ?? 'Khung';
     this.isActive = true;
     this.openForm();
@@ -51,12 +57,34 @@ export class OmrTemplatesPage extends Page implements OnInit {
     this.openPreview(this.api.omrTemplatePreview(id));
   }
 
+  pick(code: string): void {
+    this.style = code;
+    if (code === 'PhieuThi')
+      this.choiceCount = 4;
+    else if (this.questionCount > 60)
+      this.questionCount = 60;
+  }
+
   previewDraft(): void {
-    this.openPreview(this.api.omrTemplateDraft(Number(this.questionCount), Number(this.choiceCount), this.style));
+    const many = this.style === 'NhieuPhan';
+    this.openPreview(this.api.omrTemplateDraft(
+      many ? this.examQuestionCount() : Number(this.questionCount),
+      many ? 4 : Number(this.choiceCount),
+      this.style,
+      many ? this.sectionQuery() : undefined,
+    ));
   }
 
   styleName(code: string | null): string {
     return this.styles.find((item) => item.code === (code || 'Khung'))?.name ?? 'Khung nhiều cột';
+  }
+
+  choiceLabel(item: OmrTemplate): string {
+    return omrChoiceLabel(item);
+  }
+
+  examQuestionCount(): number {
+    return Number(this.partOne) + Number(this.partTwo) * 4 + Number(this.partThree);
   }
 
   onPreviewVisible(open: boolean): void {
@@ -85,6 +113,18 @@ export class OmrTemplatesPage extends Page implements OnInit {
     this.cdr.markForCheck();
   }
 
+  private sectionInputs(): { kind: string; questionCount: number }[] {
+    return [
+      { kind: 'BonDapAn', questionCount: Number(this.partOne) },
+      { kind: 'DungSai', questionCount: Number(this.partTwo) },
+      { kind: 'DienSo', questionCount: Number(this.partThree) },
+    ].filter((part) => part.questionCount > 0);
+  }
+
+  private sectionQuery(): string {
+    return this.sectionInputs().map((part) => `${part.questionCount}:${part.kind}`).join(',');
+  }
+
   private revokePreview(): void {
     if (!this.previewUrl) return;
     URL.revokeObjectURL(this.previewUrl);
@@ -97,10 +137,11 @@ export class OmrTemplatesPage extends Page implements OnInit {
       this.api.saveOmrTemplate({
         code: this.code.trim(),
         version: this.version,
-        questionCount: this.questionCount,
+        questionCount: this.style === 'NhieuPhan' ? this.examQuestionCount() : this.questionCount,
         choiceCount: this.choiceCount,
         style: this.style,
         isActive: this.isActive,
+        sections: this.style === 'NhieuPhan' ? this.sectionInputs() : [],
       }),
       () => {
         this.showOk('Đã lưu mẫu phiếu.');

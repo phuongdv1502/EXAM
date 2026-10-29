@@ -8,11 +8,16 @@
       </div>
     </div>
     <nav>
-      @for (item of visible(); track item.path) {
-        <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.exact }">
-          <i [class]="item.icon"></i>
-          <span>{{ item.label }}</span>
-        </a>
+      @for (group of visible(); track group.label) {
+        <section class="nav-group">
+          <p>{{ group.label }}</p>
+          @for (item of group.items; track item.path) {
+            <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.exact }">
+              <i [class]="item.icon"></i>
+              <span>{{ item.label }}</span>
+            </a>
+          }
+        </section>
       }
     </nav>
   </aside>
@@ -29,3 +34,4 @@
     </main>
   </div>
 </div>
+

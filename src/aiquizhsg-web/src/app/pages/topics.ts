@@ -23,14 +23,17 @@ export class TopicsPage extends Page implements OnInit {
   isActive = true;
 
   ngOnInit(): void {
-    this.watch(this.api.subjects(), (items) => {
+    this.watch(this.api.teachingSubjects(), (items) => {
       this.subjects = items.filter((item) => item.isActive);
       this.load();
     });
   }
 
   load(): void {
-    this.watch(this.api.topics(this.filterSubjectId), (items) => (this.items = items));
+    this.watch(this.api.topics(this.filterSubjectId), (items) => {
+      const allowed = new Set(this.subjects.map((subject) => subject.id));
+      this.items = items.filter((item) => allowed.has(item.subjectId));
+    });
   }
 
   parents(): Topic[] {

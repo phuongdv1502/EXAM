@@ -149,6 +149,23 @@
             <p class="muted">Chỉ quản trị hệ thống đổi được vai trò.</p>
           </div>
         }
+        @if (showTeaching()) {
+          <div class="field">
+            <span class="field-label">Môn giảng dạy</span>
+            <div class="source-pills account-roles">
+              @for (subject of subjectCatalog; track subject.id) {
+                <button type="button" class="source-pill" [class.on]="subjectIds.includes(subject.id)" (click)="toggleSubject(subject.id, !subjectIds.includes(subject.id))">
+                  {{ subject.name }}
+                </button>
+              }
+            </div>
+            @if (!subjectCatalog.length) {
+              <p class="muted">Chưa có môn đang dùng.</p>
+            } @else {
+              <p class="muted">Đã chọn {{ subjectIds.length }} môn. Giáo viên tạo câu hỏi và đề trong các môn này.</p>
+            }
+          </div>
+        }
         <p-button styleClass="batch-submit" [label]="editingId ? 'Lưu thay đổi' : 'Lưu tài khoản'" icon="pi pi-check" type="submit" [loading]="loading" />
         <p-button styleClass="account-cancel" [label]="editingId ? 'Hủy sửa' : 'Đóng'" icon="pi pi-times" severity="secondary" [outlined]="true" type="button" (onClick)="closeForm()" />
       </form>

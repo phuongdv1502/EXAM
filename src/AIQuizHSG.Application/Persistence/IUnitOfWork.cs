@@ -19,6 +19,7 @@ public interface IUnitOfWork
     IStudentRecordRepository StudentRecords { get; }
     IPermissionRepository Permissions { get; }
     IExamAssignmentRepository ExamAssignments { get; }
+    ITeacherSubjectRepository TeacherSubjects { get; }
     IOmrRepository Omr { get; }
     IReportRepository Reports { get; }
 

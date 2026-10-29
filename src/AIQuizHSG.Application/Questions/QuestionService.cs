@@ -1,3 +1,4 @@
+using AIQuizHSG.Application.Accounts;
 using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Mappers;
 using AIQuizHSG.Application.Persistence;
@@ -48,6 +49,8 @@ public sealed partial class QuestionService : BaseService, IQuestionService
         var topic = await _unitOfWork.Topics.FindAsync(request.TopicId, ct);
         if (topic is null || !topic.IsActive)
             return OperationResult<QuestionResponse>.Invalid(Messages.TopicInactive);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, topic.SubjectId, ct) is { } denied)
+            return OperationResult<QuestionResponse>.Invalid(denied);
 
         var difficulty = await ResolveDifficultyAsync(request.DifficultyLevelId, assignDefault: true, ct);
         if (difficulty.Error is not null)
@@ -73,6 +76,8 @@ public sealed partial class QuestionService : BaseService, IQuestionService
         var topic = await _unitOfWork.Topics.FindAsync(request.TopicId, ct);
         if (topic is null || !topic.IsActive)
             return OperationResult<QuestionResponse>.Invalid(Messages.TopicInactive);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, topic.SubjectId, ct) is { } denied)
+            return OperationResult<QuestionResponse>.Invalid(denied);
 
         QuestionMapper.ApplyContent(question, request, topic);
         // Không gửi mức mới thì giữ mức cũ, kể cả câu chưa được phân loại.
@@ -164,6 +169,12 @@ public sealed partial class QuestionService : BaseService, IQuestionService
             if (subject is null || !subject.IsActive)
             {
                 read.Errors.Add(new ImportError(row.RowNumber, string.Format(Messages.SubjectNotFoundByCode, row.SubjectCode)));
+                continue;
+            }
+
+            if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, subject.Id, ct) is { } denied)
+            {
+                read.Errors.Add(new ImportError(row.RowNumber, denied));
                 continue;
             }
 

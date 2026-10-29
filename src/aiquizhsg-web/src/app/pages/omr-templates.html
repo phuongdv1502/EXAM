@@ -1,7 +1,7 @@
 <div class="page-head">
   <div>
     <h1>Mẫu phiếu OMR</h1>
-    <p>Mỗi mẫu gắn số câu, số lựa chọn và một kiểu phiếu. Tọa độ ô tô được sinh theo kiểu đã chọn.</p>
+    <p>Mỗi mẫu gắn số câu và một kiểu phiếu. Kiểu nhiều phần gồm trắc nghiệm, đúng/sai và trả lời số.</p>
   </div>
   <div class="page-actions">
     <p-button label="Thêm mẫu" icon="pi pi-plus" (onClick)="create()" />
@@ -25,7 +25,7 @@
         <td>{{ item.code }} <span class="muted">v{{ item.version }}</span></td>
         <td>{{ styleName(item.style) }}</td>
         <td>{{ item.questionCount }}</td>
-        <td>{{ item.choiceCount }}</td>
+        <td>{{ choiceLabel(item) }}</td>
         <td><p-tag [value]="item.isActive ? 'Đang dùng' : 'Ẩn'" [severity]="item.isActive ? 'success' : 'secondary'" /></td>
         <td><p-button label="Xem" size="small" severity="secondary" [outlined]="true" (onClick)="previewSaved(item.id)" /></td>
       </tr>
@@ -56,23 +56,45 @@
         <p-inputnumber inputId="version" name="version" [(ngModel)]="version" [min]="1" [max]="99" />
       </div>
       <div class="field">
-        <label for="questionCount">Số câu</label>
-        <p-inputnumber inputId="questionCount" name="questionCount" [(ngModel)]="questionCount" [min]="1" [max]="60" />
-      </div>
-      <div class="field">
-        <label for="choiceCount">Số lựa chọn</label>
-        <p-inputnumber inputId="choiceCount" name="choiceCount" [(ngModel)]="choiceCount" [min]="2" [max]="6" />
-      </div>
-      <div class="field">
         <label>Kiểu phiếu</label>
         <div class="template-picks">
           @for (item of styles; track item.code) {
-            <button type="button" class="template-pick" [class.on]="style === item.code" (click)="style = item.code">
+            <button type="button" class="template-pick" [class.on]="style === item.code" (click)="pick(item.code)">
               <span><strong>{{ item.name }}</strong><em>{{ item.description }}</em></span>
             </button>
           }
         </div>
       </div>
+      @if (style === 'NhieuPhan') {
+        <div class="part-grid">
+          <div class="field">
+            <label for="partOne">Phần I · 4 đáp án</label>
+            <p-inputnumber inputId="partOne" name="partOne" [(ngModel)]="partOne" [min]="0" [max]="40" />
+          </div>
+          <div class="field">
+            <label for="partTwo">Phần II · đúng/sai</label>
+            <p-inputnumber inputId="partTwo" name="partTwo" [(ngModel)]="partTwo" [min]="0" [max]="8" />
+          </div>
+          <div class="field">
+            <label for="partThree">Phần III · trả lời số</label>
+            <p-inputnumber inputId="partThree" name="partThree" [(ngModel)]="partThree" [min]="0" [max]="6" />
+          </div>
+        </div>
+        <p class="muted">Phần II: mỗi câu có 4 ý a–d, mỗi ý là một câu đúng/sai trên đề. Phần III chấm khi nội dung phương án đúng trùng chuỗi đã tô, ví dụ 12,5. Tổng {{ examQuestionCount() }} câu trên đề.</p>
+      } @else {
+        <div class="field">
+          <label for="questionCount">Số câu</label>
+          <p-inputnumber inputId="questionCount" name="questionCount" [(ngModel)]="questionCount" [min]="1" [max]="style === 'PhieuThi' ? 120 : 60" />
+        </div>
+        @if (style === 'PhieuThi') {
+          <p class="muted">Phiếu này bốn đáp án. Số cột tự chia theo số câu đã nhập, không in câu thừa.</p>
+        } @else {
+          <div class="field">
+            <label for="choiceCount">Số lựa chọn</label>
+            <p-inputnumber inputId="choiceCount" name="choiceCount" [(ngModel)]="choiceCount" [min]="2" [max]="6" />
+          </div>
+        }
+      }
       <div class="choice" style="margin: 1rem 0">
         <p-toggleswitch inputId="templateActive" name="isActive" [(ngModel)]="isActive" />
         <label for="templateActive">Đang dùng</label>

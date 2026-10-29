@@ -21,7 +21,8 @@ public sealed partial class ClassroomReportService : OrganizationService, IClass
 
         var students = await _unitOfWork.StudentRecords.ListActiveInClassroomAsync(classroomId, ct);
         var assignments = await _unitOfWork.ExamAssignments.ListByClassroomAsync(classroomId, ct);
-        var examIds = assignments.Select(item => item.ExamId).ToHashSet();
+        var personal = await _unitOfWork.ExamAssignments.ListActiveByStudentIdsAsync(students.Select(student => student.Id).ToArray(), ct);
+        var examIds = assignments.Select(item => item.ExamId).Concat(personal.Select(item => item.ExamId)).ToHashSet();
         var userIds = students.Where(student => student.UserId is not null).Select(student => student.UserId!.Value).ToArray();
         var attempts = await _unitOfWork.Attempts.ListByUserIdsAsync(userIds, ct);
 

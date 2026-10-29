@@ -132,6 +132,13 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
         return total == 0 ? 0 : (double)dark / total;
     }
 
+    // Đọc mã QR trước, để biết phiếu thuộc đề nào rồi mới chọn mẫu.
+    public string? ReadQr(ReadOnlyMemory<byte> image)
+    {
+        using var bitmap = Decode(image);
+        return bitmap is null ? null : ReadQr(bitmap);
+    }
+
     private static string? ReadQr(SKBitmap image)
     {
         var zoneWidth = Math.Max(1, image.Width / 2);

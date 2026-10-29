@@ -2,13 +2,14 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
-import { ExamSummary, OmrBatch, OmrTemplate } from '../core/models';
+import { ExamSummary, omrChoiceLabel, OmrBatch, OmrTemplate } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
+import { OmrScanPanel } from './omr-scan';
 
 @Component({
   selector: 'app-omr-batches',
-  imports: [FormsModule, RouterLink, ...UI],
+  imports: [FormsModule, RouterLink, OmrScanPanel, ...UI],
   templateUrl: './omr-batches.html',
 })
 export class OmrBatchesPage extends Page implements OnInit {
@@ -20,6 +21,7 @@ export class OmrBatchesPage extends Page implements OnInit {
   examId: number | null = null;
   templateId: number | null = null;
   sourceType = 'Scanner';
+  scanOpen = false;
   previewOpen = false;
   previewUrl: string | null = null;
   private readonly releasePreview = this.destroyRef.onDestroy(() => this.revokePreview());
@@ -28,6 +30,15 @@ export class OmrBatchesPage extends Page implements OnInit {
     this.load();
     this.watch(this.api.exams(), (items) => (this.exams = items.filter((item) => item.status === 'Published' || item.status === 'Closed')));
     this.watch(this.api.omrTemplates(), (items) => (this.templates = items.filter((item) => item.isActive)));
+  }
+
+  openScan(): void {
+    this.scanOpen = true;
+  }
+
+  closeScan(): void {
+    this.scanOpen = false;
+    this.cdr.markForCheck();
   }
 
   load(): void {
@@ -44,6 +55,10 @@ export class OmrBatchesPage extends Page implements OnInit {
     this.examId = id;
     if (!this.matchingTemplates().some((item) => item.id === this.templateId))
       this.templateId = null;
+  }
+
+  templateHint(template: OmrTemplate): string {
+    return `v${template.version} · ${template.questionCount} câu · ${omrChoiceLabel(template)}`;
   }
 
   pickTemplate(id: number): void {

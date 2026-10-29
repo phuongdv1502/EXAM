@@ -330,6 +330,20 @@ public class ExamAssignmentsController(IExamAssignmentService assignments) : Con
 
 [ApiController]
 [Authorize]
+[Route("api/exam-draws")]
+public class ExamDrawsController(IExamAssignmentService assignments) : ControllerBase
+{
+    [HttpPost]
+    public async Task<ActionResult<ExamDrawResponse>> Create(DrawExamsRequest request, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await assignments.DrawAsync(request, actor, ct));
+    }
+}
+
+[ApiController]
+[Authorize]
 [Route("api/reports/classrooms")]
 public class ClassroomReportsController(IClassroomReportService reports) : ControllerBase
 {

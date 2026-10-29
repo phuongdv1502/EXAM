@@ -1,3 +1,4 @@
+using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Omr;
 using AIQuizHSG.Domain.Common;
 using Microsoft.AspNetCore.Authorization;
@@ -27,11 +28,11 @@ public class OmrController(IOmrService omr) : ControllerBase
     }
 
     [HttpGet("templates/preview")]
-    public async Task<IActionResult> PreviewDraft([FromQuery] int questionCount, [FromQuery] int choiceCount, [FromQuery] string? style, CancellationToken ct)
+    public async Task<IActionResult> PreviewDraft([FromQuery] int questionCount, [FromQuery] int choiceCount, [FromQuery] string? style, [FromQuery] string? sections, CancellationToken ct)
     {
         if (!Actors.TryGet(HttpContext, out var actor))
             return ApiResults.Unauthorized();
-        var result = await omr.PreviewTemplateAsync(null, questionCount, choiceCount, style, actor, ct);
+        var result = await omr.PreviewTemplateAsync(null, questionCount, choiceCount, style, sections, actor, ct);
         if (result.Status != Application.Common.OperationStatus.Ok || result.Value is null)
             return ApiResults.From(result);
         return File(result.Value, "image/png");
@@ -42,7 +43,7 @@ public class OmrController(IOmrService omr) : ControllerBase
     {
         if (!Actors.TryGet(HttpContext, out var actor))
             return ApiResults.Unauthorized();
-        var result = await omr.PreviewTemplateAsync(id, null, null, null, actor, ct);
+        var result = await omr.PreviewTemplateAsync(id, null, null, null, null, actor, ct);
         if (result.Status != Application.Common.OperationStatus.Ok || result.Value is null)
             return ApiResults.From(result);
         return File(result.Value, "image/png");
@@ -101,6 +102,22 @@ public class OmrController(IOmrService omr) : ControllerBase
         if (result.Status != Application.Common.OperationStatus.Ok)
             return ApiResults.From(result);
         return Accepted(result.Value);
+    }
+
+    [HttpPost("scan")]
+    [RequestSizeLimit(12_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 12_000_000)]
+    public async Task<ActionResult<OmrScanResult>> Scan([FromForm] IFormFile? file, [FromForm] long? batchId, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        if (file is null)
+            return ApiResults.From(OperationResult<OmrScanResult>.Invalid(Messages.OmrFileEmpty));
+
+        await using var stream = file.OpenReadStream();
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory, ct);
+        return ApiResults.From(await omr.ScanAsync(batchId, memory.ToArray(), actor, ct));
     }
 
     [HttpGet("batches/{id:long}/sheets")]

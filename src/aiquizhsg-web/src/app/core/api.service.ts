@@ -13,6 +13,7 @@ import {
   DrawnQuestion,
   ExamAssignment,
   ExamDetail,
+  ExamDrawResult,
   ExamProfile,
   ExamSummary,
   ExamValidation,
@@ -24,6 +25,7 @@ import {
   OmrBatch,
   OmrFormStyle,
   OmrResultRow,
+  OmrScanResult,
   OmrSheet,
   OmrSheetDetail,
   OmrSheetPage,
@@ -56,6 +58,22 @@ export class ApiService {
 
   subjects(): Observable<Subject[]> {
     return this.get('/subjects');
+  }
+
+  teachingSubjects(): Observable<Subject[]> {
+    return this.get('/teaching-subjects');
+  }
+
+  teachingSubjectCatalog(): Observable<Subject[]> {
+    return this.get('/teaching-subjects/catalog');
+  }
+
+  userTeachingSubjects(userId: number): Observable<Subject[]> {
+    return this.get(`/teaching-subjects/users/${userId}`);
+  }
+
+  saveTeachingSubjects(userId: number, subjectIds: number[]): Observable<Subject[]> {
+    return this.put(`/teaching-subjects/users/${userId}`, { subjectIds });
   }
 
   saveSubject(body: Omit<Subject, 'id'>, id?: number): Observable<Subject> {
@@ -140,6 +158,10 @@ export class ApiService {
 
   assignExam(examId: number, body: unknown): Observable<ExamAssignment> {
     return this.post(`/exams/${examId}/assignments`, body);
+  }
+
+  drawExams(body: unknown): Observable<ExamDrawResult> {
+    return this.post('/exam-draws', body);
   }
 
   profiles(): Observable<ExamProfile[]> {
@@ -320,9 +342,11 @@ export class ApiService {
     return this.blob(`/omr/templates/${id}/preview`);
   }
 
-  omrTemplateDraft(questionCount: number, choiceCount: number, style: string): Observable<Blob> {
+  omrTemplateDraft(questionCount: number, choiceCount: number, style: string, sections?: string): Observable<Blob> {
+    const params: Record<string, string | number> = { questionCount, choiceCount, style };
+    if (sections) params['sections'] = sections;
     return this.http.get(`${apiUrl}/omr/templates/preview`, {
-      params: { questionCount, choiceCount, style },
+      params,
       responseType: 'blob',
     });
   }
@@ -342,6 +366,7 @@ export class ApiService {
     choiceCount: number;
     style: string;
     isActive: boolean;
+    sections?: { kind: string; questionCount: number }[];
   }): Observable<OmrTemplate> {
     return this.post('/omr/templates', body);
   }
@@ -360,6 +385,13 @@ export class ApiService {
 
   omrSheets(batchId: number, status: string | null, page: number, pageSize: number): Observable<OmrSheetPage> {
     return this.get(`/omr/batches/${batchId}/sheets`, { status, page, pageSize });
+  }
+
+  scanOmr(file: File, batchId?: number | null): Observable<OmrScanResult> {
+    const body = new FormData();
+    body.append('file', file, file.name);
+    if (batchId) body.append('batchId', String(batchId));
+    return this.post('/omr/scan', body);
   }
 
   uploadOmrSheets(batchId: number, files: File[], sourceType: string): Observable<OmrUploadResult> {

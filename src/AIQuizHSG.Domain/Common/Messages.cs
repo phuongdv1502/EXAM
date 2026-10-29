@@ -162,6 +162,13 @@ public static class Messages
     public const string AssignmentTargetRequired = "Chọn một lớp hoặc một học sinh để giao đề.";
     public const string AssignmentTargetConflict = "Chỉ được giao cho một lớp hoặc một học sinh.";
     public const string AssignmentExists = "Đề đã được giao cho đối tượng này.";
+    public const string SubjectNotTaught = "Bạn chỉ tạo được nội dung thuộc môn mình được phân dạy.";
+    public const string TeachingSubjectsNeedTeacher = "Chỉ tài khoản giáo viên mới được gán môn giảng dạy.";
+    public const string TeachingSubjectMissing = "Có môn không còn trong danh mục.";
+    public const string ExamDrawNeedsSeveral = "Hãy chọn ít nhất hai đề đã phát hành để chia cho lớp.";
+    public const string ExamDrawNotPublished = "Chỉ chia được đề đã phát hành.";
+    public const string ExamDrawHasParticipants = "Đề đã có danh sách thí sinh riêng, không chia ngẫu nhiên theo lớp.";
+    public const string ExamDrawNoStudents = "Lớp chưa có học sinh đang học.";
     public const string RoleNotFound = "Không tìm thấy vai trò.";
     public const string RoleRequired = "Chọn ít nhất một vai trò.";
     public const string PermissionNotFound = "Có quyền không tồn tại trong danh mục.";
@@ -182,6 +189,7 @@ public static class Messages
     public const string OmrTemplateConfigInvalid = "Cấu hình mẫu phiếu không hợp lệ.";
     public const string OmrTemplateStyleInvalid = "Hãy chọn một kiểu phiếu có sẵn.";
     public const string OmrQuestionCountInvalid = "Số câu trên phiếu phải từ 1 đến 60.";
+    public const string OmrClassicQuestionCountInvalid = "Số câu trên phiếu thi phải từ 1 đến 120, mỗi câu bốn đáp án.";
     public const string OmrChoiceCountInvalid = "Số lựa chọn phải từ 2 đến 6.";
     public const string OmrBatchNotFound = "Không tìm thấy đợt nhập phiếu.";
     public const string OmrBatchLocked = "Đợt đã công bố, không sửa trực tiếp.";
@@ -203,4 +211,10 @@ public static class Messages
     public const string OmrReviewIncomplete = "Cần xác nhận đủ các câu trên phiếu.";
     public const string OmrReviewOptionInvalid = "Đáp án xác nhận không thuộc câu hỏi của đề.";
     public const string OmrQuestionMapInvalid = "Số câu trên mẫu không khớp số câu của đề.";
+    public const string OmrSectionsInvalid = "Phiếu nhiều phần cần ít nhất hai phần. Phần I tối đa 40 câu, phần II tối đa 8 câu, phần III tối đa 6 câu.";
+    public const string OmrSectionMapInvalid = "Số đáp án từng phần không khớp thứ tự câu trên đề.";
+    public const string OmrScanNoQr = "Chưa thấy mã phiếu. Giữ phiếu thẳng, đủ sáng, mã QR nằm trong khung.";
+    public const string OmrScanNoBatch = "Không có đợt chấm đang mở cho mã đề trên phiếu.";
+    public const string OmrScanNoTemplate = "Phiếu không khớp mẫu của đợt đang mở.";
+    public const string OmrScanDuplicate = "Phiếu này đã có trong đợt.";
 }

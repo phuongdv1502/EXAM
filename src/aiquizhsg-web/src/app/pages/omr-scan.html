@@ -1,0 +1,35 @@
+<div class="camera-backdrop" (click)="close()">
+  <section class="camera-panel scan-panel" role="dialog" aria-modal="true" aria-label="Quét chấm phiếu" (click)="$event.stopPropagation()">
+    <div class="batch-form-head">
+      <span class="batch-form-icon"><i class="pi pi-camera"></i></span>
+      <div>
+        <h2>Quét chấm</h2>
+        <p>Đưa cả phiếu vào khung và giữ yên. Hệ thống tự đọc mã đề, chọn mẫu và chấm.</p>
+      </div>
+      <button type="button" class="drawer-close" aria-label="Đóng" (click)="close()"><i class="pi pi-times"></i></button>
+    </div>
+    <div class="camera-stage">
+      <video #preview autoplay playsinline muted></video>
+      <div class="scan-guide" aria-hidden="true"></div>
+      @if (cameraError) {
+        <p class="camera-fallback">{{ cameraError }}</p>
+      } @else {
+        <p class="scan-phase">{{ phase }}</p>
+      }
+    </div>
+    @if (result?.accepted) {
+      <div class="scan-result" [class.ok]="result.status === 'Graded'" [class.wait]="result.status === 'NeedsReview'">
+        <strong>{{ result.studentName || result.studentCode || 'Phiếu' }}</strong>
+        @if (result.examTitle) { <span>{{ result.examTitle }} · mẫu {{ result.templateCode }}</span> }
+        @if (result.score !== null && result.maxScore !== null) {
+          <span>{{ result.score }}/{{ result.maxScore }} · đúng {{ result.correct }}, sai {{ result.wrong }}, bỏ {{ result.blank }}</span>
+        }
+        <span>{{ result.status ? label(labels.omrSheet, result.status) : result.message }}</span>
+      </div>
+    }
+    <div class="row-actions">
+      <p-button [label]="facing === 'environment' ? 'Camera trước' : 'Camera sau'" icon="pi pi-sync" severity="secondary" [outlined]="true" (onClick)="flipCamera()" />
+      <p-button label="Đóng" severity="secondary" [outlined]="true" (onClick)="close()" />
+    </div>
+  </section>
+</div>

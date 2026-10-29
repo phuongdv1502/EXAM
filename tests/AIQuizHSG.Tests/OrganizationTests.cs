@@ -189,6 +189,7 @@ public class OrganizationTests
         public IExamRepository Exams => throw new NotSupportedException();
         public IAttemptRepository Attempts => throw new NotSupportedException();
         public IExamAssignmentRepository ExamAssignments => throw new NotSupportedException();
+        public ITeacherSubjectRepository TeacherSubjects => throw new NotSupportedException();
         public IOmrRepository Omr => throw new NotSupportedException();
         public IReportRepository Reports => throw new NotSupportedException();
         public IAuditLogRepository AuditLogs { get; } = new AuditRepo();

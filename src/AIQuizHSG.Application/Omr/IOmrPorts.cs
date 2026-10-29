@@ -4,6 +4,8 @@ namespace AIQuizHSG.Application.Omr;
 public interface IOmrRecognitionService
 {
     OmrRecognitionResult Recognize(ReadOnlyMemory<byte> image, OmrTemplateConfig config);
+
+    string? ReadQr(ReadOnlyMemory<byte> image);
 }
 
 // Tách PDF nhiều trang thành từng ảnh phiếu. Ảnh đơn trả về một trang.

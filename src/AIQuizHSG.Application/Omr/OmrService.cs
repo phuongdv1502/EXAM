@@ -66,13 +66,27 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrTemplateStyleInvalid);
 
         OmrTemplateConfig config;
-        if (string.IsNullOrWhiteSpace(request.ConfigJson))
+        if (!string.IsNullOrWhiteSpace(request.ConfigJson))
+        {
+            if (!OmrTemplateConfig.TryParse(request.ConfigJson, out config))
+                return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrTemplateConfigInvalid);
+        }
+        else if (style == OmrFormStyles.NhieuPhan)
+        {
+            var parts = (request.Sections ?? []).Select(item => (item.Kind, item.QuestionCount)).ToList();
+            if (!OmrTemplateConfig.TryFromParts(parts, out config))
+                return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrSectionsInvalid);
+        }
+        else
+        {
             config = OmrTemplateConfig.Grid(request.QuestionCount, request.ChoiceCount, style);
-        else if (!OmrTemplateConfig.TryParse(request.ConfigJson, out config))
-            return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrTemplateConfigInvalid);
+        }
 
-        if (config.QuestionCount != request.QuestionCount || config.ChoiceCount != request.ChoiceCount)
+        // Mẫu một kiểu phải khớp số câu và số lựa chọn đã khai.
+        if (style != OmrFormStyles.NhieuPhan && (config.QuestionCount != request.QuestionCount || config.ChoiceCount != request.ChoiceCount))
             return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrTemplateConfigInvalid);
+        if (style == OmrFormStyles.NhieuPhan && config.Style != OmrFormStyles.NhieuPhan)
+            return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrSectionsInvalid);
 
         var template = new OmrTemplate
         {
@@ -99,7 +113,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
     }
 
     // Xem phiếu trống theo mẫu đã lưu, hoặc theo số câu và kiểu sắp tạo.
-    public async Task<OperationResult<byte[]>> PreviewTemplateAsync(long? id, int? questionCount, int? choiceCount, string? style, Actor actor, CancellationToken ct)
+    public async Task<OperationResult<byte[]>> PreviewTemplateAsync(long? id, int? questionCount, int? choiceCount, string? style, string? sections, Actor actor, CancellationToken ct)
     {
         if (await Deny(actor, TemplatePermission, ct) is not null && await Deny(actor, BatchPermission, ct) is { } denied)
             return OperationResult<byte[]>.Forbidden(denied);
@@ -113,9 +127,15 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             if (!OmrTemplateConfig.TryParse(template.ConfigJson, out config))
                 return OperationResult<byte[]>.Invalid(Messages.OmrTemplateConfigInvalid);
         }
-        else if (questionCount is >= 1 and <= 60 && choiceCount is >= 2 and <= 6 && OmrFormStyles.TryNormalize(style, out var code))
+        else if (OmrFormStyles.TryNormalize(style, out var code) && code == OmrFormStyles.NhieuPhan)
         {
-            config = OmrTemplateConfig.Grid(questionCount.Value, choiceCount.Value, code);
+            if (!OmrSectionKinds.TryParseList(sections, out var parts) || !OmrTemplateConfig.TryFromParts(parts, out config))
+                return OperationResult<byte[]>.Invalid(Messages.OmrSectionsInvalid);
+        }
+        else if (questionCount is >= 1 && choiceCount is >= 2 and <= 6 && OmrFormStyles.TryNormalize(style, out var plain)
+            && (plain == OmrFormStyles.PhieuThi ? questionCount <= 120 && choiceCount == 4 : questionCount <= 60))
+        {
+            config = OmrTemplateConfig.Grid(questionCount.Value, choiceCount.Value, plain);
         }
         else
         {
@@ -149,8 +169,13 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return OperationResult<OmrBatchSummary>.NotFound(Messages.OmrTemplateNotFound);
         if (!template.IsActive)
             return OperationResult<OmrBatchSummary>.Invalid(Messages.OmrTemplateInactive);
-        if (!OmrTemplateConfig.TryParse(template.ConfigJson, out var config) || config.QuestionCount != exam.Questions.Count)
+        if (!OmrTemplateConfig.TryParse(template.ConfigJson, out var config))
+            return OperationResult<OmrBatchSummary>.Invalid(Messages.OmrTemplateConfigInvalid);
+        if (config.QuestionCount != exam.Questions.Count)
             return OperationResult<OmrBatchSummary>.Invalid(Messages.OmrQuestionMapInvalid);
+        // Đề phải xếp đúng thứ tự phần: bốn đáp án, rồi từng ý đúng/sai, rồi câu điền số.
+        if (!config.OptionCountsFit(exam.Questions.OrderBy(question => question.SortOrder).ThenBy(question => question.Id).Select(question => question.Options.Count).ToList()))
+            return OperationResult<OmrBatchSummary>.Invalid(Messages.OmrSectionMapInvalid);
 
         if (!Enum.TryParse<OmrSourceType>(request.SourceType, true, out var source))
             source = OmrSourceType.Scanner;
@@ -274,6 +299,125 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         }
 
         return OperationResult<UploadOmrSheetsResult>.Ok(new UploadOmrSheetsResult(batch.Id, result));
+    }
+
+    // Camera quét liên tục: đọc mã đề, chọn đợt đang mở đúng mẫu, nhận ô tô và chấm ngay.
+    public async Task<OperationResult<OmrScanResult>> ScanAsync(long? batchId, byte[] content, Actor actor, CancellationToken ct)
+    {
+        if (await Deny(actor, GradePermission, ct) is { } denied)
+            return OperationResult<OmrScanResult>.Forbidden(denied);
+        if (content.Length == 0)
+            return OperationResult<OmrScanResult>.Invalid(Messages.OmrFileEmpty);
+        if (content.Length > MaxBytes || !TryContentType(content, "image/jpeg", out var contentType) || contentType == "application/pdf")
+            return OperationResult<OmrScanResult>.Invalid(Messages.OmrFileTypeInvalid);
+
+        var payload = recognition.ReadQr(content);
+        if (!OmrRules.TryReadQr(payload, out _, out var examCode))
+            return OperationResult<OmrScanResult>.Ok(OmrScanResult.Miss(Messages.OmrScanNoQr));
+
+        var open = (await _unitOfWork.Omr.ListBatchesAsync(ct))
+            .Where(item => item.Status is not OmrBatchStatus.Approved and not OmrBatchStatus.Published)
+            .Where(item => string.Equals(item.ExamCode, examCode, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (open.Count == 0)
+            return OperationResult<OmrScanResult>.Ok(OmrScanResult.Miss(Messages.OmrScanNoBatch));
+
+        OmrImportBatch? matched = null;
+        OmrRecognitionResult? read = null;
+        OmrTemplateConfig? matchedConfig = null;
+        var best = int.MinValue;
+        foreach (var candidate in open)
+        {
+            if (!OmrTemplateConfig.TryParse(candidate.Template?.ConfigJson, out var config))
+                continue;
+            var attempt = recognition.Recognize(content, config);
+            if (!OmrScanChoice.Accepts(attempt) || !string.Equals(attempt.ExamCode, candidate.ExamCode, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var score = OmrScanChoice.Score(attempt);
+            if (read is null || score > best || (score == best && candidate.Id == batchId))
+            {
+                matched = candidate;
+                matchedConfig = config;
+                read = attempt;
+                best = score;
+            }
+        }
+
+        if (matched is null || read is null || matchedConfig is null)
+            return OperationResult<OmrScanResult>.Ok(OmrScanResult.Miss(Messages.OmrScanNoTemplate));
+
+        var batch = await _unitOfWork.Omr.FindBatchAsync(matched.Id, ct);
+        if (batch is null)
+            return OperationResult<OmrScanResult>.NotFound(Messages.OmrBatchNotFound);
+
+        var hash = Convert.ToHexString(SHA256.HashData(content));
+        var existing = await _unitOfWork.Omr.FindSheetByHashAsync(batch.Id, hash, ct);
+        if (existing is not null)
+        {
+            return OperationResult<OmrScanResult>.Ok(new OmrScanResult(
+                true,
+                Messages.OmrScanDuplicate,
+                batch.Id,
+                existing.Id,
+                batch.Template?.Code,
+                batch.Exam?.Title,
+                existing.RecognizedStudentCode,
+                null,
+                existing.RecognizedExamCode,
+                null,
+                null,
+                0,
+                0,
+                0,
+                existing.Status.ToString()));
+        }
+
+        var stored = await fileStore.SaveAsync(batch.Id, $"{Guid.NewGuid():N}.jpg", content, ct);
+        var sheet = new OmrScannedSheet
+        {
+            Batch = batch,
+            BatchId = batch.Id,
+            PageNumber = 1,
+            OriginalFileName = $"quet-{clock.UtcNow:yyyyMMddHHmmss}.jpg",
+            OriginalFilePath = stored.RelativePath,
+            ContentType = stored.ContentType,
+            FileHash = hash,
+            CreatedAtUtc = clock.UtcNow,
+            Status = OmrSheetStatus.Processing
+        };
+        batch.Sheets.Add(sheet);
+        await _unitOfWork.Omr.AddSheetAsync(sheet, ct);
+        if (batch.SourceType != OmrSourceType.Camera)
+            batch.SourceType = OmrSourceType.Mixed;
+
+        ApplyRecognition(sheet, read, matchedConfig);
+        if (OmrRules.CanGrade(sheet.Status))
+            await GradeSheetAsync(sheet, ct);
+
+        var listed = await _unitOfWork.Omr.ListSheetStatusesAsync(batch.Id, ct);
+        Refresh(batch, listed.Append(sheet).ToList(), includeUnsaved: false);
+        await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.ScanOmrSheet, AuditCodes.OmrSheet, () => sheet.Id, sheet.RecognizedStudentCode, actor.IpAddress, ct);
+
+        var row = await ToResultAsync(sheet, ct);
+        var message = sheet.Status == OmrSheetStatus.Graded
+            ? $"Đã chấm {row.StudentName ?? row.StudentCode}: {row.Score}/{row.MaxScore}."
+            : sheet.FailureReason ?? "Phiếu cần đối soát.";
+        return OperationResult<OmrScanResult>.Ok(new OmrScanResult(
+            true,
+            message,
+            batch.Id,
+            sheet.Id,
+            batch.Template?.Code,
+            batch.Exam?.Title,
+            row.StudentCode,
+            row.StudentName,
+            row.ExamCode,
+            row.Score,
+            row.MaxScore,
+            row.Correct,
+            row.Wrong,
+            row.Blank,
+            sheet.Status.ToString()));
     }
 
     public async Task ProcessSheetAsync(long sheetId, CancellationToken ct)
@@ -645,9 +789,11 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         sheet.RecognizedExamCode = read.ExamCode;
         var questions = OrderedQuestions(sheet.Batch.Exam);
         var answers = new List<OmrRecognizedAnswer>();
+        var optionMismatch = !config.OptionCountsFit(questions.Select(question => question.Options.Count).ToList());
         var needsReview = !read.QrFound
             || !string.Equals(read.ExamCode, sheet.Batch.ExamCode, StringComparison.OrdinalIgnoreCase)
-            || questions.Count != config.QuestionCount;
+            || questions.Count != config.QuestionCount
+            || optionMismatch;
         decimal lowest = 1;
 
         for (var number = 1; number <= config.QuestionCount; number++)
@@ -655,32 +801,69 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             var bubbles = read.Bubbles.Where(item => item.QuestionNumber == number).ToList();
             var question = number <= questions.Count ? questions[number - 1] : null;
             var options = question?.Options.OrderBy(option => option.SortOrder).ThenBy(option => option.Id).ToList() ?? [];
-            var marks = bubbles.Select(bubble =>
+            var kind = config.KindOf(number);
+            long? recognized = null;
+            OmrMarkStatus status;
+            decimal confidence;
+            string marksJson;
+            if (kind == OmrSectionKinds.DienSo)
             {
-                long? optionId = bubble.ChoiceIndex >= 0 && bubble.ChoiceIndex < options.Count ? options[bubble.ChoiceIndex].Id : null;
-                return new { bubble.ChoiceIndex, bubble.Ratio, bubble.Status, optionId };
-            }).ToList();
-            var marked = marks.Where(item => item.Status == nameof(OmrMarkStatus.Marked)).ToList();
-            var ambiguous = marks.Any(item => item.Status == nameof(OmrMarkStatus.Ambiguous)) || marked.Count > 1;
-            var status = ambiguous
-                ? OmrMarkStatus.Ambiguous
-                : marked.Count == 1 ? OmrMarkStatus.Marked : OmrMarkStatus.Blank;
-            if (status == OmrMarkStatus.Ambiguous)
-                needsReview = true;
+                var readable = OmrDigitGrid.TryRead(bubbles.Select(bubble => (bubble.ChoiceIndex, bubble.Status)), out var text);
+                var markedRatios = bubbles.Where(bubble => bubble.Status == nameof(OmrMarkStatus.Marked)).Select(bubble => bubble.Ratio).ToList();
+                // Câu điền số tô nhiều ô. Khớp nội dung phương án đúng, ví dụ 12,5.
+                if (!readable)
+                {
+                    status = OmrMarkStatus.Ambiguous;
+                    needsReview = true;
+                    confidence = 0.4m;
+                }
+                else if (text.Length == 0)
+                {
+                    status = OmrMarkStatus.Blank;
+                    confidence = (decimal)(1 - bubbles.Select(bubble => bubble.Ratio).DefaultIfEmpty(0).Max());
+                }
+                else
+                {
+                    status = OmrMarkStatus.Marked;
+                    recognized = options.FirstOrDefault(option => OmrDigitGrid.SameValue(option.ContentSnapshot, text))?.Id;
+                    if (recognized is null)
+                        needsReview = true;
+                    confidence = (decimal)(markedRatios.Count == 0 ? 0.8 : markedRatios.Min());
+                }
 
-            var confidence = status switch
+                marksJson = JsonSerializer.Serialize(bubbles.Select(bubble => new { bubble.ChoiceIndex, bubble.Ratio, bubble.Status, text }).ToList());
+            }
+            else
             {
-                OmrMarkStatus.Marked => (decimal)marked[0].Ratio,
-                OmrMarkStatus.Blank => (decimal)(1 - marks.Select(item => item.Ratio).DefaultIfEmpty(0).Max()),
-                _ => 0.4m
-            };
+                var choiceMarks = bubbles.Select(bubble =>
+                {
+                    long? optionId = bubble.ChoiceIndex >= 0 && bubble.ChoiceIndex < options.Count ? options[bubble.ChoiceIndex].Id : null;
+                    return new { bubble.ChoiceIndex, bubble.Ratio, bubble.Status, optionId };
+                }).ToList();
+                var marked = choiceMarks.Where(item => item.Status == nameof(OmrMarkStatus.Marked)).ToList();
+                var ambiguous = choiceMarks.Any(item => item.Status == nameof(OmrMarkStatus.Ambiguous)) || marked.Count > 1;
+                status = ambiguous
+                    ? OmrMarkStatus.Ambiguous
+                    : marked.Count == 1 ? OmrMarkStatus.Marked : OmrMarkStatus.Blank;
+                if (status == OmrMarkStatus.Ambiguous)
+                    needsReview = true;
+                recognized = status == OmrMarkStatus.Marked ? marked[0].optionId : null;
+                confidence = status switch
+                {
+                    OmrMarkStatus.Marked => (decimal)marked[0].Ratio,
+                    OmrMarkStatus.Blank => (decimal)(1 - choiceMarks.Select(item => item.Ratio).DefaultIfEmpty(0).Max()),
+                    _ => 0.4m
+                };
+                marksJson = JsonSerializer.Serialize(choiceMarks);
+            }
+
             lowest = Math.Min(lowest, confidence);
             answers.Add(new OmrRecognizedAnswer
             {
                 QuestionNumber = number,
                 ExamQuestionId = question?.Id,
-                RecognizedOptionId = status == OmrMarkStatus.Marked ? marked[0].optionId : null,
-                DetectedMarksJson = JsonSerializer.Serialize(marks),
+                RecognizedOptionId = recognized,
+                DetectedMarksJson = marksJson,
                 Confidence = confidence,
                 RecognitionStatus = status
             });
@@ -692,6 +875,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             ? !read.QrFound ? "Không đọc được mã học sinh hoặc mã đề."
             : !string.Equals(read.ExamCode, sheet.Batch.ExamCode, StringComparison.OrdinalIgnoreCase) ? Messages.OmrExamCodeMismatch
             : questions.Count != config.QuestionCount ? Messages.OmrQuestionMapInvalid
+            : optionMismatch ? Messages.OmrSectionMapInvalid
             : "Có ô tô mơ hồ hoặc tô nhiều đáp án."
             : null;
         sheet.Status = needsReview ? OmrSheetStatus.NeedsReview : OmrSheetStatus.Recognized;
@@ -849,7 +1033,10 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
     private static OmrTemplateSummary ToTemplate(OmrTemplate template)
     {
         OmrTemplateConfig.TryParse(template.ConfigJson, out var config);
-        return new OmrTemplateSummary(template.Id, template.Code, template.Version, config.QuestionCount, config.ChoiceCount, template.IsActive, config.Style, template.CreatedAtUtc);
+        var sections = config.Sections
+            .Select(item => new OmrTemplateSectionItem(item.QuestionCount, item.ChoiceCount, item.Kind, item.ItemCount))
+            .ToList();
+        return new OmrTemplateSummary(template.Id, template.Code, template.Version, config.QuestionCount, config.ChoiceCount, template.IsActive, config.Style, template.CreatedAtUtc, sections);
     }
 
     private static OmrBatchSummary ToBatch(OmrImportBatch batch) => new(
@@ -882,12 +1069,16 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
     private static OmrSheetDetail ToDetail(OmrScannedSheet sheet)
     {
         var questions = OrderedQuestions(sheet.Batch.Exam).ToDictionary(question => question.Id);
+        OmrTemplateConfig.TryParse(sheet.Batch.Template?.ConfigJson, out var config);
         var answers = sheet.Answers.OrderBy(answer => answer.QuestionNumber).Select(answer =>
         {
             questions.TryGetValue(answer.ExamQuestionId ?? 0, out var question);
             var choices = question?.Options.OrderBy(option => option.SortOrder).ThenBy(option => option.Id)
                 .Select(option => new OmrChoiceDetail(option.Id, option.ContentSnapshot, option.SortOrder))
                 .ToList() ?? [];
+            var recognizedText = config.KindOf(answer.QuestionNumber) == OmrSectionKinds.DienSo
+                ? OmrDigitGrid.ReadStored(answer.DetectedMarksJson)
+                : null;
             return new OmrAnswerDetail(
                 answer.QuestionNumber,
                 answer.ExamQuestionId,
@@ -897,7 +1088,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
                 answer.Confidence,
                 answer.RecognizedOptionId,
                 ReadIds(answer.ConfirmedMarksJson),
-                choices);
+                choices,
+                recognizedText);
         }).ToList();
 
         return new OmrSheetDetail(

@@ -67,18 +67,29 @@ public static class DatabaseSeeder
         await SeedSchoolSampleAsync(db, unitOfWork, passwords, config, ct);
         await SeedQuestionsAsync(db, unitOfWork, config, ct);
         await SeedFormStylesAsync(db, ct);
+        await SeedTeachingSubjectsAsync(db, ct);
     }
 
-    // Thêm ba kiểu phiếu nếu bảng còn trống. Không ghi đè kiểu đã có.
+    // Bổ sung kiểu phiếu còn thiếu. Không ghi đè kiểu đã có.
     private static async Task SeedFormStylesAsync(AiQuizDbContext db, CancellationToken ct)
     {
-        if (await db.OmrFormStyles.AnyAsync(ct))
+        var codes = await db.OmrFormStyles.Select(item => item.Code).ToListAsync(ct);
+        var missing = new List<OmrFormStyle>();
+        void Add(string code, string name, string description, int sort)
+        {
+            if (!codes.Contains(code))
+                missing.Add(new OmrFormStyle { Code = code, Name = name, Description = description, SortOrder = sort, IsActive = true });
+        }
+
+        Add("Khung", "Khung nhiều cột", "Chia câu thành vài cột, mỗi cột một khung.", 1);
+        Add("MotCot", "Một cột", "Cả phiếu một cột, ô to, dễ tô.", 2);
+        Add("Luoi", "Lưới ô", "Câu xếp ngang thành lưới, gọn trên một trang.", 3);
+        Add("NhieuPhan", "Nhiều phần", "Phần bốn đáp án, phần đúng/sai và phần trả lời số trên cùng một phiếu.", 4);
+        Add("PhieuThi", "Phiếu thi", "Phiếu trắc nghiệm có số báo danh, mã đề và chữ ký cán bộ coi thi. Số cột theo số câu.", 5);
+        if (missing.Count == 0)
             return;
 
-        db.OmrFormStyles.AddRange(
-            new OmrFormStyle { Code = "Khung", Name = "Khung nhiều cột", Description = "Chia câu thành vài cột, mỗi cột một khung.", SortOrder = 1, IsActive = true },
-            new OmrFormStyle { Code = "MotCot", Name = "Một cột", Description = "Cả phiếu một cột, ô to, dễ tô.", SortOrder = 2, IsActive = true },
-            new OmrFormStyle { Code = "Luoi", Name = "Lưới ô", Description = "Câu xếp ngang thành lưới, gọn trên một trang.", SortOrder = 3, IsActive = true });
+        db.OmrFormStyles.AddRange(missing);
         await db.SaveChangesAsync(ct);
     }
 
@@ -352,6 +363,29 @@ public static class DatabaseSeeder
         }
 
         await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    // Giáo viên đã được giao môn ở lớp thì giữ môn đó trong danh sách được dạy.
+    private static async Task SeedTeachingSubjectsAsync(AiQuizDbContext db, CancellationToken ct)
+    {
+        var links = await db.ClassMemberships.AsNoTracking()
+            .Select(item => new { item.UserId, item.SubjectId })
+            .Distinct()
+            .ToListAsync(ct);
+        var existing = await db.TeacherSubjects.AsNoTracking()
+            .Select(item => new { item.UserId, item.SubjectId })
+            .ToListAsync(ct);
+        var have = existing.Select(item => (item.UserId, item.SubjectId)).ToHashSet();
+        var missing = links.Where(item => !have.Contains((item.UserId, item.SubjectId))).ToList();
+        if (missing.Count == 0)
+            return;
+
+        db.TeacherSubjects.AddRange(missing.Select(item => new TeacherSubject
+        {
+            UserId = item.UserId,
+            SubjectId = item.SubjectId
+        }));
+        await db.SaveChangesAsync(ct);
     }
 
     // Thêm câu mẫu chưa có trong ngân hàng. Câu trùng nội dung thì bỏ qua.

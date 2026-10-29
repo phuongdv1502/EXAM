@@ -34,6 +34,7 @@ public class AiQuizDbContext(DbContextOptions<AiQuizDbContext> options) : DbCont
     public DbSet<StudentEnrollment> StudentEnrollments => Set<StudentEnrollment>();
     public DbSet<SchoolMembership> SchoolMemberships => Set<SchoolMembership>();
     public DbSet<ClassMembership> ClassMemberships => Set<ClassMembership>();
+    public DbSet<TeacherSubject> TeacherSubjects => Set<TeacherSubject>();
     public DbSet<ExamAssignment> ExamAssignments => Set<ExamAssignment>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
