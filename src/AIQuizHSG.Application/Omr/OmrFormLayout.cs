@@ -57,9 +57,30 @@ public static class OmrFormLayout
     }
 
     public static Plan For(OmrTemplateConfig config) =>
-        config.Sections.Count > 0
-            ? MeasureParts(config.Sections)
-            : Measure(config.QuestionCount, config.ChoiceCount, config.Style);
+        config.Style == OmrFormStyles.KiemTra
+            ? MeasureCheck(config.Sections)
+            : config.Style == OmrFormStyles.TuLuan
+                ? MeasureEssay(config.Sections)
+                : config.Sections.Count > 0
+                    ? MeasureParts(config.Sections)
+                    : Measure(config.QuestionCount, config.ChoiceCount, config.Style);
+
+    // Phiếu kiểm tra A4: phần I mỗi cột mười câu, phần II là bảng đúng/sai. Kích thước lấy từ phiếu mẫu.
+    public static Plan MeasureCheck(IReadOnlyList<OmrSectionConfig> sections)
+    {
+        var partOne = sections.FirstOrDefault(item => item.Kind == OmrSectionKinds.BonDapAn)?.QuestionCount ?? 0;
+        var partTwo = sections.FirstOrDefault(item => item.Kind == OmrSectionKinds.DungSai)?.QuestionCount ?? 0;
+        return BuildKiemTra(partOne, partTwo);
+    }
+
+    // Phiếu có phần tự luận: tọa độ lấy từ phiếu mẫu 550×770, giãn lên trang A4.
+    public static Plan MeasureEssay(IReadOnlyList<OmrSectionConfig> sections)
+    {
+        var partOne = sections.FirstOrDefault(item => item.Kind == OmrSectionKinds.BonDapAn)?.QuestionCount ?? 0;
+        var partTwo = sections.FirstOrDefault(item => item.Kind == OmrSectionKinds.DungSai)?.QuestionCount ?? 0;
+        var partThree = sections.FirstOrDefault(item => item.Kind == OmrSectionKinds.DienSo)?.QuestionCount ?? 0;
+        return BuildTuLuan(partOne, partTwo, partThree);
+    }
 
     // Phần I xếp cột tối đa 10 câu. Phần II mỗi câu bốn ý. Phần III là lưới chữ số.
     public static Plan MeasureParts(IReadOnlyList<OmrSectionConfig> sections)
@@ -81,20 +102,20 @@ public static class OmrFormLayout
                 continue;
             if (section.Kind == OmrSectionKinds.BonDapAn)
             {
-                titles.Add(new SectionTitle(BoxOf(left, y, width, 18), "PHẦN I"));
-                y += 22;
+                titles.Add(new SectionTitle(BoxOf(left, y, width, 28), "PHẦN I"));
+                y += 34;
                 y = AddChoiceColumns(columns, bubbles, ref question, section.QuestionCount, left, y, width);
             }
             else if (section.Kind == OmrSectionKinds.DungSai)
             {
-                titles.Add(new SectionTitle(BoxOf(left, y, width, 18), "PHẦN II"));
-                y += 22;
+                titles.Add(new SectionTitle(BoxOf(left, y, width, 28), "PHẦN II"));
+                y += 34;
                 y = AddTruth(truths, bubbles, ref question, section.QuestionCount, left, y, width);
             }
             else if (section.Kind == OmrSectionKinds.DienSo)
             {
-                titles.Add(new SectionTitle(BoxOf(left, y, width, 18), "PHẦN III"));
-                y += 22;
+                titles.Add(new SectionTitle(BoxOf(left, y, width, 28), "PHẦN III"));
+                y += 34;
                 y = AddDigits(digits, bubbles, ref question, section.QuestionCount, left, y, width);
             }
 
@@ -182,24 +203,35 @@ public static class OmrFormLayout
             []);
     }
 
+    private const double MinistryPdfWidth = 589.6063232421875;
+    private const double MinistryPdfHeight = 841.8897705078125;
+
+    private static int MinistryPx(double value) => (int)Math.Round(value * PageWidth / MinistryPdfWidth);
+
+    private static int MinistryPy(double value) => (int)Math.Round(value * PageHeight / MinistryPdfHeight);
+
+    // Phần I lấy khổ cột từ phiếu Bộ: bốn cột cách đều, mỗi cột tối đa mười câu.
     private static int AddChoiceColumns(List<ColumnFrame> frames, List<BubbleSlot> bubbles, ref int question, int questionCount, int left, int top, int width)
     {
-        const int gap = 14;
-        const int headerRow = 26;
-        const int rowHeight = 30;
+        _ = left;
+        _ = width;
+        var origin = MinistryPx(34.3);
+        var step = MinistryPx(133.3);
+        var columnWidth = MinistryPx(113.4);
+        var headerRow = MinistryPy(17.8);
+        var rowPitch = MinistryPy(14.2);
+        var bubble = MinistryPx(8.4);
+        var first = MinistryPx(25.5);
+        var choicePitch = MinistryPx(23.6);
         var columns = Math.Clamp((int)Math.Ceiling(questionCount / 10d), 1, 4);
         var rows = (int)Math.Ceiling(questionCount / (double)columns);
-        var columnWidth = (width - gap * 3) / 4;
-        var height = headerRow + rows * rowHeight;
-        var gutter = 42;
-        var cell = (columnWidth - gutter) / 4d;
-        var bubble = 16;
+        var height = headerRow + Math.Max(0, rows - 1) * rowPitch + bubble + MinistryPy(5.3);
         var start = question;
 
         for (var column = 0; column < columns; column++)
         {
             var questions = new int[rows];
-            var x = left + column * (columnWidth + gap);
+            var x = origin + column * step;
             for (var row = 0; row < rows; row++)
             {
                 var number = start + column * rows + row;
@@ -208,15 +240,14 @@ public static class OmrFormLayout
                 questions[row] = number;
                 for (var choice = 0; choice < 4; choice++)
                 {
-                    var cellLeft = x + gutter + choice * cell;
-                    var bubbleLeft = (int)Math.Round(cellLeft + (cell - bubble) / 2);
-                    var bubbleTop = top + headerRow + row * rowHeight + (rowHeight - bubble) / 2;
+                    var bubbleLeft = x + first + choice * choicePitch;
+                    var bubbleTop = top + headerRow + row * rowPitch;
                     bubbles.Add(new BubbleSlot(number, choice, BoxOf(bubbleLeft, bubbleTop, bubble, bubble)));
                 }
             }
 
             if (questions.Any(item => item > 0))
-                frames.Add(new ColumnFrame(BoxOf(x, top, columnWidth, height), questions, gutter, headerRow, rowHeight, 4, OmrSectionKinds.BonDapAn));
+                frames.Add(new ColumnFrame(BoxOf(x, top, columnWidth, height), questions, first, headerRow, rowPitch, 4, OmrSectionKinds.BonDapAn));
         }
 
         question += questionCount;
@@ -226,83 +257,96 @@ public static class OmrFormLayout
     // Phần II: bốn ô, mỗi ô hai câu đúng/sai đặt cạnh nhau như phiếu Bộ.
     private static int AddTruth(List<TruthBlock> blocks, List<BubbleSlot> bubbles, ref int question, int questionCount, int left, int top, int width)
     {
-        const int gap = 10;
+        _ = left;
+        _ = width;
+        // Một khung cho hai câu, vạch giữa đúng một nửa và hai bên rộng bằng nhau.
+        var origin = MinistryPx(34.3);
+        var step = MinistryPx(133.3);
+        var pairWidth = MinistryPx(113.4);
+        var leftWidth = pairWidth / 2;
+        var rightWidth = pairWidth - leftWidth;
+        var header = MinistryPy(32);
+        var rowPitch = MinistryPy(16);
+        var bubble = MinistryPx(8.4);
+        var blockHeight = header + 3 * rowPitch + bubble + MinistryPy(8);
         const int across = 4;
-        const int header = 36;
-        const int rowHeight = 24;
-        const int bubble = 14;
-        const int pitch = 30;
-        const int label = 22;
-        var pairWidth = (width - gap * (across - 1)) / across;
-        var half = pairWidth / 2;
-        var blockHeight = header + 4 * rowHeight;
-        var perRow = across * 2;
-        var rows = (int)Math.Ceiling(questionCount / (double)perRow);
+        const int label = 26;
+        const int choicePitch = 44;
+        var pairs = (int)Math.Ceiling(questionCount / 2d);
+        var rows = (int)Math.Ceiling(pairs / (double)across);
 
         for (var index = 0; index < questionCount; index++)
         {
-            var slot = index / 2;
+            var pair = index / 2;
             var side = index % 2;
-            var row = slot / across;
-            var column = slot % across;
-            var sideWidth = side == 0 ? half : pairWidth - half;
-            var x = left + column * (pairWidth + gap) + (side == 0 ? 0 : half);
-            var y = top + row * (blockHeight + gap);
-            var inset = Math.Max(6, (sideWidth - (label + pitch * 2)) / 2);
+            var row = pair / across;
+            var column = pair % across;
+            var boxX = origin + column * step;
+            var y = top + row * (blockHeight + MinistryPy(8));
+            var halfWidth = side == 0 ? leftWidth : rightWidth;
+            var halfLeft = boxX + side * leftWidth;
+            var alone = questionCount == index + 1 && side == 0;
+            var sideWidth = alone ? pairWidth : halfWidth;
+            var content = label + choicePitch + bubble;
+            var inset = Math.Max(6, ((alone ? leftWidth : halfWidth) - content) / 2);
             var lines = new List<TruthRow>();
             for (var item = 0; item < 4; item++)
             {
                 lines.Add(new TruthRow(question, ((char)('a' + item)).ToString()));
                 for (var choice = 0; choice < 2; choice++)
                 {
-                    var bubbleLeft = x + inset + label + choice * pitch;
-                    var bubbleTop = y + header + item * rowHeight + (rowHeight - bubble) / 2;
+                    var bubbleLeft = halfLeft + inset + label + choice * choicePitch;
+                    var bubbleTop = y + header + item * rowPitch;
                     bubbles.Add(new BubbleSlot(question, choice, BoxOf(bubbleLeft, bubbleTop, bubble, bubble)));
                 }
 
                 question++;
             }
 
-            blocks.Add(new TruthBlock(BoxOf(x, y, sideWidth, blockHeight), $"Câu {index + 1}", inset, header, rowHeight, lines));
+            blocks.Add(new TruthBlock(BoxOf(halfLeft, y, sideWidth, blockHeight), $"Câu {index + 1}", label, header, rowPitch, lines));
         }
 
-        return top + rows * blockHeight + Math.Max(0, rows - 1) * gap;
+        return top + rows * blockHeight + Math.Max(0, rows - 1) * MinistryPy(8);
     }
 
     private static int AddDigits(List<DigitBlock> blocks, List<BubbleSlot> bubbles, ref int question, int questionCount, int left, int top, int width)
     {
-        const int gap = 8;
-        const int header = 24;
+        _ = left;
+        _ = width;
+        // Dấu trừ một ô, dấu phẩy hai ô giữa, chữ số đủ bốn cột, như phiếu Bộ.
+        var origin = MinistryPx(35);
+        var blockWidth = MinistryPx(85);
+        var blockHeight = MinistryPy(212.6);
+        var header = MinistryPy(23.3);
+        var rowPitch = MinistryPy(16);
+        var bubble = MinistryPx(8.2);
+        var columnOffset = new[] { 21.7, 35.9, 50.0, 64.2 };
         const int perRow = 6;
-        var blockWidth = (width - gap * (perRow - 1)) / perRow;
-        var label = 26;
-        var cell = Math.Clamp((blockWidth - label - 8) / OmrDigitGrid.Columns, 18, 34);
-        const int bubble = 14;
-        var blockHeight = header + OmrDigitGrid.Rows * cell;
         var rows = (int)Math.Ceiling(questionCount / (double)perRow);
 
         for (var index = 0; index < questionCount; index++)
         {
             var row = index / perRow;
             var column = index % perRow;
-            var x = left + column * (blockWidth + gap);
-            var y = top + row * (blockHeight + gap);
-            var gridLeft = x + label + (blockWidth - label - OmrDigitGrid.Columns * cell) / 2;
+            var x = origin + column * blockWidth;
+            var y = top + row * blockHeight;
             for (var digitRow = 0; digitRow < OmrDigitGrid.Rows; digitRow++)
             {
                 for (var digitColumn = 0; digitColumn < OmrDigitGrid.Columns; digitColumn++)
                 {
-                    var bubbleLeft = (int)Math.Round(gridLeft + digitColumn * cell + (cell - bubble) / 2d);
-                    var bubbleTop = y + header + digitRow * cell + (cell - bubble) / 2;
+                    if (!OmrSectionKinds.EssayDigitCell(digitColumn, digitRow))
+                        continue;
+                    var bubbleLeft = x + MinistryPx(columnOffset[digitColumn]);
+                    var bubbleTop = y + header + digitRow * rowPitch;
                     bubbles.Add(new BubbleSlot(question, OmrDigitGrid.Index(digitColumn, digitRow), BoxOf(bubbleLeft, bubbleTop, bubble, bubble)));
                 }
             }
 
-            blocks.Add(new DigitBlock(BoxOf(x, y, blockWidth, blockHeight), $"Câu {index + 1}", question, label, header, cell));
+            blocks.Add(new DigitBlock(BoxOf(x, y, blockWidth, blockHeight), $"Câu {index + 1}", question, MinistryPx(16), header, rowPitch));
             question++;
         }
 
-        return top + rows * blockHeight + Math.Max(0, rows - 1) * gap;
+        return top + rows * blockHeight;
     }
 
     private const int SheetMargin = 32;
@@ -529,30 +573,30 @@ public static class OmrFormLayout
             identity.Codes);
     }
 
-    // Đầu phiếu trắc nghiệm mẫu Bộ: giám thị, sáu dòng kê khai, số báo danh và mã đề.
+    // Đầu phiếu Bộ đo từ mẫu 590×842: hai hộp tách nhau, số báo danh tám cột, mã đề bốn cột.
     private static IdentitySheet MinistryIdentity()
     {
-        const int tableTop = 100;
-        const int cell = 15;
-        const int label = 16;
-        const int head = 14;
-        var height = head + 10 * cell;
-        var madeWidth = label + 3 * cell;
-        var sbdWidth = label + 6 * cell;
-        var madeX = PageWidth - 40 - madeWidth;
-        var sbdX = madeX - 10 - sbdWidth;
-        const int proctorX = 24;
-        const int proctorW = 150;
-        var fieldX = proctorX + proctorW;
-        var fieldW = sbdX - 12 - fieldX;
-        var half = height / 2;
+        const double pdfWidth = 589.6063232421875;
+        const double pdfHeight = 841.8897705078125;
+        int Px(double value) => (int)Math.Round(value * PageWidth / pdfWidth);
+        int Py(double value) => (int)Math.Round(value * PageHeight / pdfHeight);
+        // Nét chấm vẽ thấp hơn chân chữ 3px, nên đẩy dòng lên để chấm đúng cao độ mẫu.
+        int LineTop(double dotY) => Py(dotY) - 17;
+
+        var signLeft = Px(24.7);
+        var signTop = Py(78.1);
+        var signRight = Px(152.3);
+        var signBottom = Py(240.7);
+        var signMid = Py(159.4);
+        var infoLeft = Px(158.3);
+        var infoRight = Px(391.5);
         var fields = new List<LineField>
         {
-            new("Kỳ thi:", BoxOf(360, 52, 440, 16)),
-            new("Môn thi:", BoxOf(96, 76, 460, 16)),
-            new("Ngày thi:", BoxOf(640, 76, 250, 16)),
-            new("Giám thị 1", BoxOf(proctorX, tableTop, proctorW, half)),
-            new("Giám thị 2", BoxOf(proctorX, tableTop + half, proctorW, height - half))
+            new("Kỳ thi:", BoxOf(Px(168), LineTop(49), Px(361) - Px(168), 16)),
+            new("Môn thi:", BoxOf(Px(24.5), LineTop(68), Px(248) - Px(24.5), 16)),
+            new("Ngày thi:", BoxOf(Px(252), LineTop(68), Px(392) - Px(252), 16)),
+            new("Giám thị 1", BoxOf(signLeft, signTop, signRight - signLeft, signMid - signTop)),
+            new("Giám thị 2", BoxOf(signLeft, signMid, signRight - signLeft, signBottom - signMid))
         };
         string[] labels =
         [
@@ -563,20 +607,54 @@ public static class OmrFormLayout
             "5. Ngày sinh:",
             "6. Chữ ký của thí sinh:"
         ];
-        var step = (height - 14) / labels.Length;
+        var dotY = new[] { 97d, 125d, 152d, 179d, 206d, 230d };
+        var fieldLeft = Px(164);
+        var fieldWidth = Px(384) - fieldLeft;
         for (var index = 0; index < labels.Length; index++)
-            fields.Add(new LineField(labels[index], BoxOf(fieldX + 10, tableTop + 6 + index * step, fieldW - 20, 16)));
+            fields.Add(new LineField(labels[index], BoxOf(fieldLeft, LineTop(dotY[index]), fieldWidth, 16)));
 
         var codes = new List<CodeGrid>
         {
-            SmallCode("7. Số báo danh", sbdX, tableTop, 6, cell, label, head),
-            SmallCode("8. Mã đề thi", madeX, tableTop, 3, cell, label, head)
+            MinistryCode("7. Số báo danh", 407.4, 11.3, 8, Px, Py),
+            MinistryCode("8. Mã đề thi", 510.2, 11.4, 4, Px, Py)
         };
+        var gridBottom = Py(88.0 + 10 * 16.6);
+        var codeRight = Px(510.2 + 3 * 11.4 + 11.5);
         return new IdentitySheet(
-            BoxOf(proctorX, tableTop, madeX + madeWidth - proctorX, height),
-            BoxOf(16, 12, 58, 58),
+            BoxOf(signLeft, signTop, codeRight - signLeft, gridBottom - signTop),
+            BoxOf(14, 10, 40, 40),
             fields,
             codes);
+    }
+
+    // Ô viết số nằm trên lưới. Chữ số 0–9 nằm trong vòng tròn, không có cột nhãn bên trái.
+    private static CodeGrid MinistryCode(string title, double originX, double pitch, int columns, Func<double, int> px, Func<double, int> py)
+    {
+        const double cellW = 11.5;
+        const double writeTop = 61.4;
+        const double writeH = 16.8;
+        const double rowTop = 88.0;
+        const double rowH = 16.6;
+        const double bubbleW = 8.2;
+        const double bubbleH = 7.6;
+        var bubbles = new List<CodeBubble>();
+        for (var column = 0; column < columns; column++)
+        {
+            var centerX = originX + cellW / 2 + column * pitch;
+            for (var digit = 0; digit < 10; digit++)
+            {
+                var centerY = rowTop + rowH / 2 + digit * rowH;
+                var left = px(centerX - bubbleW / 2);
+                var top = py(centerY - bubbleH / 2);
+                bubbles.Add(new CodeBubble(column, digit, BoxOf(left, top, Math.Max(1, px(centerX + bubbleW / 2) - left), Math.Max(1, py(centerY + bubbleH / 2) - top))));
+            }
+        }
+
+        var gridLeft = px(originX);
+        var gridTop = py(writeTop);
+        var gridRight = px(originX + (columns - 1) * pitch + cellW);
+        var gridBottom = py(rowTop + 10 * rowH);
+        return new CodeGrid(title, BoxOf(gridLeft, gridTop, gridRight - gridLeft, gridBottom - gridTop), columns, 0, py(writeH), py(rowH), bubbles);
     }
 
     // Phần đầu giống phiếu thi: dòng kê khai, ô số báo danh và ô mã đề. Rộng bằng hàng cột đáp án.
@@ -645,7 +723,335 @@ public static class OmrFormLayout
             bubbles);
     }
 
+    // Khổ và khoảng cách lấy từ phiếu kiểm tra A4 scan 300 dpi, thu về trang vẽ 1200×1697.
+    private static Plan BuildKiemTra(int partOne, int partTwo)
+    {
+        const int headLeft = 86;
+        const int headTop = 117;
+        const int headWidth = 745;
+        const int headHeight = 405;
+        const int split = 286;
+        const int row1 = 131;
+        const int row2 = 131;
+        var fields = new List<LineField>
+        {
+            new("Cán bộ coi thi", BoxOf(headLeft, headTop, split, row1)),
+            new("Giám khảo", BoxOf(headLeft, headTop + row1, split, row2)),
+            new("Điểm bài kiểm tra", BoxOf(headLeft, headTop + row1 + row2, split, headHeight - row1 - row2)),
+            new("TRƯỜNG:", BoxOf(headLeft + split + 16, headTop + 22, headWidth - split - 32, 22)),
+            new("1. Kỳ kiểm tra:", BoxOf(headLeft + split + 16, headTop + 70, headWidth - split - 32, 22)),
+            new("2. Môn kiểm tra:", BoxOf(headLeft + split + 16, headTop + 118, headWidth - split - 32, 22)),
+            new("3. Phòng kiểm tra:", BoxOf(headLeft + split + 16, headTop + 166, 280, 22)),
+            new("Lớp:", BoxOf(headLeft + split + 310, headTop + 166, headWidth - split - 326, 22)),
+            new("4. Họ và tên thí sinh:", BoxOf(headLeft + split + 16, headTop + 214, headWidth - split - 32, 22)),
+            new("5. Ngày sinh:", BoxOf(headLeft + split + 16, headTop + 310, headWidth - split - 32, 22)),
+            new("6. Chữ ký của thí sinh:", BoxOf(headLeft + split + 16, headTop + 358, headWidth - split - 32, 22))
+        };
+
+        const int cellW = 23;
+        const int writeTop = 132;
+        const int digitTop = 172;
+        const int cellH = 33;
+        const int bubble = 16;
+        var codes = new List<CodeGrid>
+        {
+            CheckCode("7. Số báo danh", 868, 6, cellW, writeTop, digitTop, cellH, bubble),
+            CheckCode("8. Mã đề thi", 1039, 3, cellW, writeTop, digitTop, cellH, bubble)
+        };
+
+        const int colLeft = 125;
+        const int colTop = 606;
+        const int colW = 210;
+        const int colGap = 36;
+        const int colHead = 34;
+        const int gutter = 42;
+        const int answerShift = 10;
+        const int bottomPad = 8;
+        const int perColumn = 10;
+        const int across = 4;
+        const int bandGap = 16;
+        const int pageBottom = 1620;
+        // Hết bốn cột mười câu thì xuống hàng dưới. Hàng nhiều thì hạ chiều cao ô để còn vừa trang A4.
+        var columnCount = partOne == 0 ? 0 : (int)Math.Ceiling(partOne / (double)perColumn);
+        var bands = columnCount == 0 ? 0 : (int)Math.Ceiling(columnCount / (double)across);
+        var truthBlock = partTwo > 0 ? 30 + 48 + 4 * 31 : 0;
+        var room = pageBottom - colTop - truthBlock - Math.Max(0, bands - 1) * bandGap - bands * bottomPad;
+        var rowH = 26;
+        if (bands > 0)
+        {
+            var fit = (room / bands - colHead) / perColumn;
+            if (fit < rowH)
+                rowH = Math.Max(20, fit);
+        }
+
+        var choiceBubble = Math.Min(18, Math.Max(14, rowH - 8));
+        var pitch = (colW - gutter) / 4d;
+        var frames = new List<ColumnFrame>();
+        var bubbles = new List<BubbleSlot>();
+        var boxHeight = colHead + perColumn * rowH + bottomPad;
+        for (var column = 0; column < columnCount; column++)
+        {
+            var count = Math.Min(perColumn, partOne - column * perColumn);
+            var questions = new int[count];
+            var x = colLeft + column % across * (colW + colGap);
+            var y = colTop + column / across * (boxHeight + bandGap);
+            for (var row = 0; row < count; row++)
+            {
+                var number = column * perColumn + row + 1;
+                questions[row] = number;
+                // Kéo cụm A–D lại gần số câu, chừa lề dưới khung thêm một chút.
+                for (var choice = 0; choice < 4; choice++)
+                {
+                    var left = (int)Math.Round(x + gutter - answerShift + choice * pitch + (pitch - choiceBubble) / 2);
+                    var top = y + colHead + row * rowH + (rowH - choiceBubble) / 2;
+                    bubbles.Add(new BubbleSlot(number, choice, BoxOf(left, top, choiceBubble, choiceBubble)));
+                }
+            }
+
+            frames.Add(new ColumnFrame(
+                BoxOf(x, y, colW, boxHeight),
+                questions,
+                gutter,
+                colHead,
+                rowH,
+                4,
+                OmrSectionKinds.BonDapAn));
+        }
+
+        var titles = new List<SectionTitle>();
+        var truths = new List<TruthBlock>();
+        if (partOne > 0)
+            titles.Add(new SectionTitle(BoxOf(colLeft, colTop - 32, 160, 24), "PHẦN I"));
+        if (partTwo > 0)
+        {
+            var columnsBottom = bands == 0 ? colTop : colTop + bands * boxHeight + (bands - 1) * bandGap;
+            var tableTop = columnsBottom + 36;
+            const int head = 48;
+            const int truthRow = 31;
+            var slot = colW / 2;
+            var tableWidth = slot * partTwo;
+            var letters = new[] { "a,", "b,", "c,", "d," };
+            var rows = new List<TruthRow>();
+            var number = partOne + 1;
+            for (var question = 0; question < partTwo; question++)
+            {
+                for (var line = 0; line < 4; line++)
+                {
+                    rows.Add(new TruthRow(number, question == 0 ? letters[line] : ""));
+                    var y = tableTop + head + line * truthRow + (truthRow - choiceBubble) / 2;
+                    var pairLeft = colLeft + question * slot;
+                    bubbles.Add(new BubbleSlot(number, 0, BoxOf(pairLeft + 31, y, choiceBubble, choiceBubble)));
+                    bubbles.Add(new BubbleSlot(number, 1, BoxOf(pairLeft + 67, y, choiceBubble, choiceBubble)));
+                    number++;
+                }
+            }
+
+            titles.Add(new SectionTitle(BoxOf(colLeft, tableTop - 30, 160, 24), "PHẦN II"));
+            truths.Add(new TruthBlock(
+                BoxOf(colLeft, tableTop, tableWidth, head + 4 * truthRow),
+                "PHẦN II",
+                28,
+                head,
+                truthRow,
+                rows));
+        }
+
+        return new Plan(
+            OmrFormStyles.KiemTra,
+            bubbles,
+            frames,
+            BoxOf(headLeft, headTop, headWidth, headHeight),
+            BoxOf(18, 12, 42, 42),
+            4,
+            titles,
+            truths,
+            [],
+            fields,
+            codes);
+    }
+
+    private static CodeGrid CheckCode(string title, int x, int columns, int cellW, int writeTop, int digitTop, int cellH, int bubble)
+    {
+        var bubbles = new List<CodeBubble>();
+        for (var column = 0; column < columns; column++)
+        {
+            for (var digit = 0; digit < 10; digit++)
+            {
+                var left = x + column * cellW + (cellW - bubble) / 2;
+                var top = digitTop + digit * cellH + (cellH - bubble) / 2;
+                bubbles.Add(new CodeBubble(column, digit, BoxOf(left, top, bubble, bubble)));
+            }
+        }
+
+        return new CodeGrid(title, BoxOf(x, writeTop, columns * cellW, digitTop - writeTop + 10 * cellH), columns, 0, digitTop - writeTop, cellH, bubbles);
+    }
+
     private readonly record struct IdentitySheet(Box Header, Box Qr, IReadOnlyList<LineField> Fields, IReadOnlyList<CodeGrid> Codes);
+
+    private static Plan BuildTuLuan(int partOne, int partTwo, int partThree)
+    {
+        // Tọa độ tâm ô theo điểm PDF, rồi đổi sang pixel trang 1200×1697.
+        int Sx(double value) => (int)Math.Round(value * PageWidth / 550d);
+        int Sy(double value) => (int)Math.Round(value * PageHeight / 770d);
+        Box Dot(double cx, double cy, double diameter = 8.2)
+        {
+            var left = Sx(cx - diameter / 2);
+            var top = Sy(cy - diameter / 2);
+            var right = Sx(cx + diameter / 2);
+            var bottom = Sy(cy + diameter / 2);
+            return BoxOf(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
+        }
+
+        var bubbles = new List<BubbleSlot>();
+        var number = 1;
+        var choiceX = new[] { 57.8, 68.8, 79.8, 90.8 };
+        var questions = new List<int>();
+        for (var row = 0; row < partOne; row++)
+        {
+            questions.Add(number);
+            for (var choice = 0; choice < 4; choice++)
+                bubbles.Add(new BubbleSlot(number, choice, Dot(choiceX[choice], 277.8 + row * 11)));
+            number++;
+        }
+
+        var frames = new List<ColumnFrame>();
+        if (partOne > 0)
+        {
+            frames.Add(new ColumnFrame(
+                BoxOf(Sx(40), Sy(248), Sx(102) - Sx(40), Sy(366) - Sy(248)),
+                questions,
+                Sx(16),
+                Sy(28),
+                Math.Max(1, Sy(11)),
+                4,
+                OmrSectionKinds.BonDapAn));
+        }
+
+        var truthSlots = new (double Dung, double Sai, double Top)[]
+        {
+            (133.4, 144.4, 277.8),
+            (188.4, 199.4, 277.8),
+            (243.4, 254.4, 277.8),
+            (133.4, 144.4, 365.8),
+            (188.4, 199.4, 365.8),
+            (243.4, 254.4, 365.8)
+        };
+        var truths = new List<TruthBlock>();
+        var letters = new[] { "a)", "b)", "c)", "d)" };
+        for (var question = 0; question < partTwo; question++)
+        {
+            var slot = truthSlots[question];
+            var rows = new List<TruthRow>();
+            for (var line = 0; line < 4; line++)
+            {
+                rows.Add(new TruthRow(number, letters[line]));
+                bubbles.Add(new BubbleSlot(number, 0, Dot(slot.Dung, slot.Top + line * 11)));
+                bubbles.Add(new BubbleSlot(number, 1, Dot(slot.Sai, slot.Top + line * 11)));
+                number++;
+            }
+
+            truths.Add(new TruthBlock(
+                BoxOf(Sx(slot.Dung - 16), Sy(slot.Top - 28), Sx(36), Sy(11 * 4 + 24)),
+                $"Câu {question + 1}",
+                Sx(14),
+                Sy(16),
+                Math.Max(1, Sy(11)),
+                rows));
+        }
+
+        var digitColumns = new[]
+        {
+            new[] { 319.0, 330.0, 341.0, 352.0 },
+            new[] { 394.6, 405.6, 416.6, 427.6 },
+            new[] { 470.2, 481.2, 492.2, 503.2 }
+        };
+        var digits = new List<DigitBlock>();
+        for (var question = 0; question < partThree; question++)
+        {
+            var columns = digitColumns[question];
+            for (var row = 0; row < OmrDigitGrid.Rows; row++)
+            {
+                for (var column = 0; column < OmrDigitGrid.Columns; column++)
+                {
+                    if (!OmrSectionKinds.EssayDigitCell(column, row))
+                        continue;
+                    bubbles.Add(new BubbleSlot(number, OmrDigitGrid.Index(column, row), Dot(columns[column], 277.8 + row * 11)));
+                }
+            }
+
+            digits.Add(new DigitBlock(
+                BoxOf(Sx(columns[0] - 18), Sy(250), Sx(columns[3] + 8) - Sx(columns[0] - 18), Sy(410) - Sy(250)),
+                $"Câu {question + 1}",
+                number,
+                Sx(16),
+                Sy(24),
+                Math.Max(1, Sy(11))));
+            number++;
+        }
+
+        var titles = new List<SectionTitle>();
+        if (partOne > 0)
+            titles.Add(new SectionTitle(BoxOf(Sx(41), Sy(232), Sx(70), Sy(16)), "PHẦN I"));
+        if (partTwo > 0)
+            titles.Add(new SectionTitle(BoxOf(Sx(117), Sy(232), Sx(80), Sy(16)), "PHẦN II"));
+        if (partThree > 0)
+            titles.Add(new SectionTitle(BoxOf(Sx(302), Sy(232), Sx(80), Sy(16)), "PHẦN III"));
+        titles.Add(new SectionTitle(
+            BoxOf(Sx(116.9), Sy(426.2), Sx(508.8) - Sx(116.9), Sy(701.2) - Sy(426.2)),
+            "PHẦN TỰ LUẬN"));
+
+        var fields = new List<LineField>
+        {
+            new("Kỳ thi:", BoxOf(Sx(103), Sy(50), Sx(240), Sy(14))),
+            new("Bài thi:", BoxOf(Sx(103), Sy(64), Sx(130), Sy(14))),
+            new("Ngày thi:", BoxOf(Sx(240), Sy(64), Sx(110), Sy(14))),
+            new("Cán bộ coi thi 1", BoxOf(Sx(103.1), Sy(89.4), Sx(116.9), Sy(55))),
+            new("Cán bộ coi thi 2", BoxOf(Sx(226.9), Sy(89.4), Sx(116.9), Sy(55))),
+            new("1. Họ và tên thí sinh:", BoxOf(Sx(112), Sy(158), Sx(326) - Sx(112), Sy(16))),
+            new("2. Phòng thi số:", BoxOf(Sx(112), Sy(180), Sx(326) - Sx(112), Sy(16))),
+            new("3. Ngày sinh:", BoxOf(Sx(112), Sy(202), Sx(326) - Sx(112), Sy(16)))
+        };
+
+        CodeGrid Code(string title, double labelX, double firstX, int columns) 
+        {
+            var marks = new List<CodeBubble>();
+            for (var column = 0; column < columns; column++)
+            {
+                for (var digit = 0; digit < 10; digit++)
+                    marks.Add(new CodeBubble(column, digit, Dot(firstX + column * 11, 105.9 + digit * 11)));
+            }
+
+            return new CodeGrid(
+                title,
+                BoxOf(Sx(firstX - 8), Sy(66), Sx(columns * 11 + 6), Sy(150)),
+                columns,
+                Sx(labelX),
+                Sy(28),
+                Math.Max(1, Sy(11)),
+                marks);
+        }
+
+        var codes = new List<CodeGrid>
+        {
+            Code("9. Điểm tự luận", 44.8, 57.8, 3),
+            Code("7. Số báo danh", 357.6, 370.6, 8),
+            Code("8. Mã đề", 460.8, 473.7, 4)
+        };
+
+        return new Plan(
+            OmrFormStyles.TuLuan,
+            bubbles,
+            frames,
+            // Khung ngoài ôm hết trang phiếu.
+            BoxOf(Sx(27.5), Sy(27.5), Sx(495), Sy(715)),
+            BoxOf(Sx(32), Sy(30), 36, 36),
+            4,
+            titles,
+            truths,
+            digits,
+            fields,
+            codes);
+    }
 
     private static Box BoxOf(int left, int top, int width, int height) =>
         new(left / (double)PageWidth, top / (double)PageHeight, width / (double)PageWidth, height / (double)PageHeight);

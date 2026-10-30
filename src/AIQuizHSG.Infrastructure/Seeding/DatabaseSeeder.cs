@@ -1,4 +1,5 @@
 using AIQuizHSG.Application.Authentication;
+using AIQuizHSG.Application.Omr;
 using AIQuizHSG.Domain.Authorization;
 using AIQuizHSG.Application.Persistence;
 using AIQuizHSG.Domain.Common;
@@ -67,6 +68,7 @@ public static class DatabaseSeeder
         await SeedSchoolSampleAsync(db, unitOfWork, passwords, config, ct);
         await SeedQuestionsAsync(db, unitOfWork, config, ct);
         await SeedFormStylesAsync(db, ct);
+        await SeedOmrTemplatesAsync(unitOfWork, config, ct);
         await SeedTeachingSubjectsAsync(db, ct);
     }
 
@@ -84,13 +86,51 @@ public static class DatabaseSeeder
         Add("Khung", "Khung nhiều cột", "Chia câu thành vài cột, mỗi cột một khung.", 1);
         Add("MotCot", "Một cột", "Cả phiếu một cột, ô to, dễ tô.", 2);
         Add("Luoi", "Lưới ô", "Câu xếp ngang thành lưới, gọn trên một trang.", 3);
-        Add("NhieuPhan", "Nhiều phần", "Phần bốn đáp án, phần đúng/sai và phần trả lời số trên cùng một phiếu.", 4);
+        Add("NhieuPhan", "Phiếu Bộ", "Phiếu Bộ Giáo dục: phần I bốn đáp án, phần II đúng/sai, phần III điền số.", 4);
         Add("PhieuThi", "Phiếu thi", "Phiếu trắc nghiệm có số báo danh, mã đề và chữ ký cán bộ coi thi. Số cột theo số câu.", 5);
+        Add("KiemTra", "Phiếu kiểm tra", "Phiếu A4: phần I bốn đáp án theo cột 10 câu, phần II đúng/sai. Đặt số câu khi tạo mẫu.", 6);
+        Add("TuLuan", "Phiếu có tự luận", "Phần trắc nghiệm, đúng/sai, điền số, ô điểm tự luận và phần giấy kẻ.", 7);
         if (missing.Count == 0)
             return;
 
         db.OmrFormStyles.AddRange(missing);
         await db.SaveChangesAsync(ct);
+    }
+
+    // Ba mẫu phiếu đang dùng. Chỉ thêm khi chưa có mã, không ghi đè tọa độ đã lưu.
+    private static async Task SeedOmrTemplatesAsync(IUnitOfWork unitOfWork, IConfiguration config, CancellationToken ct)
+    {
+        var username = config["Seed:Username"] ?? "admin";
+        var admin = await unitOfWork.Users.FindByUsernameAsync(username, ct);
+        if (admin is null)
+            return;
+
+        var now = DateTime.UtcNow;
+        await Add(unitOfWork, admin.Id, now, "PHIEU-KIEM-TRA", () =>
+            OmrTemplateConfig.TryFromCheck([("BonDapAn", 32), ("DungSai", 2)], out var layout) ? layout : null, ct);
+        await Add(unitOfWork, admin.Id, now, "PHIEU-BO", () =>
+            OmrTemplateConfig.TryFromParts([("BonDapAn", 40), ("DungSai", 8), ("DienSo", 6)], out var layout) ? layout : null, ct);
+        await Add(unitOfWork, admin.Id, now, "PHIEU-TU-LUAN", () =>
+            OmrTemplateConfig.TryFromEssay([("BonDapAn", 8), ("DungSai", 4), ("DienSo", 2)], out var layout) ? layout : null, ct);
+        await unitOfWork.SaveChangesAsync(ct);
+
+        static async Task Add(IUnitOfWork unitOfWork, long userId, DateTime now, string code, Func<OmrTemplateConfig?> build, CancellationToken ct)
+        {
+            if (await unitOfWork.Omr.TemplateCodeExistsAsync(code, 1, ct))
+                return;
+            var layout = build();
+            if (layout is null)
+                return;
+            await unitOfWork.Omr.AddTemplateAsync(new OmrTemplate
+            {
+                Code = code,
+                Version = 1,
+                ConfigJson = layout.ToJson(),
+                IsActive = true,
+                CreatedAtUtc = now,
+                CreatedById = userId
+            }, ct);
+        }
     }
 
     // Khối 6–9, vai trò quản trị trường và quyền mẫu. Chạy lại không ghi đè dữ liệu đã có.

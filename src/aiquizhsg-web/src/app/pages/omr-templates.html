@@ -1,7 +1,7 @@
 <div class="page-head">
   <div>
     <h1>Mẫu phiếu OMR</h1>
-    <p>Mỗi mẫu gắn số câu và một kiểu phiếu. Kiểu nhiều phần gồm trắc nghiệm, đúng/sai và trả lời số.</p>
+    <p>Mỗi mẫu gắn số câu và kiểu phiếu đang dùng.</p>
   </div>
   <div class="page-actions">
     <p-button label="Thêm mẫu" icon="pi pi-plus" (onClick)="create()" />
@@ -56,16 +56,38 @@
         <p-inputnumber inputId="version" name="version" [(ngModel)]="version" [min]="1" [max]="99" />
       </div>
       <div class="field">
-        <label>Kiểu phiếu</label>
-        <div class="template-picks">
-          @for (item of styles; track item.code) {
-            <button type="button" class="template-pick" [class.on]="style === item.code" (click)="pick(item.code)">
-              <span><strong>{{ item.name }}</strong><em>{{ item.description }}</em></span>
-            </button>
-          }
-        </div>
+        <label for="style">Kiểu phiếu</label>
+        <p-select inputId="style" name="style" [options]="styleChoices" optionLabel="name" optionValue="code" [(ngModel)]="style" (ngModelChange)="pick($event)" appendTo="body" />
       </div>
-      @if (style === 'NhieuPhan') {
+      @if (style === 'KiemTra') {
+        <div class="part-grid">
+          <div class="field">
+            <label for="checkOne">Phần I · 4 đáp án</label>
+            <p-inputnumber inputId="checkOne" name="partOne" [(ngModel)]="partOne" [min]="1" [max]="120" />
+          </div>
+          <div class="field">
+            <label for="checkTwo">Phần II · đúng/sai</label>
+            <p-inputnumber inputId="checkTwo" name="partTwo" [(ngModel)]="partTwo" [min]="0" [max]="8" />
+          </div>
+        </div>
+        <p class="muted">Khổ A4, chữ Times New Roman. Phần I mỗi cột 10 câu, hết bốn cột thì xuống hàng dưới. Phần II mỗi câu có 4 ý a–d. Tổng {{ examQuestionCount() }} câu trên đề.</p>
+      } @else if (style === 'TuLuan') {
+        <div class="part-grid">
+          <div class="field">
+            <label for="essayOne">Phần I · 4 đáp án</label>
+            <p-inputnumber inputId="essayOne" name="partOne" [(ngModel)]="partOne" [min]="1" [max]="8" />
+          </div>
+          <div class="field">
+            <label for="essayTwo">Phần II · đúng/sai</label>
+            <p-inputnumber inputId="essayTwo" name="partTwo" [(ngModel)]="partTwo" [min]="0" [max]="6" />
+          </div>
+          <div class="field">
+            <label for="essayThree">Phần III · điền số</label>
+            <p-inputnumber inputId="essayThree" name="partThree" [(ngModel)]="partThree" [min]="0" [max]="3" />
+          </div>
+        </div>
+        <p class="muted">Có ô điểm tự luận và phần giấy kẻ. Phần II mỗi câu 4 ý. Phần III mỗi câu một lưới dấu trừ, phẩy và chữ số. Tổng {{ examQuestionCount() }} câu trên đề.</p>
+      } @else if (style === 'NhieuPhan') {
         <div class="part-grid">
           <div class="field">
             <label for="partOne">Phần I · 4 đáp án</label>
@@ -108,6 +130,8 @@
 }
 <p-dialog header="Mẫu phiếu" [modal]="true" [visible]="previewOpen" [style]="{ width: 'min(760px, 96vw)' }" (visibleChange)="onPreviewVisible($event)">
   @if (previewUrl) {
-    <img class="sheet-preview" [src]="previewUrl" alt="Phiếu sinh ra từ mẫu" />
+    <div class="sheet-scroll">
+      <img class="sheet-preview" [src]="previewUrl" alt="Phiếu sinh ra từ mẫu" />
+    </div>
   }
 </p-dialog>

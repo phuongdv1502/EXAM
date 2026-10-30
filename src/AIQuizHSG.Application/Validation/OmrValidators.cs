@@ -25,6 +25,22 @@ public sealed class SaveOmrTemplateRequestValidator : AbstractValidator<SaveOmrT
                 return;
             }
 
+            if (style == OmrFormStyles.KiemTra)
+            {
+                var parts = (request.Sections ?? []).Select(item => (item.Kind, item.QuestionCount)).ToList();
+                if (!OmrTemplateConfig.TryFromCheck(parts, out _))
+                    context.AddFailure(Messages.OmrCheckQuestionCountInvalid);
+                return;
+            }
+
+            if (style == OmrFormStyles.TuLuan)
+            {
+                var parts = (request.Sections ?? []).Select(item => (item.Kind, item.QuestionCount)).ToList();
+                if (!OmrTemplateConfig.TryFromEssay(parts, out _))
+                    context.AddFailure(Messages.OmrEssayQuestionCountInvalid);
+                return;
+            }
+
             // Phiếu thi cổ điển luôn bốn đáp án, tối đa bốn cột mỗi cột 30 câu.
             if (style == OmrFormStyles.PhieuThi)
             {

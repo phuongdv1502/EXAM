@@ -110,6 +110,8 @@
 }
 <p-dialog header="Mẫu phiếu" [modal]="true" [visible]="previewOpen" [style]="{ width: 'min(760px, 96vw)' }" (visibleChange)="onPreviewVisible($event)">
   @if (previewUrl) {
-    <img class="sheet-preview" [src]="previewUrl" alt="Phiếu sinh ra từ mẫu" />
+    <div class="sheet-scroll">
+      <img class="sheet-preview" [src]="previewUrl" alt="Phiếu sinh ra từ mẫu" />
+    </div>
   }
 </p-dialog>

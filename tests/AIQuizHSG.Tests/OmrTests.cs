@@ -50,7 +50,7 @@ public class OmrTests
         Assert.Equal(10 + 8 + 1, config.QuestionCount);
         Assert.Equal(4, config.Bubbles.Count(item => item.QuestionNumber == 1));
         Assert.Equal(2, config.Bubbles.Count(item => item.QuestionNumber == 11));
-        Assert.Equal(48, config.Bubbles.Count(item => item.QuestionNumber == 19));
+        Assert.Equal(OmrSectionKinds.EssayDigitBubbles, config.Bubbles.Count(item => item.QuestionNumber == 19));
         Assert.True(config.Bubbles.Where(item => item.QuestionNumber <= 10).Max(item => item.Y) < config.Bubbles.Where(item => item.QuestionNumber == 11).Min(item => item.Y));
         Assert.True(config.Bubbles.Max(item => item.Y + item.Height) <= 1);
         Assert.True(OmrTemplateConfig.TryParse(config.ToJson(), out var roundTrip));
@@ -119,6 +119,69 @@ public class OmrTests
         Assert.Equal(160, shorter.Bubbles.Count);
         Assert.Equal(2, shorter.Columns.Count);
         Assert.Equal(40, shorter.Bubbles.Max(item => item.QuestionNumber));
+    }
+
+    [Fact]
+    public void CheckSheet_MatchesTheA4QuizFormAndTheChosenCounts()
+    {
+        var parts = new List<(string Kind, int QuestionCount)> { ("BonDapAn", 32), ("DungSai", 2) };
+        Assert.True(OmrTemplateConfig.TryFromCheck(parts, out var config));
+        Assert.Equal(OmrFormStyles.KiemTra, config.Style);
+        Assert.Equal(40, config.QuestionCount);
+        Assert.Equal(144, config.Bubbles.Count);
+
+        var plan = OmrFormLayout.For(config);
+        Assert.Equal(4, plan.Columns.Count);
+        Assert.Equal(Enumerable.Range(1, 10), plan.Columns[0].Questions);
+        Assert.Equal(new[] { 31, 32 }, plan.Columns[3].Questions);
+        Assert.Equal(60, plan.Codes[0].Bubbles.Count);
+        Assert.Equal(30, plan.Codes[1].Bubbles.Count);
+        Assert.True(plan.Bubbles.Min(item => item.Area.Y) > 1d / 3d);
+        Assert.True(plan.Qr.Y + plan.Qr.Height < 1d / 3d);
+        Assert.True(plan.Columns[0].Area.Width > 0.15);
+        Assert.True(plan.Bubbles.Max(item => item.Area.Y + item.Area.Height) < 0.8);
+
+        var png = OmrFormImage.Png(config);
+        Assert.Equal(0x89, png[0]);
+        Assert.True(png.Length > 1000);
+
+        Assert.True(OmrTemplateConfig.TryFromCheck([("BonDapAn", 50), ("DungSai", 2)], out var wider));
+        var wrapped = OmrFormLayout.For(wider);
+        Assert.Equal(5, wrapped.Columns.Count);
+        Assert.Equal(Enumerable.Range(41, 10), wrapped.Columns[4].Questions);
+        Assert.Equal(wrapped.Columns[0].Area.Y, wrapped.Columns[3].Area.Y);
+        Assert.True(wrapped.Columns[4].Area.Y > wrapped.Columns[0].Area.Y);
+        Assert.True(wrapped.Truths[0].Area.Y > wrapped.Columns[4].Area.Y);
+        Assert.True(wrapped.Bubbles.Max(item => item.Area.Y + item.Area.Height) < 1);
+    }
+
+    [Fact]
+    public void EssaySheet_PlacesChoiceTruthAndDigitBubbles()
+    {
+        var parts = new List<(string Kind, int QuestionCount)> { ("BonDapAn", 8), ("DungSai", 4), ("DienSo", 2) };
+        Assert.True(OmrTemplateConfig.TryFromEssay(parts, out var config));
+        Assert.Equal(OmrFormStyles.TuLuan, config.Style);
+        Assert.Equal(8 + 16 + 2, config.QuestionCount);
+        Assert.Equal(8 * 4 + 16 * 2 + 2 * OmrSectionKinds.EssayDigitBubbles, config.Bubbles.Count);
+
+        var plan = OmrFormLayout.For(config);
+        Assert.Equal(8, plan.Codes[1].Columns);
+        Assert.Equal(4, plan.Codes[2].Columns);
+        Assert.Equal(4, plan.Truths.Count);
+        Assert.Equal(2, plan.Digits.Count);
+        Assert.True(plan.Bubbles.Min(item => item.Area.Y) > 1d / 3d);
+        Assert.Contains(plan.Sections, item => item.Text == "PHẦN TỰ LUẬN");
+
+        var png = OmrFormImage.Png(config);
+        Assert.Equal(0x89, png[0]);
+        Assert.True(png.Length > 1000);
+
+        Assert.True(OmrTemplateConfig.TryFromEssay([("BonDapAn", 8), ("DungSai", 6), ("DienSo", 3)], out var fuller));
+        var wide = OmrFormLayout.For(fuller);
+        Assert.Equal(6, wide.Truths.Count);
+        Assert.Equal(3, wide.Digits.Count);
+        Assert.True(wide.Bubbles.Max(item => item.Area.X + item.Area.Width) < 1);
+        Assert.True(wide.Truths.Max(item => item.Area.Y) > wide.Truths[0].Area.Y);
     }
 
     [Fact]

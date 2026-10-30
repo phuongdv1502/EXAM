@@ -50,6 +50,34 @@ public static class OmrSectionKinds
         _ => false
     };
 
+    // Phần III phiếu tự luận: dấu trừ chỉ cột đầu, dấu phẩy hai cột giữa, chữ số đủ bốn cột.
+    public static bool EssayDigitCell(int column, int row) => row switch
+    {
+        0 => column == 0,
+        1 => column is 1 or 2,
+        _ => column is >= 0 and < OmrDigitGrid.Columns
+    };
+
+    public static int EssayDigitBubbles { get; } =
+        Enumerable.Range(0, OmrDigitGrid.Rows).Sum(row => Enumerable.Range(0, OmrDigitGrid.Columns).Count(column => EssayDigitCell(column, row)));
+
+    // Phiếu có tự luận: phần II thêm hai câu hàng dưới, phần III thêm một câu bên phải.
+    public static bool EssayCountAllowed(string kind, int count) => kind switch
+    {
+        BonDapAn => count is >= 1 and <= 8,
+        DungSai => count is >= 1 and <= 6,
+        DienSo => count is >= 1 and <= 3,
+        _ => false
+    };
+
+    // Phiếu kiểm tra cho phần I tới ba hàng cột, mỗi hàng 40 câu.
+    public static bool CheckCountAllowed(string kind, int count) => kind switch
+    {
+        BonDapAn => count is >= 1 and <= 120,
+        DungSai => count is >= 1 and <= 8,
+        _ => false
+    };
+
     // Chuỗi xem trước: "10:BonDapAn,2:DungSai,2:DienSo".
     public static bool TryParseList(string? text, out List<(string Kind, int QuestionCount)> parts)
     {

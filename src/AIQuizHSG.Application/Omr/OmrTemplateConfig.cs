@@ -88,6 +88,90 @@ public sealed class OmrTemplateConfig
         return true;
     }
 
+    // Phiếu kiểm tra: phần I bắt buộc, phần II đúng/sai có thể bỏ. Không có phần điền số.
+    public static bool TryFromCheck(IReadOnlyList<(string Kind, int QuestionCount)> parts, out OmrTemplateConfig config)
+    {
+        config = new OmrTemplateConfig();
+        var kept = parts.Where(item => item.QuestionCount > 0).ToList();
+        if (kept.Count is < 1 or > 2)
+            return false;
+        if (!OmrSectionKinds.TryNormalize(kept[0].Kind, out var first) || first != OmrSectionKinds.BonDapAn
+            || !OmrSectionKinds.CheckCountAllowed(first, kept[0].QuestionCount))
+            return false;
+        if (kept.Count == 2
+            && (!OmrSectionKinds.TryNormalize(kept[1].Kind, out var second) || second != OmrSectionKinds.DungSai
+                || !OmrSectionKinds.CheckCountAllowed(second, kept[1].QuestionCount)))
+            return false;
+
+        var sections = kept.Select(item => OmrSectionConfig.Create(
+            item.Kind.Equals(OmrSectionKinds.DungSai, StringComparison.OrdinalIgnoreCase) ? OmrSectionKinds.DungSai : OmrSectionKinds.BonDapAn,
+            item.QuestionCount)).ToList();
+        var plan = OmrFormLayout.MeasureCheck(sections);
+        var total = sections.Sum(item => item.ItemCount);
+        if (total < 1 || plan.Bubbles.Count == 0)
+            return false;
+
+        config = new OmrTemplateConfig
+        {
+            QuestionCount = total,
+            ChoiceCount = 4,
+            Style = OmrFormStyles.KiemTra,
+            Sections = sections,
+            Bubbles = plan.Bubbles.Select(slot => new OmrBubbleConfig
+            {
+                QuestionNumber = slot.QuestionNumber,
+                ChoiceIndex = slot.ChoiceIndex,
+                X = slot.Area.X,
+                Y = slot.Area.Y,
+                Width = slot.Area.Width,
+                Height = slot.Area.Height
+            }).ToList()
+        };
+        return true;
+    }
+
+    // Phiếu có tự luận: phần I bắt buộc, phần II và phần III có thể bỏ, đúng thứ tự.
+    public static bool TryFromEssay(IReadOnlyList<(string Kind, int QuestionCount)> parts, out OmrTemplateConfig config)
+    {
+        config = new OmrTemplateConfig();
+        var kept = parts.Where(item => item.QuestionCount > 0).ToList();
+        if (kept.Count is < 1 or > 3)
+            return false;
+
+        var expected = new[] { OmrSectionKinds.BonDapAn, OmrSectionKinds.DungSai, OmrSectionKinds.DienSo };
+        var sections = new List<OmrSectionConfig>();
+        for (var index = 0; index < kept.Count; index++)
+        {
+            if (!OmrSectionKinds.TryNormalize(kept[index].Kind, out var kind) || kind != expected[index]
+                || !OmrSectionKinds.EssayCountAllowed(kind, kept[index].QuestionCount))
+                return false;
+            sections.Add(OmrSectionConfig.Create(kind, kept[index].QuestionCount));
+        }
+
+        var plan = OmrFormLayout.MeasureEssay(sections);
+        var total = sections.Sum(item => item.ItemCount);
+        if (total < 1 || plan.Bubbles.Count == 0)
+            return false;
+
+        config = new OmrTemplateConfig
+        {
+            QuestionCount = total,
+            ChoiceCount = 4,
+            Style = OmrFormStyles.TuLuan,
+            Sections = sections,
+            Bubbles = plan.Bubbles.Select(slot => new OmrBubbleConfig
+            {
+                QuestionNumber = slot.QuestionNumber,
+                ChoiceIndex = slot.ChoiceIndex,
+                X = slot.Area.X,
+                Y = slot.Area.Y,
+                Width = slot.Area.Width,
+                Height = slot.Area.Height
+            }).ToList()
+        };
+        return true;
+    }
+
     public string KindOf(int questionNumber)
     {
         var cursor = 1;
@@ -167,21 +251,78 @@ public sealed class OmrTemplateConfig
 
     private static bool SectionsMatch(OmrTemplateConfig config)
     {
+        if (config.Style == OmrFormStyles.KiemTra)
+            return CheckSections(config);
+        if (config.Style == OmrFormStyles.TuLuan)
+            return EssaySections(config);
         if (config.Style != OmrFormStyles.NhieuPhan || config.Sections.Count < 2)
             return false;
 
+        return MarksMatch(config);
+    }
+
+    // Phần I là bốn đáp án. Phần II, nếu có, là đúng/sai và đứng ngay sau.
+    private static bool CheckSections(OmrTemplateConfig config)
+    {
+        if (config.Sections.Count is < 1 or > 2)
+            return false;
+        if (!OmrSectionKinds.TryNormalize(config.Sections[0].Kind, out var first) || first != OmrSectionKinds.BonDapAn
+            || !OmrSectionKinds.CheckCountAllowed(first, config.Sections[0].QuestionCount))
+            return false;
+        config.Sections[0].Kind = first;
+        if (config.Sections.Count == 2)
+        {
+            if (!OmrSectionKinds.TryNormalize(config.Sections[1].Kind, out var second) || second != OmrSectionKinds.DungSai
+                || !OmrSectionKinds.CheckCountAllowed(second, config.Sections[1].QuestionCount))
+                return false;
+            config.Sections[1].Kind = second;
+        }
+
+        return MarksMatch(config);
+    }
+
+    // Phần I bốn đáp án, rồi đúng/sai, rồi điền số. Mỗi phần tôn trọng số câu của phiếu tự luận.
+    private static bool EssaySections(OmrTemplateConfig config)
+    {
+        if (config.Sections.Count is < 1 or > 3)
+            return false;
+        var expected = new[] { OmrSectionKinds.BonDapAn, OmrSectionKinds.DungSai, OmrSectionKinds.DienSo };
+        for (var index = 0; index < config.Sections.Count; index++)
+        {
+            if (!OmrSectionKinds.TryNormalize(config.Sections[index].Kind, out var kind) || kind != expected[index]
+                || !OmrSectionKinds.EssayCountAllowed(kind, config.Sections[index].QuestionCount))
+                return false;
+            config.Sections[index].Kind = kind;
+        }
+
+        return MarksMatch(config);
+    }
+
+    private static bool MarksMatch(OmrTemplateConfig config)
+    {
         var expected = 0;
         var items = 0;
         foreach (var section in config.Sections)
         {
-            if (!OmrSectionKinds.TryNormalize(section.Kind, out var kind) || !OmrSectionKinds.CountAllowed(kind, section.QuestionCount))
+            if (!OmrSectionKinds.TryNormalize(section.Kind, out var kind))
+                return false;
+            var allowed = config.Style switch
+            {
+                OmrFormStyles.KiemTra => OmrSectionKinds.CheckCountAllowed(kind, section.QuestionCount),
+                OmrFormStyles.TuLuan => OmrSectionKinds.EssayCountAllowed(kind, section.QuestionCount),
+                _ => OmrSectionKinds.CountAllowed(kind, section.QuestionCount)
+            };
+            if (!allowed)
                 return false;
             section.Kind = kind;
             section.ChoiceCount = OmrSectionKinds.BubbleChoices(kind);
             section.ItemCount = section.QuestionCount * OmrSectionKinds.ItemsPerQuestion(kind);
             items += section.ItemCount;
+            var digitBubbles = config.Style is OmrFormStyles.TuLuan or OmrFormStyles.NhieuPhan
+                ? OmrSectionKinds.EssayDigitBubbles
+                : section.ChoiceCount;
             expected += section.Kind == OmrSectionKinds.DienSo
-                ? section.QuestionCount * section.ChoiceCount
+                ? section.QuestionCount * digitBubbles
                 : section.ItemCount * section.ChoiceCount;
         }
 
@@ -191,10 +332,28 @@ public sealed class OmrTemplateConfig
         for (var number = 1; number <= items; number++)
         {
             var kind = config.KindOf(number);
-            var choices = OmrSectionKinds.BubbleChoices(kind == OmrSectionKinds.DungSai ? OmrSectionKinds.DungSai : kind == OmrSectionKinds.DienSo ? OmrSectionKinds.DienSo : OmrSectionKinds.BonDapAn);
-            if (kind == OmrSectionKinds.DungSai)
-                choices = 2;
             var marks = config.Bubbles.Where(item => item.QuestionNumber == number).OrderBy(item => item.ChoiceIndex).ToList();
+            // Phiếu Bộ và phiếu tự luận không tô đủ lưới 4×12, chỉ các ô có trên mẫu.
+            if (kind == OmrSectionKinds.DienSo && config.Style is OmrFormStyles.TuLuan or OmrFormStyles.NhieuPhan)
+            {
+                var indexes = Enumerable.Range(0, OmrDigitGrid.Columns)
+                    .SelectMany(column => Enumerable.Range(0, OmrDigitGrid.Rows)
+                        .Where(row => OmrSectionKinds.EssayDigitCell(column, row))
+                        .Select(row => OmrDigitGrid.Index(column, row)))
+                    .OrderBy(index => index)
+                    .ToArray();
+                if (marks.Count != indexes.Length)
+                    return false;
+                for (var index = 0; index < indexes.Length; index++)
+                {
+                    if (marks[index].ChoiceIndex != indexes[index] || marks[index].Width <= 0 || marks[index].Height <= 0)
+                        return false;
+                }
+
+                continue;
+            }
+
+            var choices = kind == OmrSectionKinds.DungSai ? 2 : kind == OmrSectionKinds.DienSo ? OmrSectionKinds.BubbleChoices(kind) : 4;
             if (marks.Count != choices)
                 return false;
             for (var choice = 0; choice < marks.Count; choice++)

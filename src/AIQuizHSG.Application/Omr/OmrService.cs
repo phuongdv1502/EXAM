@@ -77,16 +77,33 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             if (!OmrTemplateConfig.TryFromParts(parts, out config))
                 return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrSectionsInvalid);
         }
+        else if (style == OmrFormStyles.KiemTra)
+        {
+            var parts = (request.Sections ?? []).Select(item => (item.Kind, item.QuestionCount)).ToList();
+            if (!OmrTemplateConfig.TryFromCheck(parts, out config))
+                return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrCheckQuestionCountInvalid);
+        }
+        else if (style == OmrFormStyles.TuLuan)
+        {
+            var parts = (request.Sections ?? []).Select(item => (item.Kind, item.QuestionCount)).ToList();
+            if (!OmrTemplateConfig.TryFromEssay(parts, out config))
+                return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrEssayQuestionCountInvalid);
+        }
         else
         {
             config = OmrTemplateConfig.Grid(request.QuestionCount, request.ChoiceCount, style);
         }
 
         // Mẫu một kiểu phải khớp số câu và số lựa chọn đã khai.
-        if (style != OmrFormStyles.NhieuPhan && (config.QuestionCount != request.QuestionCount || config.ChoiceCount != request.ChoiceCount))
+        if (style is not (OmrFormStyles.NhieuPhan or OmrFormStyles.KiemTra or OmrFormStyles.TuLuan)
+            && (config.QuestionCount != request.QuestionCount || config.ChoiceCount != request.ChoiceCount))
             return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrTemplateConfigInvalid);
         if (style == OmrFormStyles.NhieuPhan && config.Style != OmrFormStyles.NhieuPhan)
             return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrSectionsInvalid);
+        if (style == OmrFormStyles.KiemTra && config.Style != OmrFormStyles.KiemTra)
+            return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrCheckQuestionCountInvalid);
+        if (style == OmrFormStyles.TuLuan && config.Style != OmrFormStyles.TuLuan)
+            return OperationResult<OmrTemplateSummary>.Invalid(Messages.OmrEssayQuestionCountInvalid);
 
         var template = new OmrTemplate
         {
@@ -131,6 +148,16 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         {
             if (!OmrSectionKinds.TryParseList(sections, out var parts) || !OmrTemplateConfig.TryFromParts(parts, out config))
                 return OperationResult<byte[]>.Invalid(Messages.OmrSectionsInvalid);
+        }
+        else if (OmrFormStyles.TryNormalize(style, out var check) && check == OmrFormStyles.KiemTra)
+        {
+            if (!OmrSectionKinds.TryParseList(sections, out var parts) || !OmrTemplateConfig.TryFromCheck(parts, out config))
+                return OperationResult<byte[]>.Invalid(Messages.OmrCheckQuestionCountInvalid);
+        }
+        else if (OmrFormStyles.TryNormalize(style, out var essay) && essay == OmrFormStyles.TuLuan)
+        {
+            if (!OmrSectionKinds.TryParseList(sections, out var parts) || !OmrTemplateConfig.TryFromEssay(parts, out config))
+                return OperationResult<byte[]>.Invalid(Messages.OmrEssayQuestionCountInvalid);
         }
         else if (questionCount is >= 1 && choiceCount is >= 2 and <= 6 && OmrFormStyles.TryNormalize(style, out var plain)
             && (plain == OmrFormStyles.PhieuThi ? questionCount <= 120 && choiceCount == 4 : questionCount <= 60))

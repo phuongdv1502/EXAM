@@ -18,7 +18,7 @@ export class OmrTemplatesPage extends Page implements OnInit {
   version = 1;
   questionCount = 10;
   choiceCount = 4;
-  style = 'Khung';
+  style = 'KiemTra';
   partOne = 40;
   partTwo = 8;
   partThree = 6;
@@ -44,9 +44,15 @@ export class OmrTemplatesPage extends Page implements OnInit {
     this.partOne = 40;
     this.partTwo = 8;
     this.partThree = 6;
-    this.style = this.styles[0]?.code ?? 'Khung';
+    this.style = this.styleChoices.find((item) => item.code === 'KiemTra')?.code ?? this.styleChoices[0]?.code ?? 'KiemTra';
+    this.pick(this.style);
     this.isActive = true;
     this.openForm();
+  }
+
+    get styleChoices(): OmrFormStyle[] {
+    const shown = new Set(['KiemTra', 'NhieuPhan', 'TuLuan']);
+    return this.styles.filter((item) => shown.has(item.code));
   }
 
   cancel(): void {
@@ -59,19 +65,30 @@ export class OmrTemplatesPage extends Page implements OnInit {
 
   pick(code: string): void {
     this.style = code;
-    if (code === 'PhieuThi')
+    if (code === 'PhieuThi' || code === 'KiemTra' || code === 'NhieuPhan' || code === 'TuLuan')
       this.choiceCount = 4;
-    else if (this.questionCount > 60)
+    if (code === 'KiemTra') {
+      this.partOne = 32;
+      this.partTwo = 2;
+    } else if (code === 'NhieuPhan') {
+      this.partOne = 40;
+      this.partTwo = 8;
+      this.partThree = 6;
+    } else if (code === 'TuLuan') {
+      this.partOne = 8;
+      this.partTwo = 4;
+      this.partThree = 2;
+    } else if (this.questionCount > 60)
       this.questionCount = 60;
   }
 
   previewDraft(): void {
-    const many = this.style === 'NhieuPhan';
+    const parts = this.style === 'NhieuPhan' || this.style === 'KiemTra' || this.style === 'TuLuan';
     this.openPreview(this.api.omrTemplateDraft(
-      many ? this.examQuestionCount() : Number(this.questionCount),
-      many ? 4 : Number(this.choiceCount),
+      parts ? this.examQuestionCount() : Number(this.questionCount),
+      parts ? 4 : Number(this.choiceCount),
       this.style,
-      many ? this.sectionQuery() : undefined,
+      parts ? this.sectionQuery() : undefined,
     ));
   }
 
@@ -84,7 +101,8 @@ export class OmrTemplatesPage extends Page implements OnInit {
   }
 
   examQuestionCount(): number {
-    return Number(this.partOne) + Number(this.partTwo) * 4 + Number(this.partThree);
+    const partThree = this.style === 'KiemTra' ? 0 : Number(this.partThree);
+    return Number(this.partOne) + Number(this.partTwo) * 4 + partThree;
   }
 
   onPreviewVisible(open: boolean): void {
@@ -114,11 +132,13 @@ export class OmrTemplatesPage extends Page implements OnInit {
   }
 
   private sectionInputs(): { kind: string; questionCount: number }[] {
-    return [
+    const parts = [
       { kind: 'BonDapAn', questionCount: Number(this.partOne) },
       { kind: 'DungSai', questionCount: Number(this.partTwo) },
-      { kind: 'DienSo', questionCount: Number(this.partThree) },
-    ].filter((part) => part.questionCount > 0);
+    ];
+    if (this.style !== 'KiemTra')
+      parts.push({ kind: 'DienSo', questionCount: Number(this.partThree) });
+    return parts.filter((part) => part.questionCount > 0);
   }
 
   private sectionQuery(): string {
@@ -137,11 +157,11 @@ export class OmrTemplatesPage extends Page implements OnInit {
       this.api.saveOmrTemplate({
         code: this.code.trim(),
         version: this.version,
-        questionCount: this.style === 'NhieuPhan' ? this.examQuestionCount() : this.questionCount,
+        questionCount: this.style === 'NhieuPhan' || this.style === 'KiemTra' || this.style === 'TuLuan' ? this.examQuestionCount() : this.questionCount,
         choiceCount: this.choiceCount,
         style: this.style,
         isActive: this.isActive,
-        sections: this.style === 'NhieuPhan' ? this.sectionInputs() : [],
+        sections: this.style === 'NhieuPhan' || this.style === 'KiemTra' || this.style === 'TuLuan' ? this.sectionInputs() : [],
       }),
       () => {
         this.showOk('Đã lưu mẫu phiếu.');
