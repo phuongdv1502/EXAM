@@ -465,6 +465,44 @@ public static class DatabaseSeeder
             added++;
         }
 
+        // Ý đúng/sai và câu điền số môn Tin học. Câu trùng nội dung thì bỏ qua.
+        if (subjects.TryGetValue("TIN", out var tin))
+        {
+            foreach (var item in TrueFalseSamples)
+            {
+                if (existing.Contains(item.Content) || !topics.TryGetValue((tin.Id, item.Topic), out var topic))
+                    continue;
+                await unitOfWork.Questions.AddAsync(SampleQuestion(
+                    topic.Id,
+                    admin.Id,
+                    now,
+                    item.Level,
+                    Rank(item.Level),
+                    item.Content,
+                    [("Đúng", item.IsTrue), ("Sai", !item.IsTrue)],
+                    QuestionType.TrueFalse), ct);
+                existing.Add(item.Content);
+                added++;
+            }
+
+            foreach (var item in FillNumberSamples)
+            {
+                if (existing.Contains(item.Content) || !topics.TryGetValue((tin.Id, item.Topic), out var topic))
+                    continue;
+                await unitOfWork.Questions.AddAsync(SampleQuestion(
+                    topic.Id,
+                    admin.Id,
+                    now,
+                    item.Level,
+                    Rank(item.Level),
+                    item.Content,
+                    [(item.Answer, true), (item.Wrong, false)],
+                    QuestionType.FillNumber), ct);
+                existing.Add(item.Content);
+                added++;
+            }
+        }
+
         if (added > 0)
             await unitOfWork.SaveChangesAsync(ct);
     }
@@ -555,6 +593,155 @@ public static class DatabaseSeeder
         await unitOfWork.StudentRecords.AddAsync(student, ct);
     }
 
+    private static readonly (string Topic, byte Level, string Content, bool IsTrue)[] TrueFalseSamples =
+    [
+        ("Thuật toán", 2, "Tìm kiếm nhị phân chỉ áp dụng trên dãy đã sắp xếp.", true),
+        ("Thuật toán", 2, "Thuật toán luôn kết thúc sau một số bước hữu hạn.", true),
+        ("Thuật toán", 2, "Sơ đồ khối dùng hình thoi để biểu diễn bước nhập dữ liệu.", false),
+        ("Thuật toán", 2, "Một thuật toán có thể có nhiều cách cài đặt khác nhau.", true),
+        ("Biểu diễn thông tin", 2, "Bit là đơn vị thông tin nhỏ nhất.", true),
+        ("Biểu diễn thông tin", 2, "RAM vẫn giữ dữ liệu khi tắt nguồn.", false),
+        ("Biểu diễn thông tin", 2, "1 KB bằng 1024 byte.", true),
+        ("Cấu trúc dữ liệu", 2, "Ngăn xếp lấy phần tử theo kiểu vào sau ra trước.", true),
+        ("Cấu trúc dữ liệu", 2, "Hàng đợi lấy phần tử theo kiểu vào sau ra trước.", false),
+        ("Cấu trúc dữ liệu", 3, "Mảng n phần tử, chỉ số bắt đầu từ 0, thì chỉ số cuối là n.", false),
+        ("Vòng lặp", 2, "Vòng lặp for thường dùng khi đã biết số lần lặp.", true),
+        ("Ngôn ngữ lập trình", 2, "Một biến có thể đổi giá trị trong khi chương trình chạy.", true),
+        ("Thuật toán", 3, "Tìm kiếm nhị phân luôn nhanh hơn tìm tuyến tính trên dãy chưa sắp xếp.", false),
+        ("Thuật toán", 3, "Hình chữ nhật trong sơ đồ khối biểu diễn điều kiện rẽ nhánh.", false),
+        ("Mạng máy tính", 2, "Địa chỉ IP dùng để định danh thiết bị trên mạng.", true),
+        ("Mạng máy tính", 3, "HTTP thường dùng để xem trang web.", true),
+        ("Thuật toán", 1, "Sắp xếp nổi bọt so sánh các cặp phần tử kề nhau.", true),
+        ("Thuật toán", 2, "Tìm tuyến tính chỉ chạy đúng khi dãy đã được sắp xếp.", false),
+        ("Thuật toán", 2, "Một lượt sắp xếp chọn đưa phần tử nhỏ nhất còn lại vào vị trí kế tiếp.", true),
+        ("Thuật toán", 3, "Đệ quy tính giai thừa vẫn đúng khi không có điều kiện dừng.", false),
+        ("Thuật toán", 4, "Tìm kiếm nhị phân trên dãy 16 phần tử cần nhiều nhất 4 lần chia đôi.", true),
+        ("Thuật toán", 3, "Số cách chọn 2 phần tử khác nhau từ 4 phần tử là 8.", false),
+        ("Biểu diễn thông tin", 1, "Hệ nhị phân chỉ dùng hai chữ số 0 và 1.", true),
+        ("Biểu diễn thông tin", 2, "Tệp có đuôi .png thường chứa văn bản thuần.", false),
+        ("Biểu diễn thông tin", 3, "Số thập phân 15 viết ở hệ nhị phân là 1111.", true),
+        ("Biểu diễn thông tin", 2, "1 MB bằng đúng 1000 byte.", false),
+        ("Cấu trúc dữ liệu", 2, "Thêm một nút vào đầu danh sách liên kết không cần duyệt đến nút cuối.", true),
+        ("Cấu trúc dữ liệu", 3, "Chèn một phần tử vào giữa mảng luôn chỉ mất một bước, không phụ thuộc độ dài mảng.", false),
+        ("Cấu trúc dữ liệu", 2, "Hàng đợi lấy phần tử theo kiểu vào trước ra trước.", true),
+        ("Cấu trúc dữ liệu", 4, "Ngăn xếp lấy phần tử vào trước ra trước.", false),
+        ("Vòng lặp", 2, "Vòng lặp while có thể không chạy lần nào nếu điều kiện đã sai từ đầu.", true),
+        ("Vòng lặp", 3, "Vòng ngoài chạy 3 lần, mỗi lần vòng trong chạy 4 lần, thì thân vòng trong chạy 7 lần.", false),
+        ("Vòng lặp", 1, "Vòng for từ 1 đến 4 thực hiện đúng 4 lần.", true),
+        ("Ngôn ngữ lập trình", 2, "Lệnh a ← a + 1 làm giá trị của a tăng thêm 1.", true),
+        ("Ngôn ngữ lập trình", 3, "Biến số nguyên có thể gán trực tiếp bằng một xâu ký tự.", false),
+        ("Câu lệnh rẽ nhánh", 2, "Khi điều kiện sai và có nhánh else, chương trình chạy nhánh else.", true),
+        ("Câu lệnh rẽ nhánh", 3, "Với x = 7, điều kiện x > 10 có giá trị đúng.", false),
+        ("Mạng máy tính", 1, "Bàn phím là thiết bị dùng để nhập văn bản.", true),
+        ("Mạng máy tính", 3, "Địa chỉ 192.168.1.1 là một địa chỉ email.", false),
+        ("Thuật toán", 1, "Thuật toán là một dãy các bước để giải một bài toán.", true),
+        ("Biểu diễn thông tin", 1, "Máy tính lưu dữ liệu bằng các bit 0 và 1.", true),
+        ("Ngôn ngữ lập trình", 1, "Chương trình máy tính được viết bằng một ngôn ngữ lập trình.", true),
+        ("Cấu trúc dữ liệu", 1, "Mảng dùng để lưu nhiều giá trị cùng một kiểu.", true),
+        ("Mạng máy tính", 1, "Chuột là thiết bị dùng để nhập thao tác.", true),
+        ("Câu lệnh rẽ nhánh", 1, "Lệnh if dùng khi cần kiểm tra một điều kiện.", true),
+        ("Vòng lặp", 1, "Vòng lặp dùng để làm một việc nhiều lần.", true),
+        ("Biểu diễn thông tin", 1, "Màn hình là thiết bị dùng để gõ văn bản vào máy.", false),
+        ("Thuật toán", 2, "Hình bình hành trong sơ đồ khối biểu diễn bước nhập hoặc xuất.", true),
+        ("Biểu diễn thông tin", 2, "Bộ nhớ ROM mất hết dữ liệu ngay khi tắt nguồn.", false),
+        ("Ngôn ngữ lập trình", 2, "Tên biến được phép bắt đầu bằng một chữ số.", false),
+        ("Cấu trúc dữ liệu", 2, "Phần tử đầu của mảng đánh số từ 0 có chỉ số bằng 0.", true),
+        ("Mạng máy tính", 2, "HTTPS là HTTP được bổ sung lớp bảo mật.", true),
+        ("Câu lệnh rẽ nhánh", 2, "Nhánh if chỉ được chạy khi điều kiện đúng.", true),
+        ("Vòng lặp", 2, "Vòng lặp vô hạn là vòng không có cách nào để dừng.", true),
+        ("Thuật toán", 2, "Sắp xếp chọn hoán đổi hai phần tử kề nhau ở mỗi bước so sánh.", false),
+        ("Thuật toán", 3, "Sau khi sắp tăng dần dãy 3, 1, 2 thì phần tử đứng đầu là 1.", true),
+        ("Biểu diễn thông tin", 3, "Số nhị phân 101 bằng 6 ở hệ thập phân.", false),
+        ("Ngôn ngữ lập trình", 3, "Cho a bằng 2 và b bằng 3. Sau lệnh a ← b thì a vẫn bằng 2.", false),
+        ("Cấu trúc dữ liệu", 3, "Ngăn xếp có đỉnh là 3, bên dưới là 2 rồi 1. Lấy ra hai lần thì lần thứ hai được số 2.", true),
+        ("Mạng máy tính", 3, "Địa chỉ 256.1.1.1 là một địa chỉ IPv4 hợp lệ.", false),
+        ("Câu lệnh rẽ nhánh", 3, "Với n bằng 4, điều kiện n chia hết cho 2 có giá trị đúng.", true),
+        ("Vòng lặp", 3, "Biến i đi từ 0 đến khi còn nhỏ hơn 5 thì vòng chạy 5 lần.", true),
+        ("Thuật toán", 3, "Ước chung lớn nhất của 8 và 12 bằng 2.", false),
+        ("Thuật toán", 4, "Tìm kiếm nhị phân trên dãy 32 phần tử đã sắp cần nhiều nhất 5 lần chia đôi.", true),
+        ("Thuật toán", 4, "Sắp xếp nổi bọt có thể dừng sớm nếu một lượt không còn hoán đổi nào.", true),
+        ("Biểu diễn thông tin", 4, "Số 255 cần đúng 8 bit khi viết ở hệ nhị phân, không kể bit dấu.", true),
+        ("Cấu trúc dữ liệu", 4, "Hàng đợi hai đầu cho phép lấy phần tử ở cả hai đầu.", true),
+        ("Ngôn ngữ lập trình", 4, "Phép chia nguyên 7 cho 2 cho kết quả 3.", true),
+        ("Vòng lặp", 4, "Hai vòng lồng nhau, mỗi vòng chạy n lần, thì thân vòng trong chạy n mũ 2 lần.", true),
+        ("Câu lệnh rẽ nhánh", 4, "Điều kiện x lớn hơn 0 và x nhỏ hơn 0 có thể cùng đúng.", false),
+        ("Mạng máy tính", 4, "Mặt nạ 255.255.255.0 dành 24 bit cho phần mạng.", true),
+        ("Thuật toán", 5, "Sắp xếp chọn trên n phần tử luôn so sánh đúng n nhân (n trừ 1) chia 2 lần.", true),
+        ("Thuật toán", 5, "Tìm kiếm nhị phân trên dãy chưa sắp vẫn luôn tìm đúng vị trí nếu phần tử có trong dãy.", false),
+        ("Thuật toán", 5, "Hàng đợi ưu tiên luôn lấy phần tử vào sớm nhất, không xét mức ưu tiên.", false),
+        ("Biểu diễn thông tin", 5, "Số nguyên 16 bit có dấu biểu diễn được giá trị 40000.", false),
+        ("Cấu trúc dữ liệu", 5, "Lấy phần tử cuối của danh sách liên kết đơn cần đi qua số nút tỉ lệ với độ dài danh sách.", true),
+        ("Ngôn ngữ lập trình", 5, "Ba lệnh a ← a + b, b ← a - b, a ← a - b hoán đổi a và b khi không bị tràn số.", true),
+        ("Vòng lặp", 5, "Đệ quy Fibonacci không lưu kết quả sẽ tính lại cùng một giá trị nhiều lần.", true),
+        ("Mạng máy tính", 5, "Gói tin qua bộ định tuyến có thể đổi địa chỉ MAC nhưng vẫn giữ địa chỉ IP đích.", true)
+    ];
+
+    private static readonly (string Topic, byte Level, string Content, string Answer, string Wrong)[] FillNumberSamples =
+    [
+        ("Biểu diễn thông tin", 2, "Một byte gồm bao nhiêu bit?", "8", "4"),
+        ("Biểu diễn thông tin", 2, "1010 ở hệ nhị phân bằng bao nhiêu ở hệ thập phân?", "10", "12"),
+        ("Biểu diễn thông tin", 3, "Dãy bit độ dài 8 có bao nhiêu giá trị khác nhau?", "256", "128"),
+        ("Biểu diễn thông tin", 2, "1 KB gồm bao nhiêu byte?", "1024", "1000"),
+        ("Thuật toán", 2, "Tổng các số nguyên từ 1 đến 4 bằng bao nhiêu?", "10", "9"),
+        ("Thuật toán", 2, "Phép chia 17 cho 5 cho số dư bao nhiêu?", "2", "3"),
+        ("Thuật toán", 3, "ƯCLN của 12 và 18 bằng bao nhiêu?", "6", "3"),
+        ("Cấu trúc dữ liệu", 2, "Chỉ số cuối của mảng 6 phần tử, đánh số từ 0, là bao nhiêu?", "5", "6"),
+        ("Ngôn ngữ lập trình", 2, "Xâu HSG có bao nhiêu ký tự?", "3", "4"),
+        ("Ngôn ngữ lập trình", 3, "Kết quả của (2 + 3) nhân 4 là bao nhiêu?", "20", "24"),
+        ("Biểu diễn thông tin", 2, "Nhị phân 1111 bằng bao nhiêu ở hệ thập phân?", "15", "13"),
+        ("Biểu diễn thông tin", 3, "2 mũ 4 bằng bao nhiêu?", "16", "8"),
+        ("Biểu diễn thông tin", 1, "Một nibble gồm bao nhiêu bit?", "4", "8"),
+        ("Thuật toán", 2, "Số cách chọn 2 phần tử khác nhau từ 4 phần tử là bao nhiêu?", "6", "8"),
+        ("Thuật toán", 3, "Số hạng tiếp theo của dãy 2, 4, 8, 16 là bao nhiêu?", "32", "18"),
+        ("Thuật toán", 4, "Tìm nhị phân trên 16 phần tử cần nhiều nhất bao nhiêu lần chia đôi?", "4", "8"),
+        ("Cấu trúc dữ liệu", 2, "Mảng 8 phần tử đánh số từ 0. Chỉ số cuối là bao nhiêu?", "7", "8"),
+        ("Ngôn ngữ lập trình", 1, "Cho a bằng 5. Sau lệnh a ← a + 1 thì a bằng bao nhiêu?", "6", "5"),
+        ("Ngôn ngữ lập trình", 3, "Cho a bằng 3. Sau lệnh a ← a * 2 thì a bằng bao nhiêu?", "6", "5"),
+        ("Vòng lặp", 2, "Vòng for i từ 1 đến 4 thực hiện bao nhiêu lần?", "4", "5"),
+        ("Vòng lặp", 3, "s bắt đầu bằng 0 rồi cộng lần lượt 1, 2 và 3. s bằng bao nhiêu?", "6", "3"),
+        ("Câu lệnh rẽ nhánh", 2, "x bằng 7. Hiệu x - 10 bằng bao nhiêu?", "-3", "3"),
+        ("Biểu diễn thông tin", 1, "Hệ đếm nhị phân dùng bao nhiêu chữ số?", "2", "10"),
+        ("Biểu diễn thông tin", 1, "Một bit nhận được bao nhiêu giá trị khác nhau?", "2", "1"),
+        ("Ngôn ngữ lập trình", 1, "Cho a bằng 0. Sau lệnh a ← 1 thì a bằng bao nhiêu?", "1", "0"),
+        ("Cấu trúc dữ liệu", 1, "Mảng lưu ba giá trị. Số phần tử của mảng là bao nhiêu?", "3", "2"),
+        ("Vòng lặp", 1, "Một vòng chỉ thực hiện đúng một lần. Số lần chạy là bao nhiêu?", "1", "0"),
+        ("Câu lệnh rẽ nhánh", 1, "Biến x đang giữ giá trị 5. x bằng bao nhiêu?", "5", "4"),
+        ("Thuật toán", 1, "Tổng 2 cộng 3 bằng bao nhiêu?", "5", "6"),
+        ("Mạng máy tính", 1, "Một địa chỉ IPv4 gồm bao nhiêu nhóm số?", "4", "6"),
+        ("Biểu diễn thông tin", 2, "Nhị phân 100 bằng bao nhiêu ở hệ thập phân?", "4", "8"),
+        ("Biểu diễn thông tin", 2, "1 MB gồm bao nhiêu KB?", "1024", "1000"),
+        ("Thuật toán", 2, "Tổng của ba số 2 bằng bao nhiêu?", "6", "8"),
+        ("Thuật toán", 2, "Số dư khi chia 20 cho 6 là bao nhiêu?", "2", "3"),
+        ("Cấu trúc dữ liệu", 2, "Mảng 10 phần tử đánh số từ 0. Chỉ số của phần tử thứ ba là bao nhiêu?", "2", "3"),
+        ("Ngôn ngữ lập trình", 2, "Xâu TINHOC có bao nhiêu ký tự?", "6", "5"),
+        ("Vòng lặp", 2, "Biến i đi từ 0 đến 3. Vòng chạy bao nhiêu lần?", "4", "3"),
+        ("Câu lệnh rẽ nhánh", 2, "n bằng 9. Phần nguyên của n chia cho 2 là bao nhiêu?", "4", "5"),
+        ("Thuật toán", 3, "Bội chung nhỏ nhất của 4 và 6 bằng bao nhiêu?", "12", "24"),
+        ("Thuật toán", 3, "Ước chung lớn nhất của 15 và 25 bằng bao nhiêu?", "5", "10"),
+        ("Biểu diễn thông tin", 3, "2 mũ 6 bằng bao nhiêu?", "64", "32"),
+        ("Biểu diễn thông tin", 3, "Nhị phân 1101 bằng bao nhiêu ở hệ thập phân?", "13", "11"),
+        ("Ngôn ngữ lập trình", 3, "Cho a bằng 8. Sau phép chia nguyên a cho 2 thì a bằng bao nhiêu?", "4", "2"),
+        ("Cấu trúc dữ liệu", 3, "Ngăn xếp rỗng, đẩy 4 rồi đẩy 9, sau đó lấy ra một phần tử. Giá trị lấy ra là bao nhiêu?", "9", "4"),
+        ("Vòng lặp", 3, "s bằng 1, nhân với 2 rồi nhân với 3. s bằng bao nhiêu?", "6", "5"),
+        ("Câu lệnh rẽ nhánh", 3, "x bằng 12. Nếu x chẵn thì lấy x chia 2, ngược lại giữ x. Kết quả là bao nhiêu?", "6", "12"),
+        ("Thuật toán", 4, "Tìm tuyến tính trên 9 phần tử, trường hợp xấu nhất cần bao nhiêu lần so sánh?", "9", "4"),
+        ("Thuật toán", 4, "Số lần chia đôi nhiều nhất khi tìm nhị phân trên 32 phần tử là bao nhiêu?", "5", "4"),
+        ("Biểu diễn thông tin", 4, "Số nguyên không dấu 8 bit lớn nhất bằng bao nhiêu?", "255", "256"),
+        ("Biểu diễn thông tin", 4, "Nhị phân 1010 cộng 0011 bằng bao nhiêu ở hệ thập phân?", "13", "14"),
+        ("Cấu trúc dữ liệu", 4, "Mảng 100 phần tử đánh số từ 1. Chỉ số cuối cùng là bao nhiêu?", "100", "99"),
+        ("Ngôn ngữ lập trình", 4, "2 mũ 3 cộng 2 mũ 2 bằng bao nhiêu?", "12", "10"),
+        ("Vòng lặp", 4, "Vòng ngoài chạy 5 lần, mỗi lần vòng trong chạy 5 lần. Thân trong chạy bao nhiêu lần?", "25", "10"),
+        ("Câu lệnh rẽ nhánh", 4, "x bằng -4. Trị tuyệt đối của x là bao nhiêu?", "4", "-4"),
+        ("Thuật toán", 5, "Sắp xếp chọn với 5 phần tử thực hiện bao nhiêu phép so sánh?", "10", "5"),
+        ("Thuật toán", 5, "Số cách xếp 3 bạn khác nhau thành một hàng là bao nhiêu?", "6", "3"),
+        ("Biểu diễn thông tin", 5, "Số nguyên 8 bit có dấu nhỏ nhất bằng bao nhiêu?", "-128", "-127"),
+        ("Biểu diễn thông tin", 5, "Một địa chỉ IPv4 gồm bao nhiêu bit?", "32", "16"),
+        ("Cấu trúc dữ liệu", 5, "Cây nhị phân đầy đủ có 7 nút thì có bao nhiêu lá?", "4", "3"),
+        ("Ngôn ngữ lập trình", 5, "a bằng 7, b bằng 2. Sau khi hoán đổi bằng cộng trừ thì a bằng bao nhiêu?", "2", "7"),
+        ("Vòng lặp", 5, "Dãy Fibonacci bắt đầu 1, 1. Số hạng thứ 6 bằng bao nhiêu?", "8", "13"),
+        ("Mạng máy tính", 5, "Mạng có tiền tố /30 còn bao nhiêu địa chỉ gán được cho máy, sau khi trừ địa chỉ mạng và địa chỉ quảng bá?", "2", "4")
+    ];
+
     private static Question SampleQuestion(
         long topicId,
         long authorId,
@@ -562,13 +749,14 @@ public static class DatabaseSeeder
         byte difficultyId,
         QuestionLevel level,
         string content,
-        (string Content, bool IsCorrect)[] options) => new()
+        (string Content, bool IsCorrect)[] options,
+        QuestionType type = QuestionType.SingleChoice) => new()
     {
         TopicId = topicId,
         Content = content,
         Level = level,
         DifficultyLevelId = difficultyId,
-        Type = QuestionType.SingleChoice,
+        Type = type,
         Status = QuestionStatus.Approved,
         Source = QuestionSource.Manual,
         CreatedById = authorId,

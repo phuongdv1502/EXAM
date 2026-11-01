@@ -44,8 +44,13 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
     public async Task<OperationResult<DrawQuestionsResponse>> DrawAsync(AvailabilityRequest request, CancellationToken ct)
     {
         request.TopicIds ??= [];
+        request.Slots ??= [];
         if (await availabilityValidator.FirstErrorAsync(request, ct) is { } inputError)
             return OperationResult<DrawQuestionsResponse>.Invalid(inputError);
+
+        // Mẫu phiếu thì lấy đủ từng phần. Không có mẫu thì lấy đủ theo ma trận bên dưới.
+        if (request.Slots.Count > 0)
+            return await DrawBySlotsAsync(request, ct);
 
         var planned = await PlanAsync(request.ProfileId, request.SubjectId, request.QuestionCount, request.TopicIds, request.QuestionType, ct);
         if (planned.Availability is { CanGenerate: false })
@@ -60,7 +65,8 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
                 question.Content,
                 question.Topic?.Name ?? string.Empty,
                 question.Level.ToString(),
-                question.Type.ToString()))
+                question.Type.ToString(),
+                question.Options.Count))
             .ToList();
         return OperationResult<DrawQuestionsResponse>.Ok(new DrawQuestionsResponse(questions));
     }
@@ -150,13 +156,86 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
         return OperationResult<ExamValidationResponse>.Ok(new ExamValidationResponse(errors.Count == 0, errors));
     }
 
+    // Mỗi phần lấy đúng số câu và đúng loại. Có ma trận thì phần đó theo cơ cấu mức độ.
+    private async Task<OperationResult<DrawQuestionsResponse>> DrawBySlotsAsync(AvailabilityRequest request, CancellationToken ct)
+    {
+        if (request.Slots.Any(slot => slot.Count < 1 || slot.OptionCount is < 2 or > 6))
+            return OperationResult<DrawQuestionsResponse>.Invalid(Messages.SheetDrawSlotInvalid);
+        if (request.Slots.Sum(slot => slot.Count) > 100)
+            return OperationResult<DrawQuestionsResponse>.Invalid(Messages.ExamTooManyQuestions);
+
+        var used = new HashSet<long>();
+        var selected = new List<Question>();
+        var seed = Random.Shared.Next(1, int.MaxValue);
+        for (var index = 0; index < request.Slots.Count; index++)
+        {
+            var slot = request.Slots[index];
+            var partName = PartName(slot);
+            List<Question> part;
+            if (request.ProfileId > 0)
+            {
+                var planned = await PlanAsync(
+                    request.ProfileId,
+                    request.SubjectId,
+                    slot.Count,
+                    request.TopicIds,
+                    slot.Type,
+                    ct,
+                    slot.OptionCount,
+                    used);
+                if (planned.Availability is { CanGenerate: false })
+                    return OperationResult<DrawQuestionsResponse>.Invalid($"{partName}: {planned.Availability.Errors[0].Message}");
+                if (planned.Error is not null || planned.Selected is null)
+                    return OperationResult<DrawQuestionsResponse>.Invalid(planned.Error ?? Messages.ProfileNotFound);
+                part = Pick(planned.Selected, planned.Required, ExamOrder.Seed(seed, index + 1));
+            }
+            else
+            {
+                var eligible = await _unitOfWork.Questions.ListEligibleAsync(request.SubjectId, request.TopicIds, slot.Type, ct);
+                eligible = eligible
+                    .Where(question => question.Options.Count == slot.OptionCount && !used.Contains(question.Id))
+                    .ToList();
+                if (eligible.Count < slot.Count)
+                    return OperationResult<DrawQuestionsResponse>.Invalid(string.Format(Messages.SheetDrawShortage, partName, slot.Count - eligible.Count));
+                part = ExamOrder.Arrange(eligible, eligible.Count > 1, ExamOrder.Seed(seed, index + 1), _ => 0, question => question.Id)
+                    .Take(slot.Count)
+                    .ToList();
+            }
+
+            selected.AddRange(part);
+            foreach (var question in part)
+                used.Add(question.Id);
+        }
+
+        var questions = selected
+            .Select(question => new DrawnQuestionResponse(
+                question.Id,
+                question.Content,
+                question.Topic?.Name ?? string.Empty,
+                question.Level.ToString(),
+                question.Type.ToString(),
+                question.Options.Count))
+            .ToList();
+        return OperationResult<DrawQuestionsResponse>.Ok(new DrawQuestionsResponse(questions));
+    }
+
+    private static string PartName(DrawSlot slot) => slot.Type switch
+    {
+        QuestionType.TrueFalse => "đúng/sai",
+        QuestionType.FillNumber => "điền số",
+        QuestionType.SingleChoice when slot.OptionCount == 4 => "bốn đáp án",
+        _ => "câu hỏi"
+    };
+
     private async Task<Plan> PlanAsync(
         long profileId,
         long subjectId,
         int questionCount,
         IReadOnlyList<long> topicIds,
         QuestionType? type,
-        CancellationToken ct)
+        CancellationToken ct,
+        int? optionCount = null,
+        IReadOnlySet<long>? exclude = null)
     {
         var profile = await _unitOfWork.ExamProfiles.FindAsync(profileId, ct);
         if (profile is null || profile.Status == ProfileStatus.Archived)
@@ -175,6 +254,11 @@ public sealed partial class ExamGenerationService : TimedService, IExamGeneratio
         }
 
         var eligible = await _unitOfWork.Questions.ListEligibleAsync(subjectId, topicIds, type, ct);
+        // Mẫu phiếu chỉ nhận đúng số phương án của phần đó, và không lấy lại câu đã chọn ở phần trước.
+        if (optionCount is int options)
+            eligible = eligible.Where(question => question.Options.Count == options).ToList();
+        if (exclude is { Count: > 0 })
+            eligible = eligible.Where(question => !exclude.Contains(question.Id)).ToList();
         var available = eligible
             .GroupBy(question => question.DifficultyLevelId ?? 0)
             .ToDictionary(group => group.Key, group => group.Count());

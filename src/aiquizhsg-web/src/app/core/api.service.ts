@@ -144,6 +144,10 @@ export class ApiService {
     return this.post(`/exams/${id}/close`, {});
   }
 
+  examSheets(id: number): Observable<Blob> {
+    return this.blob(`/exams/${id}/sheets`);
+  }
+
   validateExam(id: number): Observable<ExamValidation> {
     return this.post(`/exams/${id}/validate`, {});
   }

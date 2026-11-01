@@ -150,6 +150,8 @@ internal sealed class ExamConfiguration : IEntityTypeConfiguration<Exam>
             .OnDelete(DeleteBehavior.Restrict);
         entity.HasOne(x => x.DifficultyProfile).WithMany().HasForeignKey(x => x.DifficultyProfileId)
             .OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne(x => x.SheetTemplate).WithMany().HasForeignKey(x => x.OmrTemplateId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

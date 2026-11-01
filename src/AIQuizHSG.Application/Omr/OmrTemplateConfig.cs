@@ -214,6 +214,37 @@ public sealed class OmrTemplateConfig
         return true;
     }
 
+    // Đề nháp được ít câu hơn mẫu, nhưng từng câu phải đúng phần. Phát hành thì phải đủ số câu.
+    public bool Accepts(IReadOnlyList<int> optionCounts, bool exact)
+    {
+        if (exact && optionCounts.Count != QuestionCount)
+            return false;
+        if (optionCounts.Count > QuestionCount)
+            return false;
+        if (Sections.Count == 0)
+            return optionCounts.All(count => count == ChoiceCount);
+
+        var index = 0;
+        foreach (var section in Sections)
+        {
+            for (var item = 0; item < section.ItemCount && index < optionCounts.Count; item++)
+            {
+                var count = optionCounts[index++];
+                var fits = section.Kind switch
+                {
+                    OmrSectionKinds.BonDapAn => count == 4,
+                    OmrSectionKinds.DungSai => count == 2,
+                    OmrSectionKinds.DienSo => count >= 2,
+                    _ => false
+                };
+                if (!fits)
+                    return false;
+            }
+        }
+
+        return index == optionCounts.Count;
+    }
+
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
     public static bool TryParse(string? json, out OmrTemplateConfig config)

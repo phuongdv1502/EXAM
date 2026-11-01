@@ -29,11 +29,14 @@ public static class OmrRules
         var parts = text.Trim().Split('|');
         if (parts.Length != 3 || !string.Equals(parts[0], QrPrefix, StringComparison.OrdinalIgnoreCase))
             return false;
-        if (string.IsNullOrWhiteSpace(parts[1]) || string.IsNullOrWhiteSpace(parts[2]))
+
+        examCode = parts[2].Trim();
+        if (string.IsNullOrWhiteSpace(examCode))
             return false;
 
-        studentCode = parts[1].Trim();
-        examCode = parts[2].Trim();
+        // Dấu gạch là phiếu in trống, chưa có mã học sinh.
+        var student = parts[1].Trim();
+        studentCode = student == "-" ? string.Empty : student;
         return true;
     }
 }

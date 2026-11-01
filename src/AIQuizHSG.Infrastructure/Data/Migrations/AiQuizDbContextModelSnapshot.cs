@@ -380,6 +380,9 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.Property<int>("MaxAttempts")
                         .HasColumnType("int");
 
+                    b.Property<long?>("OmrTemplateId")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime?>("OpensAtUtc")
                         .HasColumnType("datetime(6)");
 
@@ -422,6 +425,8 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.HasIndex("GenerationRequestKey")
                         .IsUnique();
+
+                    b.HasIndex("OmrTemplateId");
 
                     b.HasIndex("SubjectId");
 
@@ -1840,6 +1845,11 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                         .HasForeignKey("DifficultyProfileId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("AIQuizHSG.Domain.Entities.OmrTemplate", "SheetTemplate")
+                        .WithMany()
+                        .HasForeignKey("OmrTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("AIQuizHSG.Domain.Entities.Subject", "Subject")
                         .WithMany()
                         .HasForeignKey("SubjectId")
@@ -1849,6 +1859,8 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.Navigation("CreatedBy");
 
                     b.Navigation("DifficultyProfile");
+
+                    b.Navigation("SheetTemplate");
 
                     b.Navigation("Subject");
                 });

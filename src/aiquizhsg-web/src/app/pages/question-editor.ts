@@ -56,6 +56,38 @@ export class QuestionEditorPage extends Page implements OnInit {
     this.watch(this.api.topics(this.subjectId), (items) => (this.topics = items));
   }
 
+  onType(): void {
+    if (this.type === 'FillNumber') {
+      this.options = [
+        { content: '', isCorrect: true },
+        { content: '', isCorrect: false },
+      ];
+      return;
+    }
+    if (this.type === 'TrueFalse') {
+      const sai = this.options.find((option) => option.content.trim().toLowerCase() === 'sai');
+      const dungCorrect = !sai?.isCorrect;
+      this.options = [
+        { content: 'Đúng', isCorrect: dungCorrect },
+        { content: 'Sai', isCorrect: !dungCorrect },
+      ];
+      return;
+    }
+    if (this.options.length === 2 && this.options[0].content === 'Đúng' && this.options[1].content === 'Sai') {
+      this.options = [
+        { content: '', isCorrect: true },
+        { content: '', isCorrect: false },
+        { content: '', isCorrect: false },
+        { content: '', isCorrect: false },
+      ];
+    }
+  }
+
+  correctIndex(): number {
+    const index = this.options.findIndex((option) => option.isCorrect);
+    return index < 0 ? 0 : index;
+  }
+
   fill(question: QuestionDetail): void {
     this.status = question.status;
     this.rejectionReason = question.rejectionReason ?? '';

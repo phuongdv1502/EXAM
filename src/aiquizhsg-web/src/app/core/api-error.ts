@@ -14,3 +14,15 @@ export function apiMessage(error: unknown): string {
   }
   return 'Có lỗi xảy ra. Thử lại sau.';
 }
+
+export async function readApiMessage(error: unknown): Promise<string> {
+  if (error instanceof HttpErrorResponse && error.error instanceof Blob) {
+    try {
+      const body = JSON.parse(await error.error.text()) as { message?: unknown };
+      if (typeof body.message === 'string' && body.message.trim()) return body.message;
+    } catch {
+      return apiMessage(error);
+    }
+  }
+  return apiMessage(error);
+}

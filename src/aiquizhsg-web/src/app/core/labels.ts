@@ -1,6 +1,6 @@
 export const labels = {
   level: { Easy: 'Dễ', Medium: 'Trung bình', Hard: 'Khó' },
-  type: { SingleChoice: 'Một đáp án', MultipleChoice: 'Nhiều đáp án' },
+  type: { SingleChoice: 'Một đáp án', MultipleChoice: 'Nhiều đáp án', TrueFalse: 'Đúng/sai', FillNumber: 'Điền số' },
   questionStatus: {
     Draft: 'Nháp',
     PendingReview: 'Chờ duyệt',
@@ -71,6 +71,8 @@ export const choices = {
   questionType: [
     { label: 'Một đáp án', value: 'SingleChoice' },
     { label: 'Nhiều đáp án', value: 'MultipleChoice' },
+    { label: 'Đúng/sai', value: 'TrueFalse' },
+    { label: 'Điền số', value: 'FillNumber' },
   ],
   yearStatus: [
     { label: 'Dự kiến', value: 'Planned' },

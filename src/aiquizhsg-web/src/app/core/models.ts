@@ -55,6 +55,7 @@ export interface QuestionSummary {
   difficultyLevelId: number | null;
   difficultyCode: string | null;
   difficultyName: string | null;
+  optionCount: number;
 }
 
 export interface QuestionDetail extends QuestionSummary {
@@ -134,6 +135,7 @@ export interface ExamSummary {
   publishResults: boolean;
   opensAtUtc: string | null;
   closesAtUtc: string | null;
+  omrTemplateId: number | null;
 }
 
 export interface ExamQuestionInput {
@@ -175,6 +177,7 @@ export interface ExamDetail {
   publishResults: boolean;
   status: string;
   publishedAtUtc: string | null;
+  omrTemplateId: number | null;
   questions: ExamQuestion[];
   participants: ExamParticipant[];
 }
@@ -190,6 +193,7 @@ export interface SaveExam {
   shuffleOptions: boolean;
   maxAttempts: number;
   publishResults: boolean;
+  omrTemplateId: number | null;
   questions: ExamQuestionInput[];
   participantUserIds: number[];
 }
@@ -304,6 +308,7 @@ export interface DrawnQuestion {
   topicName: string;
   level: string;
   type: string;
+  optionCount: number;
 }
 
 export interface Availability {

@@ -10,6 +10,7 @@ public sealed class QuestionFilter
     public QuestionLevel? Level { get; set; }
     public byte? DifficultyLevelId { get; set; }
     public QuestionStatus? Status { get; set; }
+    public QuestionType? Type { get; set; }
     public string? Keyword { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
@@ -66,7 +67,8 @@ public sealed record QuestionSummary(
     DateTime UpdatedAtUtc,
     byte? DifficultyLevelId,
     string? DifficultyCode,
-    string? DifficultyName);
+    string? DifficultyName,
+    int OptionCount);
 
 public sealed record QuestionResponse(
     long Id,

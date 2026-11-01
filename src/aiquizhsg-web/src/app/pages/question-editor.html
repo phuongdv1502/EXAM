@@ -30,7 +30,7 @@
         </div>
         <div class="field span-4">
           <label>Loại</label>
-          <p-select name="type" [options]="choices.questionType" optionLabel="label" optionValue="value" [(ngModel)]="type" appendTo="body" />
+          <p-select name="type" [options]="choices.questionType" optionLabel="label" optionValue="value" [(ngModel)]="type" (ngModelChange)="onType()" appendTo="body" />
         </div>
         <div class="field span-12">
           <label for="content">Nội dung</label>
@@ -41,19 +41,37 @@
           <textarea pTextarea id="explanation" name="explanation" [(ngModel)]="explanation" rows="3"></textarea>
         </div>
       </div>
-      <div class="page-head">
-        <h2 class="h6" style="margin: 0">Phương án (2 đến 6, phải có đáp án đúng và sai)</h2>
-        <p-button label="Thêm phương án" icon="pi pi-plus" severity="secondary" [outlined]="true" type="button" [disabled]="options.length >= 6" (onClick)="addOption()" />
-      </div>
-      @for (option of options; track $index) {
-        <div class="option-row">
-          <div class="choice">
-            <p-checkbox [binary]="true" [inputId]="'correct' + $index" [ngModel]="option.isCorrect" [name]="'correct' + $index" (ngModelChange)="type === 'SingleChoice' ? markCorrect($index) : option.isCorrect = $event" />
-            <label [for]="'correct' + $index">Đúng</label>
-          </div>
-          <input pInputText [(ngModel)]="option.content" [name]="'option' + $index" placeholder="Nội dung phương án" />
-          <p-button label="Xóa" severity="danger" [text]="true" type="button" [disabled]="options.length <= 2" (onClick)="removeOption($index)" />
+      @if (type === 'FillNumber') {
+        <p class="muted">Đáp án là số vừa 4 cột trên phiếu, ví dụ 8, 12,5 hoặc -3. Chỉ một phương án đúng.</p>
+      }
+      @if (type === 'TrueFalse') {
+        <div class="page-head">
+          <h2 class="h6" style="margin: 0">Đáp án đúng</h2>
         </div>
+        <p class="muted">Trên phiếu, ô thứ nhất là Đúng và ô thứ hai là Sai.</p>
+        @for (option of options; track $index) {
+          <div class="option-row">
+            <div class="choice">
+              <p-radiobutton [name]="'truth'" [value]="$index" [inputId]="'correct' + $index" [ngModel]="correctIndex()" (ngModelChange)="markCorrect($event)" />
+              <label [for]="'correct' + $index">{{ option.content }}</label>
+            </div>
+          </div>
+        }
+      } @else {
+        <div class="page-head">
+          <h2 class="h6" style="margin: 0">Phương án (2 đến 6, phải có đáp án đúng và sai)</h2>
+          <p-button label="Thêm phương án" icon="pi pi-plus" severity="secondary" [outlined]="true" type="button" [disabled]="options.length >= 6" (onClick)="addOption()" />
+        </div>
+        @for (option of options; track $index) {
+          <div class="option-row">
+            <div class="choice">
+              <p-checkbox [binary]="true" [inputId]="'correct' + $index" [ngModel]="option.isCorrect" [name]="'correct' + $index" (ngModelChange)="type === 'SingleChoice' || type === 'FillNumber' ? markCorrect($index) : option.isCorrect = $event" />
+              <label [for]="'correct' + $index">Đúng</label>
+            </div>
+            <input pInputText [(ngModel)]="option.content" [name]="'option' + $index" placeholder="Nội dung phương án" />
+            <p-button label="Xóa" severity="danger" [text]="true" type="button" [disabled]="options.length <= 2" (onClick)="removeOption($index)" />
+          </div>
+        }
       }
       <div class="row-actions" style="margin-top: 1rem">
         <p-button label="Lưu" icon="pi pi-check" type="submit" [loading]="loading" />

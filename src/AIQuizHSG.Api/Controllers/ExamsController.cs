@@ -1,6 +1,8 @@
 using AIQuizHSG.Api;
+using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Difficulty;
 using AIQuizHSG.Application.Exams;
+using AIQuizHSG.Application.Omr;
 using AIQuizHSG.Domain.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +13,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Teacher)]
 [Route("api/exams")]
 // Giáo viên tạo đề, phát hành và đóng kỳ thi.
-public class ExamsController(IExamService exams, IExamGenerationService generation) : ControllerBase
+public class ExamsController(IExamService exams, IExamGenerationService generation, IOmrService omr) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<ExamSummary>> List(CancellationToken ct) =>
@@ -55,6 +57,18 @@ public class ExamsController(IExamService exams, IExamGenerationService generati
         if (!Actors.TryGet(HttpContext, out var actor))
             return ApiResults.Unauthorized();
         return ApiResults.From(await exams.PublishAsync(id, actor, ct));
+    }
+
+    // Mỗi học sinh một trang. Trang web đưa tệp này vào hộp thoại in.
+    [HttpGet("{id:long}/sheets")]
+    public async Task<IActionResult> Sheets(long id, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        var result = await omr.PrintSheetsAsync(id, actor, ct);
+        if (result.Status != OperationStatus.Ok || result.Value is null)
+            return ApiResults.From(result);
+        return File(result.Value, "application/pdf");
     }
 
     [HttpPost("{id:long}/close")]

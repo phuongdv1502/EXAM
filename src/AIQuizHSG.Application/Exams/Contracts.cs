@@ -20,6 +20,7 @@ public sealed class SaveExamRequest
     public bool ShuffleOptions { get; set; }
     public int MaxAttempts { get; set; } = 1;
     public bool PublishResults { get; set; }
+    public long? OmrTemplateId { get; set; }
     public List<ExamQuestionInput> Questions { get; set; } = [];
     public List<long> ParticipantUserIds { get; set; } = [];
 }
@@ -35,7 +36,8 @@ public sealed record ExamSummary(
     int ParticipantCount,
     bool PublishResults,
     DateTime? OpensAtUtc,
-    DateTime? ClosesAtUtc);
+    DateTime? ClosesAtUtc,
+    long? OmrTemplateId);
 
 public sealed record ExamOptionResponse(long Id, string Content, bool IsCorrect, int SortOrder);
 
@@ -73,7 +75,8 @@ public sealed record ExamResponse(
     byte? TargetDifficultySnapshot,
     int? QuestionCountSnapshot,
     IReadOnlyList<ExamQuestionResponse> Questions,
-    IReadOnlyList<ExamParticipantResponse> Participants);
+    IReadOnlyList<ExamParticipantResponse> Participants,
+    long? OmrTemplateId);
 
 public sealed class SaveAnswerRequest
 {

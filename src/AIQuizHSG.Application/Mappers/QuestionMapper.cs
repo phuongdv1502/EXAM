@@ -119,7 +119,8 @@ public static class QuestionMapper
         question.UpdatedAtUtc,
         question.DifficultyLevelId,
         question.DifficultyLevel?.Code,
-        question.DifficultyLevel?.Name);
+        question.DifficultyLevel?.Name,
+        question.Options.Count);
 
     public static QuestionResponse ToResponse(Question question) => new(
         question.Id,

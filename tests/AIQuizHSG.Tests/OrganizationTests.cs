@@ -337,6 +337,7 @@ public class OrganizationTests
             public Task<List<StudentProfile>> SearchAsync(long schoolId, string? keyword, CancellationToken ct) => throw new NotSupportedException();
             public Task<StudentProfile?> FindByUserAsync(long userId, CancellationToken ct) => Task.FromResult<StudentProfile?>(null);
             public Task<List<StudentProfile>> ListActiveInClassroomAsync(long classroomId, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<StudentProfile>> ListActiveWithClassAsync(CancellationToken ct) => throw new NotSupportedException();
         }
 
         private sealed class AuditRepo : IAuditLogRepository

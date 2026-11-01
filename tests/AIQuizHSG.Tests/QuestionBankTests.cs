@@ -23,6 +23,26 @@ public class QuestionRulesTests
     }
 
     [Fact]
+    public void TrueFalse_RequiresDungThenSai()
+    {
+        var valid = QuestionRules.ValidateOptions(QuestionType.TrueFalse, [("Đúng", false), ("Sai", true)]);
+        var swapped = QuestionRules.ValidateOptions(QuestionType.TrueFalse, [("Sai", true), ("Đúng", false)]);
+
+        Assert.Null(valid);
+        Assert.Equal(Messages.TrueFalseOptions, swapped);
+    }
+
+    [Fact]
+    public void FillNumber_RequiresOneGridValue()
+    {
+        var valid = QuestionRules.ValidateOptions(QuestionType.FillNumber, [("12,5", true), ("3", false)]);
+        var words = QuestionRules.ValidateOptions(QuestionType.FillNumber, [("mười", true), ("3", false)]);
+
+        Assert.Null(valid);
+        Assert.Equal(Messages.FillNumberOptions, words);
+    }
+
+    [Fact]
     public void MultipleChoice_RequiresAWrongOption()
     {
         var valid = QuestionRules.ValidateOptions(QuestionType.MultipleChoice, [("A", true), ("B", true), ("C", false)]);
@@ -62,6 +82,35 @@ public class QuestionExcelTests
 
         Assert.Empty(result.Rows);
         Assert.Contains(result.Errors, error => error.Row == 2 && error.Message.Contains("MucDo"));
+    }
+
+    [Fact]
+    public void Read_TrueFalse_OrdersDungBeforeSai()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("CauHoi");
+        string[] headers = ["MaMon", "ChuyenDe", "NoiDung", "MucDo", "Loai", "PhuongAn1", "Dung1", "PhuongAn2", "Dung2"];
+        for (var i = 0; i < headers.Length; i++)
+            sheet.Cell(1, i + 1).Value = headers[i];
+        sheet.Cell(2, 1).Value = "TIN";
+        sheet.Cell(2, 2).Value = "Thuật toán";
+        sheet.Cell(2, 3).Value = "Mệnh đề đúng.";
+        sheet.Cell(2, 4).Value = "Dễ";
+        sheet.Cell(2, 5).Value = "Đúng/sai";
+        sheet.Cell(2, 6).Value = "Sai";
+        sheet.Cell(2, 7).Value = "Sai";
+        sheet.Cell(2, 8).Value = "Đúng";
+        sheet.Cell(2, 9).Value = "Đúng";
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+
+        var result = QuestionExcel.Read(stream);
+
+        Assert.Empty(result.Errors);
+        Assert.Equal(["Đúng", "Sai"], result.Rows[0].Options.Select(option => option.Content));
+        Assert.True(result.Rows[0].Options[0].IsCorrect);
     }
 }
 
@@ -123,8 +172,10 @@ public class QuestionServiceTests
         var result = await service.ImportAsync(stream, _actor, CancellationToken.None);
 
         Assert.Equal(OperationStatus.Ok, result.Status);
-        Assert.Equal(1, result.Value!.Imported);
-        Assert.Equal(QuestionStatus.PendingReview, Assert.Single(unitOfWork.QuestionsRepo.Items).Status);
+        Assert.Equal(2, result.Value!.Imported);
+        Assert.Equal(2, unitOfWork.QuestionsRepo.Items.Count);
+        Assert.All(unitOfWork.QuestionsRepo.Items, item => Assert.Equal(QuestionStatus.PendingReview, item.Status));
+        Assert.Contains(unitOfWork.QuestionsRepo.Items, item => item.Type == QuestionType.TrueFalse);
     }
 
     private static SaveQuestionRequest Request(int correctCount, string content = "2 + 2 bằng mấy?") => new()

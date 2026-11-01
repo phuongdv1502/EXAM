@@ -30,7 +30,7 @@
           <h2 style="margin-bottom: 0.35rem">Câu {{ index + 1 }}. {{ question.points }} điểm · {{ label(labels.type, question.type) }}</h2>
           <p style="white-space: pre-wrap">{{ question.content }}</p>
           <div class="choice-list">
-            @if (question.type === 'SingleChoice') {
+            @if (question.type === 'SingleChoice' || question.type === 'TrueFalse' || question.type === 'FillNumber') {
               @for (option of question.options; track option.id) {
                 <div class="choice">
                   <p-radiobutton

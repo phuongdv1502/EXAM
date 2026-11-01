@@ -2,6 +2,7 @@ using AIQuizHSG.Application.Accounts;
 using AIQuizHSG.Application.Difficulty;
 using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Mappers;
+using AIQuizHSG.Application.Omr;
 using AIQuizHSG.Application.Persistence;
 using AIQuizHSG.Application.Validation;
 using AIQuizHSG.Domain.Common;
@@ -48,6 +49,8 @@ public sealed partial class ExamService : TimedService, IExamService
         var (questions, snapshotError) = await BuildSnapshotsAsync(request.Questions, subject.Id, ct);
         if (snapshotError is not null || questions is null)
             return OperationResult<ExamResponse>.Invalid(snapshotError ?? Messages.ExamQuestionNotApproved);
+        if (await SheetErrorAsync(request.OmrTemplateId, questions, exact: false, ct) is { } sheetError)
+            return OperationResult<ExamResponse>.Invalid(sheetError);
 
         var exam = new Exam
         {
@@ -92,6 +95,8 @@ public sealed partial class ExamService : TimedService, IExamService
         var (questions, snapshotError) = await BuildSnapshotsAsync(request.Questions, subject.Id, ct);
         if (snapshotError is not null || questions is null)
             return OperationResult<ExamResponse>.Invalid(snapshotError ?? Messages.ExamQuestionNotApproved);
+        if (await SheetErrorAsync(request.OmrTemplateId, questions, exact: false, ct) is { } sheetError)
+            return OperationResult<ExamResponse>.Invalid(sheetError);
 
         ExamMapper.Apply(exam, request);
         exam.Subject = subject;
@@ -125,6 +130,9 @@ public sealed partial class ExamService : TimedService, IExamService
         var (questions, snapshotError) = await BuildSnapshotsAsync(items, exam.SubjectId, ct);
         if (snapshotError is not null || questions is null)
             return OperationResult<ExamResponse>.Invalid(snapshotError ?? Messages.ExamQuestionNotApproved);
+        // Phát hành thì đề phải đủ câu đúng từng phần của mẫu đã chọn.
+        if (await SheetErrorAsync(exam.OmrTemplateId, questions, exact: true, ct) is { } sheetError)
+            return OperationResult<ExamResponse>.Invalid(sheetError);
 
         // Đề sinh theo profile phải còn đúng cơ cấu mức độ tại lúc phát hành.
         if (exam.DifficultyProfileId is long profileId)
@@ -208,6 +216,21 @@ public sealed partial class ExamService : TimedService, IExamService
     private static bool IsActiveStudent(User user) =>
         user.Status == UserStatus.Active
         && user.UserRoles.Any(link => link.Role.Code == RoleCodes.Student);
+
+    private async Task<string?> SheetErrorAsync(long? templateId, IReadOnlyList<ExamQuestion> questions, bool exact, CancellationToken ct)
+    {
+        if (templateId is not long id)
+            return null;
+
+        var template = await _unitOfWork.Omr.FindTemplateAsync(id, ct);
+        if (template is null || !template.IsActive)
+            return Messages.ExamSheetMissing;
+        if (!OmrTemplateConfig.TryParse(template.ConfigJson, out var config))
+            return Messages.OmrTemplateConfigInvalid;
+
+        var counts = questions.Select(question => question.Options.Count).ToList();
+        return config.Accepts(counts, exact) ? null : Messages.ExamSheetMismatch;
+    }
 
     private static void Prepare(SaveExamRequest request)
     {

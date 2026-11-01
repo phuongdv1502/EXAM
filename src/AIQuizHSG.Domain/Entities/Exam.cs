@@ -16,6 +16,7 @@ public class Exam
     public bool ShuffleOptions { get; set; }
     public int MaxAttempts { get; set; } = 1;
     public bool PublishResults { get; set; }
+    public long? OmrTemplateId { get; set; }
     public long? DifficultyProfileId { get; set; }
     public int? DifficultyProfileVersion { get; set; }
     public byte? TargetDifficultySnapshot { get; set; }
@@ -30,6 +31,7 @@ public class Exam
 
     public Subject Subject { get; set; } = null!;
     public User CreatedBy { get; set; } = null!;
+    public OmrTemplate? SheetTemplate { get; set; }
     public ExamDifficultyProfile? DifficultyProfile { get; set; }
     public ICollection<ExamQuestion> Questions { get; set; } = new List<ExamQuestion>();
     public ICollection<ExamParticipant> Participants { get; set; } = new List<ExamParticipant>();

@@ -37,8 +37,15 @@ public sealed class AvailabilityRequestValidator : AbstractValidator<Availabilit
         RuleLevelCascadeMode = CascadeMode.Stop;
 
         RuleFor(x => x.SubjectId).GreaterThan(0).WithMessage(Messages.SubjectNotSelected);
-        RuleFor(x => x.ProfileId).GreaterThan(0).WithMessage(Messages.ProfileNotFound);
-        RuleFor(x => x.QuestionCount).GreaterThan(0).WithMessage(Messages.GenerateQuestionCountInvalid);
+        // Có từng phần của mẫu phiếu thì ma trận và tổng câu không bắt buộc.
+        RuleFor(x => x.ProfileId)
+            .GreaterThan(0)
+            .When(x => x.Slots is not { Count: > 0 })
+            .WithMessage(Messages.ProfileNotFound);
+        RuleFor(x => x.QuestionCount)
+            .GreaterThan(0)
+            .When(x => x.Slots is not { Count: > 0 })
+            .WithMessage(Messages.GenerateQuestionCountInvalid);
     }
 }
 

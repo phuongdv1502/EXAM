@@ -19,6 +19,7 @@ public class QuestionsController(IQuestionService questions) : ControllerBase
         [FromQuery] QuestionLevel? level,
         [FromQuery] byte? difficultyLevelId,
         [FromQuery] QuestionStatus? status,
+        [FromQuery] QuestionType? type,
         [FromQuery] string? keyword,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -30,6 +31,7 @@ public class QuestionsController(IQuestionService questions) : ControllerBase
             Level = level,
             DifficultyLevelId = difficultyLevelId,
             Status = status,
+            Type = type,
             Keyword = keyword,
             Page = page,
             PageSize = pageSize

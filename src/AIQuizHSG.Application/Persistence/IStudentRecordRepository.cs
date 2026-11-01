@@ -13,5 +13,7 @@ public interface IStudentRecordRepository
     Task AddAsync(StudentProfile student, CancellationToken ct);
     Task<StudentEnrollment?> FindActiveEnrollmentAsync(long studentId, CancellationToken ct);
     Task<List<StudentProfile>> ListActiveInClassroomAsync(long classroomId, CancellationToken ct);
+
+    Task<List<StudentProfile>> ListActiveWithClassAsync(CancellationToken ct);
     Task AddEnrollmentAsync(StudentEnrollment enrollment, CancellationToken ct);
 }

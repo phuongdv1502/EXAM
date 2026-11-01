@@ -15,10 +15,12 @@ public static class ExamMapper
         exam.DurationMinutes = request.DurationMinutes;
         exam.OpensAtUtc = NormalizeUtc(request.OpensAtUtc);
         exam.ClosesAtUtc = NormalizeUtc(request.ClosesAtUtc);
-        exam.ShuffleQuestions = request.ShuffleQuestions;
-        exam.ShuffleOptions = request.ShuffleOptions;
         exam.MaxAttempts = request.MaxAttempts;
         exam.PublishResults = request.PublishResults;
+        exam.OmrTemplateId = request.OmrTemplateId;
+        // Mẫu phiếu cần giữ thứ tự phần và thứ tự ô Đúng/Sai.
+        exam.ShuffleQuestions = request.OmrTemplateId is null && request.ShuffleQuestions;
+        exam.ShuffleOptions = request.OmrTemplateId is null && request.ShuffleOptions;
     }
 
     // Chỉ chép nội dung và đáp án tại thời điểm đưa vào đề, không gắn navigation câu gốc.
@@ -93,7 +95,8 @@ public static class ExamMapper
             .Select(participant => ToParticipant(participant, users))
             .OrderBy(participant => participant.FullName)
             .ThenBy(participant => participant.UserId)
-            .ToArray());
+            .ToArray(),
+        exam.OmrTemplateId);
 
     public static AttemptPaper ToPaper(ExamAttempt attempt, DateTime serverNowUtc)
     {

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using AIQuizHSG.Application.Accounts;
 using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Exams;
 using AIQuizHSG.Application.Organization;
@@ -172,6 +173,76 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         return OperationResult<byte[]>.Ok(forms.Png(config));
     }
 
+    // Mỗi học sinh một trang PDF, mã QR ghi mã học sinh và mã đề.
+    public async Task<OperationResult<byte[]>> PrintSheetsAsync(long examId, Actor actor, CancellationToken ct)
+    {
+        var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
+        if (exam is null)
+            return OperationResult<byte[]>.NotFound(Messages.ExamNotFound);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, exam.SubjectId, ct) is { } denied)
+            return OperationResult<byte[]>.Forbidden(denied);
+        if (exam.OmrTemplateId is not long templateId)
+            return OperationResult<byte[]>.Invalid(Messages.ExamSheetRequired);
+
+        var template = await _unitOfWork.Omr.FindTemplateAsync(templateId, ct);
+        if (template is null || !template.IsActive)
+            return OperationResult<byte[]>.Invalid(Messages.ExamSheetMissing);
+        if (!OmrTemplateConfig.TryParse(template.ConfigJson, out var config))
+            return OperationResult<byte[]>.Invalid(Messages.OmrTemplateConfigInvalid);
+
+        var counts = exam.Questions.Select(question => question.Options.Count).ToList();
+        if (!config.Accepts(counts, exact: true))
+            return OperationResult<byte[]>.Invalid(Messages.ExamSheetMismatch);
+
+        var copies = await SheetCopiesAsync(exam, ct);
+        if (copies.Count == 0)
+            return OperationResult<byte[]>.Invalid(Messages.ExamSheetNoStudents);
+
+        return OperationResult<byte[]>.Ok(forms.Pdf(config, copies));
+    }
+
+    // Mỗi học sinh một trang. Mã QR mang mã học sinh và mã đề.
+    private async Task<List<OmrSheetCopy>> SheetCopiesAsync(Exam exam, CancellationToken ct)
+    {
+        var students = await _unitOfWork.StudentRecords.ListActiveWithClassAsync(ct);
+        var assignments = await _unitOfWork.ExamAssignments.ListByExamAsync(exam.Id, ct);
+        // Đã giao lớp hoặc học sinh thì chỉ in những người đó.
+        if (assignments.Count > 0)
+        {
+            var allowed = new HashSet<long>();
+            foreach (var assignment in assignments)
+            {
+                if (assignment.StudentId is long studentId)
+                    allowed.Add(studentId);
+                if (assignment.ClassroomId is not long roomId)
+                    continue;
+                foreach (var student in students)
+                {
+                    if (student.Enrollments.Any(item => item.ClassroomId == roomId && item.Status == EnrollmentStatus.Active && item.LeaveDate == null))
+                        allowed.Add(student.Id);
+                }
+            }
+
+            students = students.Where(student => allowed.Contains(student.Id)).ToList();
+        }
+
+        var examCode = ExamCodeFor(exam);
+        return students
+            .Where(student => !string.IsNullOrWhiteSpace(student.StudentCode))
+            .GroupBy(student => student.Id)
+            .Select(group => group.First())
+            .OrderBy(student => ClassName(student))
+            .ThenBy(student => student.FullName)
+            .Select(student => new OmrSheetCopy(student.FullName, student.StudentCode.Trim(), ClassName(student), examCode))
+            .ToList();
+    }
+
+    private static string? ClassName(StudentProfile student) =>
+        student.Enrollments
+            .Where(item => item.Status == EnrollmentStatus.Active && item.LeaveDate == null)
+            .Select(item => item.Classroom?.Name)
+            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+
     public async Task<OperationResult<IReadOnlyList<OmrBatchSummary>>> ListBatchesAsync(Actor actor, CancellationToken ct)
     {
         if (await Deny(actor, BatchPermission, ct) is { } denied)
@@ -196,6 +267,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return OperationResult<OmrBatchSummary>.NotFound(Messages.OmrTemplateNotFound);
         if (!template.IsActive)
             return OperationResult<OmrBatchSummary>.Invalid(Messages.OmrTemplateInactive);
+        if (exam.OmrTemplateId is long bound && bound != template.Id)
+            return OperationResult<OmrBatchSummary>.Invalid(Messages.ExamSheetLocked);
         if (!OmrTemplateConfig.TryParse(template.ConfigJson, out var config))
             return OperationResult<OmrBatchSummary>.Invalid(Messages.OmrTemplateConfigInvalid);
         if (config.QuestionCount != exam.Questions.Count)
@@ -555,7 +628,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             var ids = picked.SelectedOptionIds.Distinct().ToList();
             if (ids.Any(optionId => !allowed.Contains(optionId)))
                 return OperationResult<OmrSheetDetail>.Invalid(Messages.OmrReviewOptionInvalid);
-            if (question.Type == QuestionType.SingleChoice && ids.Count > 1)
+            if (question.Type is QuestionType.SingleChoice or QuestionType.TrueFalse or QuestionType.FillNumber && ids.Count > 1)
                 return OperationResult<OmrSheetDetail>.Invalid(Messages.OmrReviewOptionInvalid);
 
             // Giữ kết quả máy. Chỉ ghi phần người dùng xác nhận.

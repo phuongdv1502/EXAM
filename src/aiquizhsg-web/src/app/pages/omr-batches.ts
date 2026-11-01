@@ -48,12 +48,17 @@ export class OmrBatchesPage extends Page implements OnInit {
   matchingTemplates(): OmrTemplate[] {
     const exam = this.selectedExam();
     if (!exam) return [];
-    return this.templates.filter((item) => item.questionCount === exam.questionCount);
+    const sameCount = this.templates.filter((item) => item.questionCount === exam.questionCount);
+    if (!exam.omrTemplateId) return sameCount;
+    return sameCount.filter((item) => item.id === exam.omrTemplateId);
   }
 
   pickExam(id: number | null): void {
     this.examId = id;
-    if (!this.matchingTemplates().some((item) => item.id === this.templateId))
+    const bound = this.selectedExam()?.omrTemplateId ?? null;
+    if (bound && this.matchingTemplates().some((item) => item.id === bound))
+      this.templateId = bound;
+    else if (!this.matchingTemplates().some((item) => item.id === this.templateId))
       this.templateId = null;
   }
 

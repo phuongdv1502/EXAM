@@ -18,6 +18,14 @@ public static class OmrFormImage
         return Legacy(config);
     }
 
+    public static byte[] Png(OmrTemplateConfig config, OmrSheetCopy copy)
+    {
+        var plan = OmrFormLayout.For(config);
+        if (SameLayout(config, plan))
+            return Png(plan, copy.StudentName, copy.StudentCode, copy.ClassName, copy.ExamCode, null);
+        return Legacy(config);
+    }
+
     public static byte[] Png(
         OmrFormLayout.Plan plan,
         string? studentName,
@@ -33,6 +41,7 @@ public static class OmrFormImage
             DrawChrome(canvas, plan, studentName, studentCode, className, examCode);
         }
 
+        // QR ghi mã học sinh và mã đề để quét chấm nhận ra phiếu của ai.
         if (!string.IsNullOrWhiteSpace(studentCode) && !string.IsNullOrWhiteSpace(examCode))
             DrawQr(image, plan.Qr, OmrRules.QrPayload(studentCode, examCode));
 
@@ -53,6 +62,59 @@ public static class OmrFormImage
             return Encode(image);
 
         return EssayBook(image);
+    }
+
+    // Ghép mỗi học sinh một trang A4. Phiếu tự luận tách thêm các trang giấy kẻ.
+    public static byte[] Pdf(OmrTemplateConfig config, IReadOnlyList<OmrSheetCopy> copies)
+    {
+        var plan = OmrFormLayout.For(config);
+        var matched = SameLayout(config, plan);
+        using var stream = new MemoryStream();
+        using var document = SKDocument.CreatePdf(stream);
+        foreach (var copy in copies)
+        {
+            var png = matched
+                ? Png(plan, copy.StudentName, copy.StudentCode, copy.ClassName, copy.ExamCode, null)
+                : Legacy(config);
+            using var bitmap = SKBitmap.Decode(png);
+            if (bitmap is null)
+                continue;
+            AppendPages(document, bitmap);
+        }
+
+        document.Close();
+        return stream.ToArray();
+    }
+
+    private static void AppendPages(SKDocument document, SKBitmap bitmap)
+    {
+        const int gap = 28;
+        var pageHeight = OmrFormLayout.PageHeight;
+        if (bitmap.Height <= pageHeight)
+        {
+            DrawPdfPage(document, bitmap, 0);
+            return;
+        }
+
+        for (var top = 0; top < bitmap.Height; top += pageHeight + gap)
+        {
+            DrawPdfPage(document, bitmap, top);
+            if (top + pageHeight >= bitmap.Height)
+                break;
+        }
+    }
+
+    private static void DrawPdfPage(SKDocument document, SKBitmap bitmap, int top)
+    {
+        const float pageWidth = 595.28f;
+        const float pageHeight = 841.89f;
+        var canvas = document.BeginPage(pageWidth, pageHeight);
+        canvas.Clear(SKColors.White);
+        var scale = pageWidth / bitmap.Width;
+        canvas.Scale(scale);
+        canvas.ClipRect(SKRect.Create(0, 0, bitmap.Width, OmrFormLayout.PageHeight));
+        canvas.DrawBitmap(bitmap, 0, -top);
+        document.EndPage();
     }
 
     private static byte[] Encode(SKBitmap image)
@@ -362,8 +424,6 @@ public static class OmrFormImage
         };
 
         canvas.DrawText("PHIẾU TRẢ LỜI TRẮC NGHIỆM", OmrFormLayout.PageWidth / 2f, 68, SKTextAlign.Center, titleFont, ink);
-        var qr = OmrFormLayout.Pixels(plan.Qr);
-        canvas.DrawRect(SKRect.Create(qr.Left - 2, qr.Top - 2, qr.Width + 4, qr.Height + 4), hair);
         canvas.DrawRect(SKRect.Create(OmrFormLayout.PageWidth - 22, 18, 10, 10), square);
 
         var proctors = plan.Fields.Where(item => item.Label.StartsWith("Giám thị", StringComparison.Ordinal)).ToList();
@@ -1546,18 +1606,23 @@ public static class OmrFormImage
     private static void DrawQr(SKBitmap image, OmrFormLayout.Box box, string payload)
     {
         var target = OmrFormLayout.Pixels(box);
+        const int min = 112;
+        var width = Math.Max(target.Width, min);
+        var height = Math.Max(target.Height, min);
+        var left = target.Left + width > image.Width - 8 ? Math.Max(8, image.Width - width - 8) : target.Left;
+        var top = target.Top + height > image.Height - 8 ? Math.Max(8, image.Height - height - 8) : target.Top;
         var writer = new BarcodeWriterPixelData
         {
             Format = BarcodeFormat.QR_CODE,
-            Options = new EncodingOptions { Width = target.Width, Height = target.Height, Margin = 1 }
+            Options = new EncodingOptions { Width = width, Height = height, Margin = 1 }
         };
         var pixels = writer.Write(payload);
-        for (var y = 0; y < pixels.Height && y < target.Height; y++)
+        for (var y = 0; y < pixels.Height && y < height; y++)
         {
-            for (var x = 0; x < pixels.Width && x < target.Width; x++)
+            for (var x = 0; x < pixels.Width && x < width; x++)
             {
                 var blue = pixels.Pixels[(y * pixels.Width + x) * 4];
-                image.SetPixel(target.Left + x, target.Top + y, blue < 128 ? SKColors.Black : SKColors.White);
+                image.SetPixel(left + x, top + y, blue < 128 ? SKColors.Black : SKColors.White);
             }
         }
     }

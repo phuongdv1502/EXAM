@@ -17,7 +17,9 @@ public enum QuestionLevel
 public enum QuestionType
 {
     SingleChoice,
-    MultipleChoice
+    MultipleChoice,
+    TrueFalse,
+    FillNumber
 }
 
 public enum QuestionStatus

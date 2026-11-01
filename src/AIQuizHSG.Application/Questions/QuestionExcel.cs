@@ -39,6 +39,15 @@ public static class QuestionExcel
         sheet.Cell(2, 11).Value = "O(n^2)";
         sheet.Cell(2, 12).Value = "Sai";
         sheet.Cell(2, Headers.Length).Value = "Vận dụng";
+        sheet.Cell(3, 1).Value = "TIN";
+        sheet.Cell(3, 2).Value = "Thuật toán";
+        sheet.Cell(3, 3).Value = "Tìm kiếm nhị phân chỉ áp dụng trên dãy đã sắp xếp.";
+        sheet.Cell(3, 4).Value = "Dễ";
+        sheet.Cell(3, 5).Value = "Đúng/sai";
+        sheet.Cell(3, 7).Value = "Đúng";
+        sheet.Cell(3, 8).Value = "Đúng";
+        sheet.Cell(3, 9).Value = "Sai";
+        sheet.Cell(3, 10).Value = "Sai";
         sheet.Row(1).Style.Font.Bold = true;
         sheet.Columns().AdjustToContents();
 
@@ -125,6 +134,10 @@ public static class QuestionExcel
             options.Add(new OptionInput { Content = optionContent, IsCorrect = isCorrect });
         }
 
+        // Đưa phương án Đúng lên trước Sai để trùng thứ tự ô trên phiếu.
+        if (type == QuestionType.TrueFalse)
+            options = OrderTrueFalse(options);
+
         var optionError = QuestionRules.ValidateOptions(type, options.Select(option => (option.Content, option.IsCorrect)).ToArray());
         if (optionError is not null)
             return (null, optionError);
@@ -199,10 +212,35 @@ public static class QuestionExcel
             case "multiplechoice":
                 type = QuestionType.MultipleChoice;
                 return true;
+            case "dungsai":
+            case "đúngsai":
+            case "dung/sai":
+            case "đúng/sai":
+            case "truefalse":
+                type = QuestionType.TrueFalse;
+                return true;
+            case "dienso":
+            case "điềnso":
+            case "dien/so":
+            case "fillnumber":
+                type = QuestionType.FillNumber;
+                return true;
             default:
                 type = default;
                 return false;
         }
+    }
+
+    private static List<OptionInput> OrderTrueFalse(List<OptionInput> options)
+    {
+        var dung = options.FirstOrDefault(option => QuestionRules.IsDung(option.Content));
+        var sai = options.FirstOrDefault(option => QuestionRules.IsSai(option.Content));
+        if (dung is null || sai is null || options.Count != 2)
+            return options;
+
+        dung.Content = "Đúng";
+        sai.Content = "Sai";
+        return [dung, sai];
     }
 
     private static bool TryCorrect(string raw, out bool isCorrect)

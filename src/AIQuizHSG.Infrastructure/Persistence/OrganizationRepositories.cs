@@ -193,6 +193,14 @@ public sealed class StudentRecordRepository(AiQuizDbContext db) : IStudentRecord
             .OrderBy(student => student.FullName)
             .ToListAsync(ct);
 
+    public Task<List<StudentProfile>> ListActiveWithClassAsync(CancellationToken ct) =>
+        db.Students.AsNoTracking()
+            .Include(student => student.Enrollments)
+            .ThenInclude(enrollment => enrollment.Classroom)
+            .Where(student => student.Status == StudentProfileStatus.Active)
+            .OrderBy(student => student.FullName)
+            .ToListAsync(ct);
+
     public async Task AddEnrollmentAsync(StudentEnrollment enrollment, CancellationToken ct) =>
         await db.StudentEnrollments.AddAsync(enrollment, ct);
 }

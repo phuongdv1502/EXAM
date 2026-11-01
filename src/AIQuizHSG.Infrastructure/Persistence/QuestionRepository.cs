@@ -19,11 +19,13 @@ public sealed class QuestionRepository(AiQuizDbContext db) : IQuestionRepository
 
     public async Task<(int Total, List<Question> Items)> SearchAsync(QuestionFilter filter, CancellationToken ct)
     {
+        // Kèm phương án để đếm số lựa chọn khi xếp câu theo mẫu phiếu.
         var query = ApplyFilter(
         db.Questions.AsNoTracking()
             .Include(question => question.Topic)
             .ThenInclude(topic => topic.Subject)
-            .Include(question => question.DifficultyLevel),
+            .Include(question => question.DifficultyLevel)
+            .Include(question => question.Options),
             filter);
 
         var total = await query.CountAsync(ct);
@@ -46,6 +48,7 @@ public sealed class QuestionRepository(AiQuizDbContext db) : IQuestionRepository
             && (filter.Level == null || question.Level == filter.Level)
             && (filter.DifficultyLevelId == null || question.DifficultyLevelId == filter.DifficultyLevelId)
             && (filter.Status == null || question.Status == filter.Status)
+            && (filter.Type == null || question.Type == filter.Type)
             && (keyword == null || question.Content.Contains(keyword)));
     }
 

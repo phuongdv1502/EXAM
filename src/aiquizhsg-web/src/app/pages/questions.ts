@@ -22,6 +22,7 @@ export class QuestionsPage extends Page implements OnInit {
   topicId: number | null = null;
   status: string | null = null;
   level: string | null = null;
+  type: string | null = null;
   keyword = '';
   rejectingId: number | null = null;
   rejectReason = '';
@@ -48,6 +49,7 @@ export class QuestionsPage extends Page implements OnInit {
         topicId: this.topicId,
         status: this.status,
         level: this.level,
+        type: this.type,
         keyword: this.keyword.trim(),
         page: this.page,
         pageSize: this.pageSize,

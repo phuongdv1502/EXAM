@@ -1468,3 +1468,36 @@ body {
 .accounts-page .account-drawer-grants .perm-module {
   animation: account-slide-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+#sheet-print {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 210mm;
+  height: 297mm;
+  border: 0;
+}
+
+@media print {
+  body > *:not(#sheet-print) {
+    display: none !important;
+  }
+
+  #sheet-print {
+    display: block !important;
+    position: static !important;
+    left: auto !important;
+    width: 100% !important;
+  }
+
+  #sheet-print img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+}

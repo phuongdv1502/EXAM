@@ -46,6 +46,13 @@ public sealed record ProfilePreviewResponse(
     bool IsValid,
     string? Message);
 
+public sealed class DrawSlot
+{
+    public QuestionType Type { get; set; }
+    public int OptionCount { get; set; }
+    public int Count { get; set; }
+}
+
 public sealed class AvailabilityRequest
 {
     public long SubjectId { get; set; }
@@ -53,6 +60,7 @@ public sealed class AvailabilityRequest
     public int QuestionCount { get; set; }
     public List<long> TopicIds { get; set; } = [];
     public QuestionType? QuestionType { get; set; }
+    public List<DrawSlot> Slots { get; set; } = [];
 }
 
 public sealed record ShortageLine(byte Level, int Required, int Available, int Missing);
@@ -66,7 +74,7 @@ public sealed record AvailabilityResponse(
     IReadOnlyList<ShortageLine> Shortages,
     IReadOnlyList<AvailabilityError> Errors);
 
-public sealed record DrawnQuestionResponse(long Id, string Content, string TopicName, string Level, string Type);
+public sealed record DrawnQuestionResponse(long Id, string Content, string TopicName, string Level, string Type, int OptionCount);
 
 public sealed record DrawQuestionsResponse(IReadOnlyList<DrawnQuestionResponse> Questions);
 

@@ -98,7 +98,8 @@ public sealed class ExamRepository(AiQuizDbContext db) : IExamRepository
             exam.Participants.Count,
             exam.PublishResults,
             exam.OpensAtUtc,
-            exam.ClosesAtUtc));
+            exam.ClosesAtUtc,
+            exam.OmrTemplateId));
 
     private static ExamSummary ToSummary(SummaryRow exam) => new(
         exam.Id,
@@ -111,7 +112,8 @@ public sealed class ExamRepository(AiQuizDbContext db) : IExamRepository
         exam.ParticipantCount,
         exam.PublishResults,
         exam.OpensAtUtc,
-        exam.ClosesAtUtc);
+        exam.ClosesAtUtc,
+        exam.OmrTemplateId);
 
     private sealed record SummaryRow(
         long Id,
@@ -124,5 +126,6 @@ public sealed class ExamRepository(AiQuizDbContext db) : IExamRepository
         int ParticipantCount,
         bool PublishResults,
         DateTime? OpensAtUtc,
-        DateTime? ClosesAtUtc);
+        DateTime? ClosesAtUtc,
+        long? OmrTemplateId);
 }

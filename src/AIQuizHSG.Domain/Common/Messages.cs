@@ -54,6 +54,8 @@ public static class Messages
     public const string NeedOneCorrect = "Cần ít nhất một đáp án đúng.";
     public const string NeedOneWrong = "Phải có ít nhất một phương án sai.";
     public const string SingleChoiceOneCorrect = "Câu hỏi một đáp án chỉ được có một đáp án đúng.";
+    public const string TrueFalseOptions = "Câu đúng/sai chỉ gồm hai phương án Đúng và Sai, và chỉ một phương án đúng.";
+    public const string FillNumberOptions = "Câu điền số cần một đáp án đúng vừa lưới 4 cột, ví dụ 12,5 hoặc -3, và ít nhất một đáp án sai cùng dạng.";
 
     public const string ExcelInvalid = "Tệp Excel không hợp lệ.";
     public const string ExcelUnreadable = "Không đọc được tệp Excel. Hãy dùng đúng mẫu .xlsx.";
@@ -61,7 +63,7 @@ public static class Messages
     public const string ExcelMissingColumn = "Thiếu cột bắt buộc '{0}'. Hãy tải mẫu và nhập lại.";
     public const string ExcelRequiredCells = "MaMon, ChuyenDe và NoiDung là bắt buộc.";
     public const string ExcelLevelInvalid = "MucDo không hợp lệ. Dùng Dễ, Trung bình hoặc Khó.";
-    public const string ExcelTypeInvalid = "Loai không hợp lệ. Dùng Một đáp án hoặc Nhiều đáp án.";
+    public const string ExcelTypeInvalid = "Loai không hợp lệ. Dùng Một đáp án, Nhiều đáp án, Đúng/sai hoặc Điền số.";
     public const string ExcelCorrectInvalid = "Dung{0} phải là Đúng hoặc Sai.";
     public const string ExcelNotSelected = "Chưa chọn tệp Excel.";
     public const string ExcelWrongExtension = "Chỉ nhận tệp .xlsx theo đúng mẫu.";
@@ -92,6 +94,13 @@ public static class Messages
     public const string ExamQuestionDuplicate = "Đề thi không được chứa câu hỏi trùng.";
     public const string ExamPointsInvalid = "Điểm mỗi câu phải lớn hơn 0 và không quá 100.";
     public const string ExamQuestionNotApproved = "Chỉ đưa câu đã duyệt, cùng môn với đề thi.";
+    public const string ExamSheetMissing = "Mẫu phiếu không còn dùng được.";
+    public const string ExamSheetMismatch = "Câu trong đề chưa khớp số câu và thứ tự phần của mẫu phiếu.";
+    public const string ExamSheetLocked = "Đề đã gắn mẫu phiếu. Hãy chấm bằng đúng mẫu đó.";
+    public const string ExamSheetRequired = "Đề chưa gắn mẫu phiếu nên chưa in được.";
+    public const string ExamSheetNoStudents = "Chưa có học sinh để in phiếu.";
+    public const string SheetDrawSlotInvalid = "Mỗi phần cần ít nhất một câu và từ 2 đến 6 phương án.";
+    public const string SheetDrawShortage = "Phần {0} còn thiếu {1} câu đã duyệt.";
     public const string ExamParticipantInvalid = "Danh sách thí sinh có tài khoản không phải học sinh đang hoạt động.";
     public const string ExamParticipantDuplicate = "Danh sách thí sinh bị trùng.";
     public const string ExamTooManyParticipants = "Danh sách thí sinh tối đa 500 người.";

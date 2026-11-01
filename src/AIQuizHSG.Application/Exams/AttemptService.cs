@@ -104,7 +104,7 @@ public sealed partial class AttemptService : TimedService, IAttemptService
             return OperationResult<AttemptPaper>.Invalid(Messages.AttemptQuestionInvalid);
         if (request.OptionIds.Distinct().Count() != request.OptionIds.Count)
             return OperationResult<AttemptPaper>.Invalid(Messages.AttemptOptionInvalid);
-        if (question.Type == QuestionType.SingleChoice && request.OptionIds.Count > 1)
+        if (question.Type is QuestionType.SingleChoice or QuestionType.TrueFalse or QuestionType.FillNumber && request.OptionIds.Count > 1)
             return OperationResult<AttemptPaper>.Invalid(Messages.AttemptSingleChoice);
 
         var allowed = question.Options.Select(option => option.Id).ToHashSet();

@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.RegularExpressions;
 using AIQuizHSG.Application.Exams;
 using AIQuizHSG.Application.Omr;
 using AIQuizHSG.Domain.Common;
@@ -57,6 +59,8 @@ public class OmrTests
         Assert.Equal(config.Bubbles.Count, roundTrip.Bubbles.Count);
         Assert.True(config.OptionCountsFit([..Enumerable.Repeat(4, 10), ..Enumerable.Repeat(2, 8), 2]));
         Assert.False(config.OptionCountsFit(Enumerable.Repeat(4, 19).ToList()));
+        Assert.True(config.Accepts(Enumerable.Repeat(4, 10).ToList(), exact: false));
+        Assert.False(config.Accepts(Enumerable.Repeat(4, 10).ToList(), exact: true));
 
         var png = OmrFormImage.Png(config);
         Assert.True(png.Length > 1000);
@@ -229,6 +233,21 @@ public class OmrTests
         Assert.Equal(nameof(OmrMarkStatus.Blank), Bubble(read, 1, 1));
         Assert.Equal(nameof(OmrMarkStatus.Blank), Bubble(read, 2, 0));
         Assert.Equal(nameof(OmrMarkStatus.Blank), Bubble(read, 2, 1));
+    }
+
+    [Fact]
+    public void SheetPdf_PutsEachStudentOnAPage()
+    {
+        var config = OmrTemplateConfig.Grid(4, 4);
+        var pdf = OmrFormImage.Pdf(config,
+        [
+            new OmrSheetCopy("Học sinh A", "HS001", "6A1", "DE1"),
+            new OmrSheetCopy("Học sinh B", "HS002", "6A1", "DE1")
+        ]);
+
+        var text = Encoding.Latin1.GetString(pdf);
+        Assert.StartsWith("%PDF", text);
+        Assert.Equal(2, Regex.Matches(text, "/Type /Page[^s]").Count);
     }
 
     private static OmrRecognitionResult Read(bool qr, int ambiguous, int clear)

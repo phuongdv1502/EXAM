@@ -74,7 +74,7 @@
         @if (!examId) {
           <p class="muted">Chọn đề trước, rồi chọn mẫu cùng số câu.</p>
         } @else if (matchingTemplates().length === 0) {
-          <p class="muted pick-empty">Chưa có mẫu đang dùng với {{ selectedExam()?.questionCount }} câu. <a routerLink="/omr/templates">Tạo mẫu</a></p>
+          <p class="muted pick-empty">{{ selectedExam()?.omrTemplateId ? 'Mẫu phiếu đã gắn với đề không còn dùng được.' : 'Chưa có mẫu đang dùng với ' + selectedExam()?.questionCount + ' câu.' }} <a routerLink="/omr/templates">Tạo mẫu</a></p>
         } @else {
           <div class="template-picks">
             @for (template of matchingTemplates(); track template.id) {
@@ -90,7 +90,7 @@
               </div>
             }
           </div>
-          <p class="muted">Chọn mẫu muốn dùng cho đợt này. <a routerLink="/omr/templates">Tạo mẫu khác</a></p>
+          <p class="muted">{{ selectedExam()?.omrTemplateId ? 'Đề đã gắn mẫu này lúc tạo.' : 'Chọn mẫu muốn dùng cho đợt này.' }} <a routerLink="/omr/templates">Tạo mẫu khác</a></p>
         }
       </div>
       <div class="field">

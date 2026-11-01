@@ -84,7 +84,7 @@ export class AttemptPage extends Page implements OnInit, OnDestroy {
   choose(optionId: number, checked: boolean): void {
     const question = this.current;
     if (!question || !this.paper || !this.taking) return;
-    const optionIds = question.type === 'SingleChoice'
+    const optionIds = question.type === 'SingleChoice' || question.type === 'TrueFalse' || question.type === 'FillNumber'
       ? [optionId]
       : checked
         ? [...new Set([...question.selectedOptionIds, optionId])]

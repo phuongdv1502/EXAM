@@ -27,6 +27,9 @@
       <div class="field span-3">
         <p-select [options]="choices.level" optionLabel="label" optionValue="value" [(ngModel)]="level" name="level" placeholder="Mức" [showClear]="true" appendTo="body" />
       </div>
+      <div class="field span-3">
+        <p-select [options]="choices.questionType" optionLabel="label" optionValue="value" [(ngModel)]="type" name="type" placeholder="Loại câu" [showClear]="true" appendTo="body" />
+      </div>
       <div class="field span-6">
         <div class="search-line">
           <input pInputText name="keyword" [(ngModel)]="keyword" placeholder="Tìm nội dung" />
