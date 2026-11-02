@@ -6,6 +6,7 @@ using AIQuizHSG.Domain.Common;
 using AIQuizHSG.Domain.Entities;
 using AIQuizHSG.Domain.Omr;
 using AIQuizHSG.Infrastructure.Omr;
+using SkiaSharp;
 
 namespace AIQuizHSG.Tests;
 
@@ -216,6 +217,47 @@ public class OmrTests
 
         marks.Add((OmrDigitGrid.Index(1, 4), "Marked"));
         Assert.False(OmrDigitGrid.TryRead(marks, out _));
+    }
+
+    [Fact]
+    public void CodeGrid_ReadsARunOfDigitsAndRejectsAHole()
+    {
+        var columns = new List<OmrCodeGrid.Column>
+        {
+            new(0, 2, false),
+            new(1, 6, false),
+            new(2, 0, false),
+            new(3, null, false)
+        };
+        Assert.True(OmrCodeGrid.TryRead(columns, out var text));
+        Assert.Equal("260", text);
+
+        columns[2] = new OmrCodeGrid.Column(2, null, false);
+        columns[3] = new OmrCodeGrid.Column(3, 1, false);
+        Assert.False(OmrCodeGrid.TryRead(columns, out _));
+        Assert.True(OmrRules.SameExamCode("001", "DE1"));
+        Assert.False(OmrRules.SameExamCode("10", "DE1"));
+    }
+
+    [Fact]
+    public void Recognize_ReadsBubbledCodesWhenTheQrIsCovered()
+    {
+        Assert.True(OmrTemplateConfig.TryFromCheck([("BonDapAn", 10)], out var config));
+        var plan = OmrFormLayout.For(config);
+        var png = OmrFormImage.Png(plan, null, "26001", null, "101", null);
+        using var bitmap = SKBitmap.Decode(png);
+        using var canvas = new SKCanvas(bitmap);
+        var qr = OmrFormLayout.Pixels(plan.Qr);
+        using var white = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Fill };
+        canvas.DrawRect(SKRect.Create(qr.Left - 6, qr.Top - 6, qr.Width + 12, qr.Height + 12), white);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        var read = new OmrRecognitionService().Recognize(data.ToArray(), config);
+
+        Assert.Null(read.Error);
+        Assert.False(read.QrFound);
+        Assert.Equal("26001", read.StudentCode);
+        Assert.Equal("101", read.ExamCode);
     }
 
     [Fact]

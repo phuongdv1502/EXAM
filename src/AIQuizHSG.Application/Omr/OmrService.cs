@@ -412,26 +412,34 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return OperationResult<OmrScanResult>.Invalid(Messages.OmrFileTypeInvalid);
 
         var payload = recognition.ReadQr(content);
-        if (!OmrRules.TryReadQr(payload, out _, out var examCode))
-            return OperationResult<OmrScanResult>.Ok(OmrScanResult.Miss(Messages.OmrScanNoQr));
+        var qrExamKnown = OmrRules.TryReadQr(payload, out _, out var qrExam) && !string.IsNullOrWhiteSpace(qrExam);
 
         var open = (await _unitOfWork.Omr.ListBatchesAsync(ct))
             .Where(item => item.Status is not OmrBatchStatus.Approved and not OmrBatchStatus.Published)
-            .Where(item => string.Equals(item.ExamCode, examCode, StringComparison.OrdinalIgnoreCase))
             .ToList();
-        if (open.Count == 0)
-            return OperationResult<OmrScanResult>.Ok(OmrScanResult.Miss(Messages.OmrScanNoBatch));
+        // Có QR thì chọn đúng mã đề. Không có thì dùng đợt đang mở, hoặc đối chiếu ô tô mã đề.
+        var pool = qrExamKnown
+            ? open.Where(item => string.Equals(item.ExamCode, qrExam, StringComparison.OrdinalIgnoreCase)).ToList()
+            : batchId is long pinned
+                ? open.Where(item => item.Id == pinned).ToList()
+                : open;
+        if (pool.Count == 0)
+            return OperationResult<OmrScanResult>.Ok(OmrScanResult.Miss(qrExamKnown ? Messages.OmrScanNoBatch : Messages.OmrScanNoQr));
 
         OmrImportBatch? matched = null;
         OmrRecognitionResult? read = null;
         OmrTemplateConfig? matchedConfig = null;
         var best = int.MinValue;
-        foreach (var candidate in open)
+        foreach (var candidate in pool)
         {
             if (!OmrTemplateConfig.TryParse(candidate.Template?.ConfigJson, out var config))
                 continue;
             var attempt = recognition.Recognize(content, config);
-            if (!OmrScanChoice.Accepts(attempt) || !string.Equals(attempt.ExamCode, candidate.ExamCode, StringComparison.OrdinalIgnoreCase))
+            var examKnown = !string.IsNullOrWhiteSpace(attempt.ExamCode);
+            var examOk = examKnown
+                ? OmrRules.SameExamCode(attempt.ExamCode, candidate.ExamCode)
+                : candidate.Id == batchId;
+            if (!OmrScanChoice.Accepts(attempt) || !examOk)
                 continue;
             var score = OmrScanChoice.Score(attempt);
             if (read is null || score > best || (score == best && candidate.Id == batchId))
@@ -444,7 +452,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         }
 
         if (matched is null || read is null || matchedConfig is null)
-            return OperationResult<OmrScanResult>.Ok(OmrScanResult.Miss(Messages.OmrScanNoTemplate));
+            return OperationResult<OmrScanResult>.Ok(OmrScanResult.Miss(
+                !qrExamKnown && batchId is null ? Messages.OmrScanNoQr : Messages.OmrScanNoTemplate));
 
         var batch = await _unitOfWork.Omr.FindBatchAsync(matched.Id, ct);
         if (batch is null)
@@ -777,7 +786,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return;
         }
 
-        if (!string.Equals(examCode, sheet.Batch.ExamCode, StringComparison.OrdinalIgnoreCase))
+        if (!OmrRules.SameExamCode(examCode, sheet.Batch.ExamCode))
         {
             Hold(sheet, Messages.OmrExamCodeMismatch);
             return;
@@ -789,7 +798,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return;
         }
 
-        var students = await _unitOfWork.StudentRecords.FindAllByCodeAsync(studentCode, ct);
+        var students = await MatchStudentsAsync(studentCode, ct);
         if (students.Count == 0)
         {
             Hold(sheet, Messages.OmrStudentMissing);
@@ -885,13 +894,15 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
 
     private void ApplyRecognition(OmrScannedSheet sheet, OmrRecognitionResult read, OmrTemplateConfig config)
     {
+        var examBlank = string.IsNullOrWhiteSpace(read.ExamCode);
+        var examMatches = examBlank || OmrRules.SameExamCode(read.ExamCode, sheet.Batch.ExamCode);
         sheet.RecognizedStudentCode = read.StudentCode;
-        sheet.RecognizedExamCode = read.ExamCode;
+        sheet.RecognizedExamCode = examBlank ? sheet.Batch.ExamCode : read.ExamCode;
         var questions = OrderedQuestions(sheet.Batch.Exam);
         var answers = new List<OmrRecognizedAnswer>();
         var optionMismatch = !config.OptionCountsFit(questions.Select(question => question.Options.Count).ToList());
-        var needsReview = !read.QrFound
-            || !string.Equals(read.ExamCode, sheet.Batch.ExamCode, StringComparison.OrdinalIgnoreCase)
+        var needsReview = string.IsNullOrWhiteSpace(read.StudentCode)
+            || !examMatches
             || questions.Count != config.QuestionCount
             || optionMismatch;
         decimal lowest = 1;
@@ -970,10 +981,10 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         }
 
         _unitOfWork.Omr.ReplaceAnswers(sheet, answers);
-        sheet.Confidence = read.QrFound ? lowest : 0;
+        sheet.Confidence = string.IsNullOrWhiteSpace(read.StudentCode) ? 0 : lowest;
         sheet.FailureReason = needsReview
-            ? !read.QrFound ? "Không đọc được mã học sinh hoặc mã đề."
-            : !string.Equals(read.ExamCode, sheet.Batch.ExamCode, StringComparison.OrdinalIgnoreCase) ? Messages.OmrExamCodeMismatch
+            ? string.IsNullOrWhiteSpace(read.StudentCode) ? Messages.OmrIdentityMissing
+            : !examMatches ? Messages.OmrExamCodeMismatch
             : questions.Count != config.QuestionCount ? Messages.OmrQuestionMapInvalid
             : optionMismatch ? Messages.OmrSectionMapInvalid
             : "Có ô tô mơ hồ hoặc tô nhiều đáp án."
@@ -1014,7 +1025,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         string? name = null;
         if (!string.IsNullOrWhiteSpace(code))
         {
-            var students = await _unitOfWork.StudentRecords.FindAllByCodeAsync(code, ct);
+            var students = await MatchStudentsAsync(code, ct);
             if (students.Count == 1)
                 name = students[0].FullName;
         }
@@ -1209,4 +1220,14 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
 
     // Cùng một đề thì cùng một mã in trên phiếu.
     private static string ExamCodeFor(Exam exam) => $"DE{exam.Id}";
+
+    // Mã tô toàn số thì khớp cả hồ sơ dạng HS26001.
+    private async Task<List<Domain.Entities.StudentProfile>> MatchStudentsAsync(string code, CancellationToken ct)
+    {
+        var students = await _unitOfWork.StudentRecords.FindAllByCodeAsync(code, ct);
+        if (students.Count > 0 || code.Any(item => !char.IsDigit(item)))
+            return students;
+        var rough = await _unitOfWork.StudentRecords.FindByCodeDigitsAsync(code, ct);
+        return rough.Where(student => OmrRules.DigitRun(student.StudentCode) == code).ToList();
+    }
 }

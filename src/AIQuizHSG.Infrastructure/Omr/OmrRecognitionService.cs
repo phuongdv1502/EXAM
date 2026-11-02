@@ -16,7 +16,8 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
             return new OmrRecognitionResult { Error = "Không đọc được ảnh phiếu." };
 
         var qr = ReadQr(bitmap);
-        var found = OmrRules.TryReadQr(qr, out var studentCode, out var examCode);
+        var found = OmrRules.TryReadQr(qr, out var qrStudent, out var qrExam);
+        ReadCodes(bitmap, config, out var bubbledStudent, out var bubbledExam);
         var bubbles = new List<OmrBubbleReading>(config.Bubbles.Count);
         foreach (var bubble in config.Bubbles)
         {
@@ -35,8 +36,8 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
 
         return new OmrRecognitionResult
         {
-            StudentCode = found ? studentCode : null,
-            ExamCode = found ? examCode : null,
+            StudentCode = string.IsNullOrWhiteSpace(qrStudent) ? bubbledStudent : qrStudent,
+            ExamCode = string.IsNullOrWhiteSpace(qrExam) ? bubbledExam : qrExam,
             QrFound = found,
             Bubbles = bubbles
         };
@@ -107,6 +108,61 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
         canvas.DrawBitmap(source, 0, 0);
         source.Dispose();
         return oriented;
+    }
+
+    // QR có thì dùng. Không có thì đọc ô tô số báo danh và mã đề trên phiếu.
+    private static void ReadCodes(SKBitmap image, OmrTemplateConfig config, out string? studentCode, out string? examCode)
+    {
+        studentCode = null;
+        examCode = null;
+        foreach (var grid in OmrFormLayout.For(config).Codes)
+        {
+            var role = grid.Title.Contains("báo danh", StringComparison.OrdinalIgnoreCase) ? "student"
+                : grid.Title.Contains("mã đề", StringComparison.OrdinalIgnoreCase) ? "exam"
+                : null;
+            if (role is null)
+                continue;
+
+            var columns = new List<OmrCodeGrid.Column>();
+            foreach (var column in grid.Bubbles.GroupBy(item => item.Column))
+            {
+                var cells = column.Select(item => (item.Digit, Ratio: DarkRatio(image, new OmrBubbleConfig
+                {
+                    X = item.Area.X,
+                    Y = item.Area.Y,
+                    Width = item.Area.Width,
+                    Height = item.Area.Height
+                }))).ToList();
+                columns.Add(ReadColumn(column.Key, cells, config.MarkedRatio));
+            }
+
+            if (!OmrCodeGrid.TryRead(columns, out var text) || text.Length == 0)
+                continue;
+            if (role == "student")
+                studentCode = text;
+            else
+                examCode = text;
+        }
+    }
+
+    // Ô tô đậm hơn hẳn các ô còn lại trong cột thì lấy chữ số đó. Chữ in mờ trong ô không tính là tô.
+    private static OmrCodeGrid.Column ReadColumn(int column, List<(int Digit, double Ratio)> cells, double marked)
+    {
+        if (cells.Count == 0)
+            return new OmrCodeGrid.Column(column, null, true);
+        var ordered = cells.OrderByDescending(item => item.Ratio).ToList();
+        var top = ordered[0];
+        var next = ordered.Count > 1 ? ordered[1].Ratio : 0;
+        if (top.Ratio >= marked && next >= marked)
+            return new OmrCodeGrid.Column(column, null, true);
+        if (top.Ratio >= marked && top.Ratio - next >= 0.25)
+            return new OmrCodeGrid.Column(column, top.Digit, false);
+        if (top.Ratio >= marked)
+            return new OmrCodeGrid.Column(column, null, true);
+        // Cột không có ô tô đậm, các vòng in sẵn đều nhau, thì coi là bỏ trống.
+        if (top.Ratio - next < 0.12)
+            return new OmrCodeGrid.Column(column, null, false);
+        return new OmrCodeGrid.Column(column, null, true);
     }
 
     private static double DarkRatio(SKBitmap image, OmrBubbleConfig bubble)

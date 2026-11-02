@@ -9,6 +9,7 @@ public interface IStudentRecordRepository
     Task<StudentProfile?> FindAsync(long id, CancellationToken ct);
     Task<StudentProfile?> FindByCodeAsync(long schoolId, string code, CancellationToken ct);
     Task<List<StudentProfile>> FindAllByCodeAsync(string code, CancellationToken ct);
+    Task<List<StudentProfile>> FindByCodeDigitsAsync(string digits, CancellationToken ct);
     Task<StudentProfile?> FindByUserAsync(long userId, CancellationToken ct);
     Task AddAsync(StudentProfile student, CancellationToken ct);
     Task<StudentEnrollment?> FindActiveEnrollmentAsync(long studentId, CancellationToken ct);

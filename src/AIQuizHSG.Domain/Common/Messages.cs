@@ -224,7 +224,8 @@ public static class Messages
     public const string OmrCheckQuestionCountInvalid = "Phần I từ 1 đến 120 câu bốn đáp án. Hết một hàng bốn cột thì xuống hàng dưới. Phần II từ 0 đến 8 câu, mỗi câu bốn ý đúng/sai.";
     public const string OmrEssayQuestionCountInvalid = "Phiếu có tự luận: phần I từ 1 đến 8 câu, phần II từ 0 đến 6 câu đúng/sai, phần III từ 0 đến 3 câu điền số.";
     public const string OmrSectionMapInvalid = "Số đáp án từng phần không khớp thứ tự câu trên đề.";
-    public const string OmrScanNoQr = "Chưa thấy mã phiếu. Giữ phiếu thẳng, đủ sáng, mã QR nằm trong khung.";
+    public const string OmrScanNoQr = "Chưa đọc được số báo danh hoặc mã đề. Hãy tô đủ ô, hoặc mở đúng đợt chấm.";
+    public const string OmrIdentityMissing = "Không đọc được số báo danh trên phiếu. Hãy tô đủ các ô số báo danh.";
     public const string OmrScanNoBatch = "Không có đợt chấm đang mở cho mã đề trên phiếu.";
     public const string OmrScanNoTemplate = "Phiếu không khớp mẫu của đợt đang mở.";
     public const string OmrScanDuplicate = "Phiếu này đã có trong đợt.";

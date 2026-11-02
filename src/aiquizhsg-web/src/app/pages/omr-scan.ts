@@ -4,6 +4,7 @@ import { Page } from '../core/page';
 import { UI } from '../core/ui';
 import { apiMessage } from '../core/api-error';
 import { CameraFacing, cameraDeviceId, openCameraStream } from './omr-camera';
+import { Point, SheetLook, SheetMiss, findSheet, orderCorners, sheetPageHeight, sheetPageWidth, warpSheet } from './omr-sheet-frame';
 
 @Component({
   selector: 'app-omr-scan',
@@ -21,14 +22,19 @@ export class OmrScanPanel extends Page implements OnInit {
   cameraError = '';
   facing: CameraFacing = 'environment';
   result: OmrScanResult | null = null;
+  guide = '';
+  ready = false;
+  stageView = '0 0 4 3';
   private stream: MediaStream | null = null;
   private timer = 0;
   private previous: Uint8ClampedArray | null = null;
+  private previousCorners: Point[] | null = null;
   private held: Uint8ClampedArray | null = null;
   private stable = 0;
   private busy = false;
   private waitUntil = 0;
   private scratch: HTMLCanvasElement | null = null;
+  private sheetCanvas: HTMLCanvasElement | null = null;
   private audio: AudioContext | null = null;
 
   ngOnInit(): void {
@@ -48,9 +54,7 @@ export class OmrScanPanel extends Page implements OnInit {
     if (this.busy) return;
     const previousId = cameraDeviceId(this.stream);
     this.facing = this.facing === 'environment' ? 'user' : 'environment';
-    this.held = null;
-    this.previous = null;
-    this.stable = 0;
+    this.resetLock();
     this.result = null;
     this.cameraError = '';
     window.clearInterval(this.timer);
@@ -78,7 +82,7 @@ export class OmrScanPanel extends Page implements OnInit {
       return;
     }
     try {
-      this.stream = await openCameraStream(this.facing, 1600, 1200);
+      this.stream = await openCameraStream(this.facing, 1920, 1440);
     } catch {
       this.cameraError = 'Không mở được camera. Hãy cho phép quyền camera trên trình duyệt.';
       this.cdr.markForCheck();
@@ -97,7 +101,7 @@ export class OmrScanPanel extends Page implements OnInit {
       this.cdr.markForCheck();
       return;
     }
-    this.phase = 'Đưa cả phiếu vào khung, rồi giữ yên.';
+    this.phase = 'Đưa cả phiếu vào khung.';
     this.timer = window.setInterval(() => this.sample(), 500);
     this.cdr.markForCheck();
   }
@@ -106,82 +110,166 @@ export class OmrScanPanel extends Page implements OnInit {
     const video = this.preview?.nativeElement;
     if (!video?.videoWidth || this.busy) return;
     const print = this.fingerprint(video);
-    if (!print) return;
-    const now = Date.now();
+    const look = this.inspect(video);
+    if (this.held && print && (this.difference(print, this.held) > 16 || !look.corners)) {
+      this.held = null;
+      this.stable = 0;
+      this.previousCorners = null;
+      this.phase = 'Đưa phiếu tiếp theo vào khung.';
+      this.previous = print;
+      this.cdr.markForCheck();
+      return;
+    }
     if (this.held) {
-      if (this.difference(print, this.held) > 16) {
-        this.held = null;
-        this.stable = 0;
-        this.result = null;
-        this.phase = 'Đưa phiếu tiếp theo vào khung.';
-      }
       this.previous = print;
+      this.phase = 'Đưa phiếu tiếp theo vào khung.';
       this.cdr.markForCheck();
       return;
     }
-    if (now < this.waitUntil) {
-      this.previous = print;
-      return;
-    }
-    const mean = print.reduce((sum, value) => sum + value, 0) / print.length;
-    if (mean < 28) {
-      this.phase = 'Chưa đủ sáng.';
+    if (!look.corners || look.problem) {
+      this.guide = look.corners ? this.trace(video, look.corners) : '';
+      this.ready = false;
       this.stable = 0;
+      this.previousCorners = null;
+      this.phase = this.problemText(look.problem ?? 'missing');
       this.previous = print;
       this.cdr.markForCheck();
       return;
     }
-    const delta = this.previous ? this.difference(print, this.previous) : 99;
+
+    const corners = orderCorners(look.corners, null);
+    this.guide = this.trace(video, corners);
+    if (look.brightness < 70) {
+      this.holdOff(print, corners, 'Chưa đủ sáng.');
+      return;
+    }
+    if (look.sharpness < 6) {
+      this.holdOff(print, corners, 'Ảnh chưa nét. Giữ phiếu yên.');
+      return;
+    }
+
+    const limit = video.videoWidth * 0.02;
+    const moved = !this.previousCorners || this.shifted(corners, this.previousCorners, limit);
+    this.previousCorners = corners;
     this.previous = print;
-    if (delta < 5) this.stable += 1;
-    else this.stable = 0;
-    this.phase = this.stable === 0 ? 'Đang tìm phiếu...' : 'Giữ phiếu yên...';
-    this.cdr.markForCheck();
-    if (this.stable >= 2) {
-      this.stable = 0;
-      void this.capture(print);
+    this.stable = moved ? 1 : this.stable + 1;
+    this.ready = !moved;
+    if (this.stable >= 3 && print && Date.now() >= this.waitUntil) {
+      this.capture(print, corners);
+      return;
     }
-  }
-
-  private async capture(print: Uint8ClampedArray): Promise<void> {
-    const file = await this.frameFile();
-    if (!file) return;
-    this.busy = true;
-    this.phase = 'Đang nhận mẫu và chấm...';
+    this.phase = this.ready ? 'Ảnh đạt. Giữ yên để chụp...' : 'Giữ phiếu yên...';
     this.cdr.markForCheck();
-    this.watch(this.api.scanOmr(file, this.batchId()), (result) => {
-      this.busy = false;
-      this.result = result;
-      this.phase = result.message;
-      if (result.accepted) {
-        this.held = print;
-        this.chime();
-        this.scanned.emit();
-      } else {
-        this.waitUntil = Date.now() + 1200;
-      }
-    }, (error: unknown) => {
-      this.busy = false;
-      this.phase = apiMessage(error);
-      this.waitUntil = Date.now() + 1500;
-      this.showError(error);
-    });
   }
 
-  private frameFile(): Promise<File | null> {
+  private holdOff(print: Uint8ClampedArray | null, corners: Point[], phase: string): void {
+    this.ready = false;
+    this.stable = 0;
+    this.previousCorners = corners;
+    this.previous = print;
+    this.phase = phase;
+    this.cdr.markForCheck();
+  }
+
+  private capture(print: Uint8ClampedArray, corners: Point[]): void {
+    this.busy = true;
+    this.ready = true;
+    this.phase = 'Đang chỉnh phiếu và chấm...';
+    this.cdr.markForCheck();
+    void this.finishCapture(print, corners);
+  }
+
+  private async finishCapture(print: Uint8ClampedArray, corners: Point[]): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const file = await this.frameFile(corners);
+    if (!file) {
+      this.busy = false;
+      this.phase = 'Không chụp được phiếu.';
+      this.waitUntil = Date.now() + 1200;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.watch(
+      this.api.scanOmr(file, this.batchId()),
+      (result) => {
+        this.busy = false;
+        this.result = result;
+        this.phase = result.accepted ? 'Đưa phiếu tiếp theo vào khung.' : result.message;
+        if (result.accepted) {
+          this.held = print;
+          this.chime();
+          this.scanned.emit();
+        } else {
+          this.waitUntil = Date.now() + 1200;
+        }
+      },
+      (error: unknown) => {
+        this.busy = false;
+        this.phase = apiMessage(error);
+        this.waitUntil = Date.now() + 1500;
+        this.showError(error);
+      },
+    );
+  }
+
+  private inspect(video: HTMLVideoElement): SheetLook {
+    const sampleWidth = 240;
+    const sampleHeight = Math.max(1, Math.round((video.videoHeight * sampleWidth) / video.videoWidth));
+    this.sheetCanvas ??= document.createElement('canvas');
+    this.sheetCanvas.width = sampleWidth;
+    this.sheetCanvas.height = sampleHeight;
+    const context = this.sheetCanvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return { corners: null, problem: 'missing', brightness: 0, sharpness: 0 };
+    context.drawImage(video, 0, 0, sampleWidth, sampleHeight);
+    const image = context.getImageData(0, 0, sampleWidth, sampleHeight);
+    const look = findSheet(image.data, sampleWidth, sampleHeight);
+    if (!look.corners) return look;
+    return {
+      ...look,
+      corners: look.corners.map((point) => ({
+        x: (point.x * video.videoWidth) / sampleWidth,
+        y: (point.y * video.videoHeight) / sampleHeight,
+      })),
+    };
+  }
+
+  private trace(video: HTMLVideoElement, corners: Point[]): string {
+    const width = Math.max(1, video.clientWidth);
+    const height = Math.max(1, video.clientHeight);
+    this.stageView = `0 0 ${width} ${height}`;
+    const scale = Math.min(width / video.videoWidth, height / video.videoHeight);
+    const left = (width - video.videoWidth * scale) / 2;
+    const top = (height - video.videoHeight * scale) / 2;
+    return corners.map((point) => `${(left + point.x * scale).toFixed(1)},${(top + point.y * scale).toFixed(1)}`).join(' ');
+  }
+
+  private async frameFile(corners: Point[]): Promise<File | null> {
     const video = this.preview?.nativeElement;
-    if (!video?.videoWidth) return Promise.resolve(null);
-    const scale = Math.min(1, 1400 / Math.max(video.videoWidth, video.videoHeight));
+    if (!video?.videoWidth) return null;
+    const scale = Math.min(1, 2000 / Math.max(video.videoWidth, video.videoHeight));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
     canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-    const context = canvas.getContext('2d');
-    if (!context) return Promise.resolve(null);
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return null;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const warped = warpSheet(
+      context.getImageData(0, 0, canvas.width, canvas.height),
+      corners.map((point) => ({ x: point.x * scale, y: point.y * scale })),
+      sheetPageWidth,
+      sheetPageHeight,
+    );
+    if (!warped) return null;
+    const output = document.createElement('canvas');
+    output.width = sheetPageWidth;
+    output.height = sheetPageHeight;
+    const target = output.getContext('2d');
+    if (!target) return null;
+    target.putImageData(warped, 0, 0);
     return new Promise((resolve) => {
-      canvas.toBlob((blob) => {
+      output.toBlob((blob) => {
         resolve(blob ? new File([blob], `quet-${Date.now()}.jpg`, { type: 'image/jpeg' }) : null);
-      }, 'image/jpeg', 0.82);
+      }, 'image/jpeg', 0.9);
     });
   }
 
@@ -206,6 +294,35 @@ export class OmrScanPanel extends Page implements OnInit {
     let sum = 0;
     for (let index = 0; index < left.length; index++) sum += Math.abs(left[index] - right[index]);
     return sum / left.length;
+  }
+
+  private shifted(next: Point[], previous: Point[], limit: number): boolean {
+    return next.some((point, index) => {
+      const other = previous[index];
+      return !other || Math.hypot(point.x - other.x, point.y - other.y) > limit;
+    });
+  }
+
+  private problemText(problem: SheetMiss): string {
+    switch (problem) {
+      case 'far':
+        return 'Đưa phiếu lại gần, cho đủ bốn góc vào khung.';
+      case 'clipped':
+        return 'Lùi phiếu ra để thấy đủ bốn góc.';
+      case 'skew':
+        return 'Chỉnh phiếu cho bốn góc rõ hơn.';
+      default:
+        return 'Đưa cả phiếu vào khung.';
+    }
+  }
+
+  private resetLock(): void {
+    this.held = null;
+    this.previous = null;
+    this.previousCorners = null;
+    this.stable = 0;
+    this.guide = '';
+    this.ready = false;
   }
 
   private armChime(): void {

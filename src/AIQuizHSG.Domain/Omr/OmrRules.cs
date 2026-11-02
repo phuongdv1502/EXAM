@@ -39,4 +39,27 @@ public static class OmrRules
         studentCode = student == "-" ? string.Empty : student;
         return true;
     }
+
+    // Mã đề tô trên phiếu là chữ số. Đợt chấm lưu dạng DE1, nên so phần số sau khi bỏ số 0 ở đầu.
+    public static bool SameExamCode(string? recognized, string expected)
+    {
+        if (string.IsNullOrWhiteSpace(recognized) || string.IsNullOrWhiteSpace(expected))
+            return false;
+        if (string.Equals(recognized.Trim(), expected.Trim(), StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var left = DigitRun(recognized);
+        var right = DigitRun(expected);
+        if (left.Length == 0 || right.Length == 0)
+            return false;
+        return string.Equals(Significant(left), Significant(right), StringComparison.Ordinal);
+    }
+
+    public static string DigitRun(string value) => new(value.Where(char.IsDigit).ToArray());
+
+    private static string Significant(string digits)
+    {
+        var trimmed = digits.TrimStart('0');
+        return trimmed.Length == 0 ? "0" : trimmed;
+    }
 }

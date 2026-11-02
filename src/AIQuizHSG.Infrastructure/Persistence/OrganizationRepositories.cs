@@ -174,6 +174,10 @@ public sealed class StudentRecordRepository(AiQuizDbContext db) : IStudentRecord
     public Task<List<StudentProfile>> FindAllByCodeAsync(string code, CancellationToken ct) =>
         db.Students.AsNoTracking().Where(student => student.StudentCode == code).ToListAsync(ct);
 
+    // Ô tô chỉ có chữ số. Lọc hồ sơ có đuôi trùng, ví dụ 26001 với HS26001.
+    public Task<List<StudentProfile>> FindByCodeDigitsAsync(string digits, CancellationToken ct) =>
+        db.Students.AsNoTracking().Where(student => student.StudentCode.EndsWith(digits)).ToListAsync(ct);
+
     public Task<StudentProfile?> FindByUserAsync(long userId, CancellationToken ct) =>
         db.Students.AsNoTracking().FirstOrDefaultAsync(student => student.UserId == userId, ct);
 

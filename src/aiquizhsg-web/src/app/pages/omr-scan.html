@@ -4,13 +4,20 @@
       <span class="batch-form-icon"><i class="pi pi-camera"></i></span>
       <div>
         <h2>Quét chấm</h2>
-        <p>Đưa cả phiếu vào khung và giữ yên. Hệ thống tự đọc mã đề, chọn mẫu và chấm.</p>
+        <p>Đưa phiếu vào khung. Khi thấy đủ bốn góc, hệ thống tự chụp, đọc số báo danh và mã đề rồi chấm.</p>
       </div>
       <button type="button" class="drawer-close" aria-label="Đóng" (click)="close()"><i class="pi pi-times"></i></button>
     </div>
     <div class="camera-stage">
       <video #preview autoplay playsinline muted></video>
-      <div class="scan-guide" aria-hidden="true"></div>
+      @if (!guide) {
+        <div class="scan-guide" aria-hidden="true"></div>
+      }
+      <svg class="scan-corners" [class.ready]="ready" [attr.viewBox]="stageView" preserveAspectRatio="none" aria-hidden="true">
+        @if (guide) {
+          <polygon [attr.points]="guide" />
+        }
+      </svg>
       @if (cameraError) {
         <p class="camera-fallback">{{ cameraError }}</p>
       } @else {
@@ -24,7 +31,7 @@
         @if (result.score !== null && result.maxScore !== null) {
           <span>{{ result.score }}/{{ result.maxScore }} · đúng {{ result.correct }}, sai {{ result.wrong }}, bỏ {{ result.blank }}</span>
         }
-        <span>{{ result.status ? label(labels.omrSheet, result.status) : result.message }}</span>
+        <span>{{ result.message }}</span>
       </div>
     }
     <div class="row-actions">

@@ -322,6 +322,8 @@ public class OrganizationTests
                 Task.FromResult(owner.Students.FirstOrDefault(student => student.SchoolId == schoolId && student.StudentCode == code));
             public Task<List<StudentProfile>> FindAllByCodeAsync(string code, CancellationToken ct) =>
                 Task.FromResult(owner.Students.Where(student => student.StudentCode == code).ToList());
+            public Task<List<StudentProfile>> FindByCodeDigitsAsync(string digits, CancellationToken ct) =>
+                Task.FromResult(owner.Students.Where(student => student.StudentCode.EndsWith(digits)).ToList());
             public Task AddAsync(StudentProfile student, CancellationToken ct)
             {
                 owner.Students.Add(student);
