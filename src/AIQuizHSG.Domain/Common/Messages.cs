@@ -99,12 +99,16 @@ public static class Messages
     public const string ExamSheetLocked = "Đề đã gắn mẫu phiếu. Hãy chấm bằng đúng mẫu đó.";
     public const string ExamSheetRequired = "Đề chưa gắn mẫu phiếu nên chưa in được.";
     public const string ExamSheetNoStudents = "Chưa có học sinh để in phiếu.";
+    public const string ExamSheetCountInvalid = "Số phiếu in phải từ 1 đến 200.";
+    public const string ExamSheetPickRequired = "Hãy chọn mẫu phiếu để gắn vào đề.";
+    public const string ExamSheetChangeBlocked = "Đề đã có phiếu chấm nên không đổi mẫu phiếu.";
     public const string SheetDrawSlotInvalid = "Mỗi phần cần ít nhất một câu và từ 2 đến 6 phương án.";
     public const string SheetDrawShortage = "Phần {0} còn thiếu {1} câu đã duyệt.";
     public const string ExamParticipantInvalid = "Danh sách thí sinh có tài khoản không phải học sinh đang hoạt động.";
     public const string ExamParticipantDuplicate = "Danh sách thí sinh bị trùng.";
     public const string ExamTooManyParticipants = "Danh sách thí sinh tối đa 500 người.";
     public const string ExamLocked = "Chỉ sửa đề đang ở trạng thái nháp.";
+    public const string ExamEditBlockedByOmr = "Đề đã có phiếu chấm, không sửa nội dung câu nữa.";
     public const string ExamPublishEmpty = "Chưa có câu hỏi nên chưa phát hành được.";
     public const string ExamPublishNotDraft = "Chỉ phát hành đề đang nháp.";
     public const string ExamCloseNotPublished = "Chỉ đóng đề đã phát hành.";
@@ -229,4 +233,11 @@ public static class Messages
     public const string OmrScanNoBatch = "Không có đợt chấm đang mở cho mã đề trên phiếu.";
     public const string OmrScanNoTemplate = "Phiếu không khớp mẫu của đợt đang mở.";
     public const string OmrScanDuplicate = "Phiếu này đã có trong đợt.";
+    public const string ExamVariantCountInvalid = "Số mã đề từ 1 đến 40.";
+    public const string ExamVariantCodesInvalid = "Danh sách mã đề không hợp lệ.";
+    public const string ExamVariantNotFound = "Không tìm thấy mã đề trên phiếu trong đề này.";
+    public const string ExamVariantsLocked = "Đề đã có phiếu chấm, không tạo lại mã đề.";
+    public const string SeatCodeInvalid = "Số báo danh chỉ gồm chữ số, tối đa 20 ký tự.";
+    public const string SeatCodeDuplicate = "Số báo danh đã dùng trong lớp.";
+    public const string SeatAssignEmpty = "Lớp chưa có học sinh đang học để đánh số báo danh.";
 }

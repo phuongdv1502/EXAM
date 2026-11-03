@@ -21,9 +21,10 @@ public static class OmrFormImage
     public static byte[] Png(OmrTemplateConfig config, OmrSheetCopy copy)
     {
         var plan = OmrFormLayout.For(config);
+        // Mẫu khớp khung thì vẽ đủ họ tên/SBD; mẫu lệch vẫn đóng dấu thông tin lên phiếu cũ.
         if (SameLayout(config, plan))
-            return Png(plan, copy.StudentName, copy.StudentCode, copy.ClassName, copy.ExamCode, null);
-        return Legacy(config);
+            return Png(plan, copy.StudentName, copy.StudentCode, copy.ClassName, copy.ExamCode, null, copy.FillStudentCode, copy.FillExamCode);
+        return Legacy(config, copy);
     }
 
     public static byte[] Png(
@@ -32,13 +33,15 @@ public static class OmrFormImage
         string? studentCode,
         string? className,
         string? examCode,
-        IReadOnlySet<(int Question, int Choice)>? marked)
+        IReadOnlySet<(int Question, int Choice)>? marked,
+        bool fillStudentCode = true,
+        bool fillExamCode = false)
     {
         using var image = new SKBitmap(OmrFormLayout.PageWidth, OmrFormLayout.PageHeight);
         using (var canvas = new SKCanvas(image))
         {
             canvas.Clear(SKColors.White);
-            DrawChrome(canvas, plan, studentName, studentCode, className, examCode);
+            DrawChrome(canvas, plan, studentName, studentCode, className, examCode, fillStudentCode, fillExamCode);
         }
 
         // QR ghi mã học sinh và mã đề để quét chấm nhận ra phiếu của ai.
@@ -73,9 +76,10 @@ public static class OmrFormImage
         using var document = SKDocument.CreatePdf(stream);
         foreach (var copy in copies)
         {
+            // Không dùng Legacy trần: thiếu tên/SBD khiến mọi trang trông giống hệt nhau.
             var png = matched
-                ? Png(plan, copy.StudentName, copy.StudentCode, copy.ClassName, copy.ExamCode, null)
-                : Legacy(config);
+                ? Png(plan, copy.StudentName, copy.StudentCode, copy.ClassName, copy.ExamCode, null, copy.FillStudentCode, copy.FillExamCode)
+                : Legacy(config, copy);
             using var bitmap = SKBitmap.Decode(png);
             if (bitmap is null)
                 continue;
@@ -212,23 +216,25 @@ public static class OmrFormImage
         string? studentName,
         string? studentCode,
         string? className,
-        string? examCode)
+        string? examCode,
+        bool fillStudentCode = true,
+        bool fillExamCode = false)
     {
         if (plan.Style == OmrFormStyles.NhieuPhan)
         {
-            DrawMinistrySheet(canvas, plan, studentName, studentCode, className, examCode);
+            DrawMinistrySheet(canvas, plan, studentName, studentCode, className, examCode, fillStudentCode, fillExamCode);
             return;
         }
 
         if (plan.Style == OmrFormStyles.PhieuThi)
         {
-            DrawClassicSheet(canvas, plan, studentName, studentCode, className, examCode);
+            DrawClassicSheet(canvas, plan, studentName, studentCode, className, examCode, fillStudentCode, fillExamCode);
             return;
         }
 
         if (plan.Style == OmrFormStyles.KiemTra)
         {
-            DrawCheckSheet(canvas, plan, studentName, studentCode, className, examCode);
+            DrawCheckSheet(canvas, plan, studentName, studentCode, className, examCode, fillStudentCode, fillExamCode);
             return;
         }
 
@@ -240,7 +246,7 @@ public static class OmrFormImage
 
         if (plan.Codes.Count > 0)
         {
-            DrawOfficialSheet(canvas, plan, studentName, studentCode, className, examCode);
+            DrawOfficialSheet(canvas, plan, studentName, studentCode, className, examCode, fillStudentCode, fillExamCode);
             return;
         }
 
@@ -327,7 +333,9 @@ public static class OmrFormImage
         string? studentName,
         string? studentCode,
         string? className,
-        string? examCode)
+        string? examCode,
+        bool fillStudentCode,
+        bool fillExamCode)
     {
         using var bold = SKTypeface.FromFamilyName("Times New Roman", SKFontStyle.Bold);
         using var regular = SKTypeface.FromFamilyName("Times New Roman", SKFontStyle.Normal);
@@ -372,7 +380,7 @@ public static class OmrFormImage
         canvas.DrawRect(SKRect.Create(OmrFormLayout.PageWidth - 24, header.Top + 36, 12, 12), square);
 
         foreach (var grid in plan.Codes)
-            DrawCodeGrid(canvas, grid, strongFont, smallFont, ink, outer, hair, ring, square, studentCode, examCode);
+            DrawCodeGrid(canvas, grid, strongFont, smallFont, ink, outer, hair, ring, square, studentCode, examCode, fillStudentCode, fillExamCode);
 
         foreach (var title in plan.Sections)
         {
@@ -398,7 +406,9 @@ public static class OmrFormImage
         string? studentName,
         string? studentCode,
         string? className,
-        string? examCode)
+        string? examCode,
+        bool fillStudentCode,
+        bool fillExamCode)
     {
         using var bold = SKTypeface.FromFamilyName("Times New Roman", SKFontStyle.Bold);
         using var regular = SKTypeface.FromFamilyName("Times New Roman", SKFontStyle.Normal);
@@ -463,7 +473,7 @@ public static class OmrFormImage
         }
 
         foreach (var grid in plan.Codes)
-            DrawMinistryCode(canvas, grid, strongFont, smallFont, ink, rose, studentCode, examCode);
+            DrawMinistryCode(canvas, grid, strongFont, smallFont, ink, rose, studentCode, examCode, fillStudentCode, fillExamCode);
 
         if (proctors.Count == 2 && numbered.Count > 0)
         {
@@ -474,9 +484,9 @@ public static class OmrFormImage
             canvas.DrawText("Chú ý: Thí sinh cần đọc kỹ hướng dẫn ở mặt sau Phiếu này.", center, bottom.Top + bottom.Height + 28, SKTextAlign.Center, noteFont, ink);
         }
 
-        // Đề mục Phần I, II, III lớn hơn chữ trong ô.
+        // Đề mục Phần I, II, III: giữ nền hồng, không kẻ viền đóng khung.
         using var sectionFont = new SKFont(bold, 20);
-        DrawMinistryBands(canvas, plan, sectionFont, ink, rose, band, square);
+        DrawMinistryBands(canvas, plan, sectionFont, ink, band, square);
         // Ô đáp án nền trắng, tách khỏi dải hồng phía sau. Số câu và A–D in đậm.
         using var paper = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Fill, IsAntialias = false };
         using var markFont = new SKFont(bold, 14);
@@ -494,13 +504,12 @@ public static class OmrFormImage
         canvas.DrawRect(SKRect.Create(OmrFormLayout.PageWidth - 22, OmrFormLayout.PageHeight - 26, 10, 10), square);
     }
 
-    // Nền hồng và mốc đen canh theo từng phần của trang trắc nghiệm.
+    // Nền hồng theo từng phần; không kẻ viền ngoài quanh khối.
     private static void DrawMinistryBands(
         SKCanvas canvas,
         OmrFormLayout.Plan plan,
         SKFont font,
         SKPaint ink,
-        SKPaint rose,
         SKPaint band,
         SKPaint square)
     {
@@ -534,9 +543,7 @@ public static class OmrFormImage
             canvas.DrawRect(SKRect.Create(28, title.Top - 4, OmrFormLayout.PageWidth - 56, bottom - title.Top + 12), band);
             canvas.DrawRect(SKRect.Create(12, title.Top, 10, 10), square);
             canvas.DrawRect(SKRect.Create(OmrFormLayout.PageWidth - 22, title.Top, 10, 10), square);
-            var chip = SKRect.Create(title.Left, title.Top, 148, title.Height);
-            canvas.DrawRect(chip, rose);
-            canvas.DrawText(plan.Sections[index].Text, chip.Left + 12, chip.Top + title.Height - 8, SKTextAlign.Left, font, ink);
+            canvas.DrawText(plan.Sections[index].Text, title.Left, title.Top + title.Height - 8, SKTextAlign.Left, font, ink);
         }
     }
 
@@ -547,7 +554,9 @@ public static class OmrFormImage
         string? studentName,
         string? studentCode,
         string? className,
-        string? examCode)
+        string? examCode,
+        bool fillStudentCode,
+        bool fillExamCode)
     {
         using var bold = SKTypeface.FromFamilyName("Times New Roman", SKFontStyle.Bold);
         using var regular = SKTypeface.FromFamilyName("Times New Roman", SKFontStyle.Normal);
@@ -617,7 +626,7 @@ public static class OmrFormImage
         }
 
         foreach (var grid in plan.Codes)
-            DrawCodeGrid(canvas, grid, strongFont, smallFont, ink, outer, hair, ring, square, studentCode, examCode);
+            DrawCodeGrid(canvas, grid, strongFont, smallFont, ink, outer, hair, ring, square, studentCode, examCode, fillStudentCode, fillExamCode);
 
         foreach (var title in plan.Sections)
         {
@@ -876,7 +885,9 @@ public static class OmrFormImage
         string? studentName,
         string? studentCode,
         string? className,
-        string? examCode)
+        string? examCode,
+        bool fillStudentCode,
+        bool fillExamCode)
     {
         using var bold = SKTypeface.FromFamilyName("Times New Roman", SKFontStyle.Bold);
         using var regular = SKTypeface.FromFamilyName("Times New Roman", SKFontStyle.Normal);
@@ -941,7 +952,7 @@ public static class OmrFormImage
         }
 
         foreach (var grid in plan.Codes)
-            DrawCheckCode(canvas, grid, strongFont, smallBold, ink, outer, ring, studentCode, examCode);
+            DrawCheckCode(canvas, grid, strongFont, smallBold, ink, outer, ring, studentCode, examCode, fillStudentCode, fillExamCode);
 
         foreach (var title in plan.Sections)
         {
@@ -1010,7 +1021,9 @@ public static class OmrFormImage
         SKPaint outer,
         SKPaint ring,
         string? studentCode,
-        string? examCode)
+        string? examCode,
+        bool fillStudentCode,
+        bool fillExamCode)
     {
         var area = OmrFormLayout.Pixels(grid.Area);
         canvas.DrawText(grid.Title, area.Left, area.Top - 8, SKTextAlign.Left, strongFont, ink);
@@ -1048,6 +1061,8 @@ public static class OmrFormImage
             canvas.DrawOval(SKRect.Create(box.Left, box.Top, box.Width, box.Height), ring);
         }
 
+        if (!ShouldFillCode(grid, fillStudentCode, fillExamCode))
+            return;
         var source = grid.Title.Contains("báo danh", StringComparison.OrdinalIgnoreCase) ? studentCode : examCode;
         if (!TryDigits(source, grid.Columns, out var digits))
             return;
@@ -1057,6 +1072,13 @@ public static class OmrFormImage
             var chosen = grid.Bubbles.First(item => item.Column == column && item.Digit == digits[column]);
             canvas.DrawOval(Rect(OmrFormLayout.Pixels(chosen.Area)), fill);
         }
+    }
+
+    private static bool ShouldFillCode(OmrFormLayout.CodeGrid grid, bool fillStudentCode, bool fillExamCode)
+    {
+        var seat = grid.Title.Contains("báo danh", StringComparison.OrdinalIgnoreCase)
+            || grid.Title.Contains("SBD", StringComparison.OrdinalIgnoreCase);
+        return seat ? fillStudentCode : fillExamCode;
     }
 
     private static void DrawCheckTruth(
@@ -1161,7 +1183,9 @@ public static class OmrFormImage
         SKPaint ink,
         SKPaint rose,
         string? studentCode,
-        string? examCode)
+        string? examCode,
+        bool fillStudentCode,
+        bool fillExamCode)
     {
         var area = OmrFormLayout.Pixels(grid.Area);
         var across = grid.Bubbles.Where(item => item.Digit == 0).OrderBy(item => item.Column).Select(item => OmrFormLayout.Pixels(item.Area)).ToList();
@@ -1206,6 +1230,9 @@ public static class OmrFormImage
             canvas.DrawText(bubble.Digit.ToString(), cx, cy - bounds.MidY, SKTextAlign.Center, digitFont, digitInk);
         }
 
+        // Chỉ tô đen ô khi người dùng bật tùy chọn tương ứng.
+        if (!ShouldFillCode(grid, fillStudentCode, fillExamCode))
+            return;
         var source = grid.Title.Contains("báo danh", StringComparison.OrdinalIgnoreCase) ? studentCode : examCode;
         if (!TryDigits(source, grid.Columns, out var digits))
             return;
@@ -1228,7 +1255,9 @@ public static class OmrFormImage
         SKPaint ring,
         SKPaint square,
         string? studentCode,
-        string? examCode)
+        string? examCode,
+        bool fillStudentCode,
+        bool fillExamCode)
     {
         var area = OmrFormLayout.Pixels(grid.Area);
         canvas.DrawText(grid.Title, area.Left + 4, area.Top - 8, SKTextAlign.Left, strongFont, ink);
@@ -1262,6 +1291,8 @@ public static class OmrFormImage
             canvas.DrawOval(SKRect.Create(box.Left - 1, box.Top - 1, box.Width + 2, box.Height + 2), ring);
         }
 
+        if (!ShouldFillCode(grid, fillStudentCode, fillExamCode))
+            return;
         var source = grid.Title.Contains("báo danh", StringComparison.OrdinalIgnoreCase) ? studentCode : examCode;
         if (!TryDigits(source, grid.Columns, out var digits))
             return;
@@ -1647,7 +1678,7 @@ public static class OmrFormImage
         return true;
     }
 
-    private static byte[] Legacy(OmrTemplateConfig config)
+    private static byte[] Legacy(OmrTemplateConfig config, OmrSheetCopy? copy = null)
     {
         using var image = new SKBitmap(OmrFormLayout.PageWidth, OmrFormLayout.PageHeight);
         using (var canvas = new SKCanvas(image))
@@ -1656,9 +1687,18 @@ public static class OmrFormImage
             using var ink = new SKPaint { Color = new SKColor(17, 24, 39), IsAntialias = true };
             using var ring = new SKPaint { Color = new SKColor(17, 24, 39), IsAntialias = false, Style = SKPaintStyle.Stroke, StrokeWidth = 2 };
             using var font = new SKFont(SKTypeface.FromFamilyName("Segoe UI"), 16);
+            using var titleFont = new SKFont(SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Bold), 22);
             var qr = OmrFormLayout.Pixels(new OmrFormLayout.Box(0.06, 0.05, 0.16, 0.12));
             canvas.DrawRect(SKRect.Create(qr.Left, qr.Top, qr.Width, qr.Height), ring);
             canvas.DrawText("Mã QR", qr.Left, qr.Top - 8, SKTextAlign.Left, font, ink);
+            // Ghi thông tin học sinh để các trang không còn giống hệt nhau.
+            if (copy is not null)
+            {
+                var x = qr.Left + qr.Width + 24;
+                canvas.DrawText(copy.StudentName ?? "Họ và tên", x, qr.Top + 8, SKTextAlign.Left, titleFont, ink);
+                canvas.DrawText($"SBD: {copy.StudentCode ?? "—"}  ·  Lớp: {copy.ClassName ?? "—"}  ·  Mã đề: {copy.ExamCode ?? "—"}", x, qr.Top + 36, SKTextAlign.Left, font, ink);
+            }
+
             foreach (var bubble in config.Bubbles.OrderBy(item => item.QuestionNumber).ThenBy(item => item.ChoiceIndex))
             {
                 var box = OmrFormLayout.Pixels(new OmrFormLayout.Box(bubble.X, bubble.Y, bubble.Width, bubble.Height));
@@ -1667,6 +1707,11 @@ public static class OmrFormImage
                     canvas.DrawText(bubble.QuestionNumber.ToString(), box.Left - 28, box.Top + box.Height, SKTextAlign.Left, font, ink);
             }
         }
+
+        if (copy is not null
+            && !string.IsNullOrWhiteSpace(copy.StudentCode)
+            && !string.IsNullOrWhiteSpace(copy.ExamCode))
+            DrawQr(image, new OmrFormLayout.Box(0.06, 0.05, 0.16, 0.12), OmrRules.QrPayload(copy.StudentCode, copy.ExamCode));
 
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
         return data.ToArray();

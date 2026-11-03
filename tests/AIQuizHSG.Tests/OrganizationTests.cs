@@ -324,6 +324,16 @@ public class OrganizationTests
                 Task.FromResult(owner.Students.Where(student => student.StudentCode == code).ToList());
             public Task<List<StudentProfile>> FindByCodeDigitsAsync(string digits, CancellationToken ct) =>
                 Task.FromResult(owner.Students.Where(student => student.StudentCode.EndsWith(digits)).ToList());
+            public Task<List<StudentProfile>> FindBySeatDigitsAsync(string digits, CancellationToken ct) =>
+                Task.FromResult(owner.Enrollments
+                    .Where(item => item.SeatCode == digits && item.Status == EnrollmentStatus.Active && item.LeaveDate == null)
+                    .Select(item => item.Student)
+                    .Distinct()
+                    .ToList());
+            public Task AssignSeatCodesAsync(long classroomId, string startCode, CancellationToken ct) =>
+                throw new NotSupportedException();
+            public Task<List<(StudentProfile Student, string? SeatCode, string ClassName)>> ListSeatsAsync(long classroomId, CancellationToken ct) =>
+                throw new NotSupportedException();
             public Task AddAsync(StudentProfile student, CancellationToken ct)
             {
                 owner.Students.Add(student);

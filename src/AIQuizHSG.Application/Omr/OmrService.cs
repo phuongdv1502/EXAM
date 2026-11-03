@@ -7,6 +7,7 @@ using AIQuizHSG.Application.Organization;
 using AIQuizHSG.Application.Persistence;
 using AIQuizHSG.Domain.Common;
 using AIQuizHSG.Domain.Entities;
+using AIQuizHSG.Domain.Exams;
 using AIQuizHSG.Domain.Omr;
 using ClosedXML.Excel;
 
@@ -174,7 +175,13 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
     }
 
     // Mỗi học sinh một trang PDF, mã QR ghi mã học sinh và mã đề.
-    public async Task<OperationResult<byte[]>> PrintSheetsAsync(long examId, Actor actor, CancellationToken ct)
+    public async Task<OperationResult<byte[]>> PrintSheetsAsync(
+        long examId,
+        int? count,
+        bool fillStudentCode,
+        bool fillExamCode,
+        Actor actor,
+        CancellationToken ct)
     {
         var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
         if (exam is null)
@@ -183,6 +190,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return OperationResult<byte[]>.Forbidden(denied);
         if (exam.OmrTemplateId is not long templateId)
             return OperationResult<byte[]>.Invalid(Messages.ExamSheetRequired);
+        if (count is < 1 or > 200)
+            return OperationResult<byte[]>.Invalid(Messages.ExamSheetCountInvalid);
 
         var template = await _unitOfWork.Omr.FindTemplateAsync(templateId, ct);
         if (template is null || !template.IsActive)
@@ -194,19 +203,31 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         if (!config.Accepts(counts, exact: true))
             return OperationResult<byte[]>.Invalid(Messages.ExamSheetMismatch);
 
-        var copies = await SheetCopiesAsync(exam, ct);
+        await _unitOfWork.Exams.EnsureLegacyVariantAsync(exam, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        // Số phiếu do người dùng chọn; thiếu học sinh thì bù phiếu mẫu.
+        var copies = await SheetCopiesAsync(exam, count, fillStudentCode, fillExamCode, ct);
         if (copies.Count == 0)
             return OperationResult<byte[]>.Invalid(Messages.ExamSheetNoStudents);
 
         return OperationResult<byte[]>.Ok(forms.Pdf(config, copies));
     }
 
-    // Mỗi học sinh một trang. Mã QR mang mã học sinh và mã đề.
-    private async Task<List<OmrSheetCopy>> SheetCopiesAsync(Exam exam, CancellationToken ct)
+    // Ghép đúng số phiếu: ưu tiên học sinh đã giao, thiếu thì thêm phiếu mẫu; mã đề xoay vòng.
+    private async Task<List<OmrSheetCopy>> SheetCopiesAsync(
+        Exam exam,
+        int? count,
+        bool fillStudentCode,
+        bool fillExamCode,
+        CancellationToken ct)
     {
+        var variants = await _unitOfWork.Exams.ListVariantsAsync(exam.Id, ct);
+        if (variants.Count == 0)
+            variants = [ExamVariantLayout.Build(exam, ExamVariantCodes.LegacyCode(exam.Id), 1, 1, clock.UtcNow)];
+
         var students = await _unitOfWork.StudentRecords.ListActiveWithClassAsync(ct);
         var assignments = await _unitOfWork.ExamAssignments.ListByExamAsync(exam.Id, ct);
-        // Đã giao lớp hoặc học sinh thì chỉ in những người đó.
+        var named = new List<OmrSheetCopy>();
         if (assignments.Count > 0)
         {
             var allowed = new HashSet<long>();
@@ -223,19 +244,54 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
                 }
             }
 
-            students = students.Where(student => allowed.Contains(student.Id)).ToList();
+            named = students
+                .Where(student => allowed.Contains(student.Id))
+                .Where(student => !string.IsNullOrWhiteSpace(student.StudentCode) || SeatOf(student) is not null)
+                .GroupBy(student => student.Id)
+                .Select(group => group.First())
+                .OrderBy(student => ClassName(student))
+                .ThenBy(student => student.FullName)
+                .Select((student, index) =>
+                {
+                    var seat = SeatOf(student);
+                    var code = string.IsNullOrWhiteSpace(seat) ? student.StudentCode.Trim() : seat!;
+                    var variant = variants[index % variants.Count];
+                    return new OmrSheetCopy(
+                        student.FullName,
+                        code,
+                        ClassName(student),
+                        variant.Code,
+                        fillStudentCode,
+                        fillExamCode);
+                })
+                .ToList();
         }
 
-        var examCode = ExamCodeFor(exam);
-        return students
-            .Where(student => !string.IsNullOrWhiteSpace(student.StudentCode))
-            .GroupBy(student => student.Id)
-            .Select(group => group.First())
-            .OrderBy(student => ClassName(student))
-            .ThenBy(student => student.FullName)
-            .Select(student => new OmrSheetCopy(student.FullName, student.StudentCode.Trim(), ClassName(student), examCode))
-            .ToList();
+        var total = count ?? (named.Count > 0 ? named.Count : 1);
+        total = Math.Clamp(total, 1, 200);
+        var copies = new List<OmrSheetCopy>(total);
+        for (var index = 0; index < total; index++)
+        {
+            if (index < named.Count)
+                copies.Add(named[index]);
+            else
+                copies.Add(new OmrSheetCopy(
+                    "Họ và tên",
+                    "SBD",
+                    "Lớp",
+                    variants[index % variants.Count].Code,
+                    fillStudentCode,
+                    fillExamCode));
+        }
+
+        return copies;
     }
+
+    private static string? SeatOf(StudentProfile student) =>
+        student.Enrollments
+            .Where(item => item.Status == EnrollmentStatus.Active && item.LeaveDate == null)
+            .Select(item => item.SeatCode)
+            .FirstOrDefault(code => !string.IsNullOrWhiteSpace(code));
 
     private static string? ClassName(StudentProfile student) =>
         student.Enrollments
@@ -280,6 +336,12 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         if (!Enum.TryParse<OmrSourceType>(request.SourceType, true, out var source))
             source = OmrSourceType.Scanner;
 
+        // Đảm bảo đề có ít nhất một mã biến thể để đợt và phiếu cũ vẫn khớp.
+        await _unitOfWork.Exams.EnsureLegacyVariantAsync(exam, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        var variants = await _unitOfWork.Exams.ListVariantsAsync(exam.Id, ct);
+        var batchCode = variants.Count > 0 ? variants[0].Code : ExamCodeFor(exam);
+
         var batch = new OmrImportBatch
         {
             ExamId = exam.Id,
@@ -287,8 +349,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             TemplateId = template.Id,
             Template = template,
             CreatedById = actor.UserId,
-            // Mã đề gắn với đề đã chọn, nên đợt chấm không bắt nhập tay.
-            ExamCode = ExamCodeFor(exam),
+            // Mã dự phòng khi phiếu không đọc được mã đề; chấm vẫn remap theo variant đã đọc.
+            ExamCode = batchCode,
             SourceType = source,
             Status = OmrBatchStatus.Draft,
             CreatedAtUtc = clock.UtcNow
@@ -417,12 +479,27 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         var open = (await _unitOfWork.Omr.ListBatchesAsync(ct))
             .Where(item => item.Status is not OmrBatchStatus.Approved and not OmrBatchStatus.Published)
             .ToList();
-        // Có QR thì chọn đúng mã đề. Không có thì dùng đợt đang mở, hoặc đối chiếu ô tô mã đề.
-        var pool = qrExamKnown
-            ? open.Where(item => string.Equals(item.ExamCode, qrExam, StringComparison.OrdinalIgnoreCase)).ToList()
-            : batchId is long pinned
-                ? open.Where(item => item.Id == pinned).ToList()
-                : open;
+        // Có mã trên phiếu thì lọc đợt theo biến thể. Không có thì dùng đợt đang mở.
+        List<OmrImportBatch> pool;
+        if (qrExamKnown)
+        {
+            pool = [];
+            foreach (var item in open)
+            {
+                if (await ResolveVariantAsync(item.ExamId, qrExam, ct) is not null
+                    || OmrRules.SameExamCode(qrExam, item.ExamCode))
+                    pool.Add(item);
+            }
+        }
+        else if (batchId is long pinned)
+        {
+            pool = open.Where(item => item.Id == pinned).ToList();
+        }
+        else
+        {
+            pool = open;
+        }
+
         if (pool.Count == 0)
             return OperationResult<OmrScanResult>.Ok(OmrScanResult.Miss(qrExamKnown ? Messages.OmrScanNoBatch : Messages.OmrScanNoQr));
 
@@ -437,7 +514,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             var attempt = recognition.Recognize(content, config);
             var examKnown = !string.IsNullOrWhiteSpace(attempt.ExamCode);
             var examOk = examKnown
-                ? OmrRules.SameExamCode(attempt.ExamCode, candidate.ExamCode)
+                ? await ResolveVariantAsync(candidate.ExamId, attempt.ExamCode, ct) is not null
+                    || OmrRules.SameExamCode(attempt.ExamCode, candidate.ExamCode)
                 : candidate.Id == batchId;
             if (!OmrScanChoice.Accepts(attempt) || !examOk)
                 continue;
@@ -499,7 +577,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         if (batch.SourceType != OmrSourceType.Camera)
             batch.SourceType = OmrSourceType.Mixed;
 
-        ApplyRecognition(sheet, read, matchedConfig);
+        await ApplyRecognitionAsync(sheet, read, matchedConfig, ct);
         if (OmrRules.CanGrade(sheet.Status))
             await GradeSheetAsync(sheet, ct);
 
@@ -563,7 +641,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
                 return;
             }
 
-            ApplyRecognition(sheet, read, config);
+            await ApplyRecognitionAsync(sheet, read, config, ct);
             Refresh(sheet.Batch, await _unitOfWork.Omr.ListSheetStatusesAsync(sheet.BatchId, ct), includeUnsaved: false);
             await _unitOfWork.SaveChangesAsync(ct);
         }
@@ -620,6 +698,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return OperationResult<OmrSheetDetail>.Invalid(Messages.OmrBatchLocked);
         if (sheet.Status is OmrSheetStatus.Uploaded or OmrSheetStatus.Processing)
             return OperationResult<OmrSheetDetail>.Invalid(Messages.OmrSheetNotReady);
+        // Cho phép sửa cả phiếu đã chấm rồi chấm lại.
 
         var questions = OrderedQuestions(sheet.Batch.Exam);
         if (request.Answers.Count != sheet.Answers.Count)
@@ -647,13 +726,15 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         }
 
         sheet.ConfirmedStudentCode = request.StudentCode?.Trim();
-        sheet.ConfirmedExamCode = request.ExamCode?.Trim().ToUpperInvariant();
+        // Giữ nguyên chữ số mã đề đảo; không viết hoa để khớp Code đã sinh.
+        sheet.ConfirmedExamCode = request.ExamCode?.Trim();
         sheet.ReviewNote = request.ReviewNote?.Trim();
         sheet.ReviewStatus = OmrReviewStatus.Confirmed;
         sheet.ReviewedById = actor.UserId;
         sheet.ReviewedAtUtc = clock.UtcNow;
         sheet.Status = OmrSheetStatus.Confirmed;
         sheet.FailureReason = null;
+        await GradeSheetAsync(sheet, ct);
         Refresh(sheet.Batch, await _unitOfWork.Omr.ListSheetStatusesAsync(sheet.BatchId, ct), includeUnsaved: false);
         await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.ReviewOmrSheet, AuditCodes.OmrSheet, () => sheet.Id, sheet.ConfirmedStudentCode, actor.IpAddress, ct);
         return OperationResult<OmrSheetDetail>.Ok(ToDetail(sheet));
@@ -786,7 +867,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return;
         }
 
-        if (!OmrRules.SameExamCode(examCode, sheet.Batch.ExamCode))
+        var variant = await ResolveVariantAsync(sheet.Batch.ExamId, examCode, ct);
+        if (variant is null && !OmrRules.SameExamCode(examCode, sheet.Batch.ExamCode))
         {
             Hold(sheet, Messages.OmrExamCodeMismatch);
             return;
@@ -833,16 +915,19 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return;
         }
 
-        var attempt = latest ?? new ExamAttempt
+        var attempt = latest;
+        if (attempt is null)
         {
-            ExamId = sheet.Batch.ExamId,
-            UserId = userId,
-            AttemptNumber = await _unitOfWork.Attempts.CountAsync(sheet.Batch.ExamId, userId, ct) + 1,
-            StartedAtUtc = clock.UtcNow,
-            DueAtUtc = clock.UtcNow
-        };
-        if (latest is null)
+            attempt = new ExamAttempt
+            {
+                ExamId = sheet.Batch.ExamId,
+                UserId = userId,
+                AttemptNumber = await _unitOfWork.Attempts.CountAsync(sheet.Batch.ExamId, userId, ct) + 1,
+                StartedAtUtc = clock.UtcNow,
+                DueAtUtc = clock.UtcNow
+            };
             await _unitOfWork.Attempts.AddAsync(attempt, ct);
+        }
 
         foreach (var question in questions)
         {
@@ -892,26 +977,44 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         return map;
     }
 
-    private void ApplyRecognition(OmrScannedSheet sheet, OmrRecognitionResult read, OmrTemplateConfig config)
+    private async Task ApplyRecognitionAsync(OmrScannedSheet sheet, OmrRecognitionResult read, OmrTemplateConfig config, CancellationToken ct)
     {
+        var variant = await ResolveVariantAsync(sheet.Batch.ExamId, read.ExamCode, ct);
         var examBlank = string.IsNullOrWhiteSpace(read.ExamCode);
-        var examMatches = examBlank || OmrRules.SameExamCode(read.ExamCode, sheet.Batch.ExamCode);
+        var examMatches = variant is not null || examBlank || OmrRules.SameExamCode(read.ExamCode, sheet.Batch.ExamCode);
         sheet.RecognizedStudentCode = read.StudentCode;
-        sheet.RecognizedExamCode = examBlank ? sheet.Batch.ExamCode : read.ExamCode;
+        sheet.RecognizedExamCode = variant?.Code ?? (examBlank ? sheet.Batch.ExamCode : read.ExamCode);
         var questions = OrderedQuestions(sheet.Batch.Exam);
+        var byId = questions.ToDictionary(item => item.Id);
+        var orderedIds = variant is null
+            ? questions.Select(item => item.Id).ToList()
+            : ExamVariantLayout.QuestionIds(variant).ToList();
         var answers = new List<OmrRecognizedAnswer>();
         var optionMismatch = !config.OptionCountsFit(questions.Select(question => question.Options.Count).ToList());
         var needsReview = string.IsNullOrWhiteSpace(read.StudentCode)
             || !examMatches
             || questions.Count != config.QuestionCount
+            || orderedIds.Count != config.QuestionCount
             || optionMismatch;
         decimal lowest = 1;
 
         for (var number = 1; number <= config.QuestionCount; number++)
         {
             var bubbles = read.Bubbles.Where(item => item.QuestionNumber == number).ToList();
-            var question = number <= questions.Count ? questions[number - 1] : null;
-            var options = question?.Options.OrderBy(option => option.SortOrder).ThenBy(option => option.Id).ToList() ?? [];
+            ExamQuestion? question = null;
+            if (number <= orderedIds.Count && byId.TryGetValue(orderedIds[number - 1], out var mapped))
+                question = mapped;
+            IReadOnlyList<ExamOption> options;
+            if (question is not null && variant is not null
+                && ExamVariantLayout.OptionIds(variant).TryGetValue(question.Id, out var optionIds))
+            {
+                options = optionIds.Select(id => question.Options.First(item => item.Id == id)).ToList();
+            }
+            else
+            {
+                options = question?.Options.OrderBy(option => option.SortOrder).ThenBy(option => option.Id).ToList() ?? [];
+            }
+
             var kind = config.KindOf(number);
             long? recognized = null;
             OmrMarkStatus status;
@@ -1218,16 +1321,41 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             sheet.Batch.Status.ToString());
     }
 
-    // Cùng một đề thì cùng một mã in trên phiếu.
+    // Mã dự phòng khi đề chưa sinh biến thể.
     private static string ExamCodeFor(Exam exam) => $"DE{exam.Id}";
 
-    // Mã tô toàn số thì khớp cả hồ sơ dạng HS26001.
-    private async Task<List<Domain.Entities.StudentProfile>> MatchStudentsAsync(string code, CancellationToken ct)
+    // Ưu tiên SBD lớp, rồi mã học sinh, rồi đuôi số của mã học sinh.
+    private async Task<List<StudentProfile>> MatchStudentsAsync(string code, CancellationToken ct)
     {
+        if (code.All(char.IsDigit))
+        {
+            var bySeat = await _unitOfWork.StudentRecords.FindBySeatDigitsAsync(code, ct);
+            if (bySeat.Count > 0)
+                return bySeat;
+        }
+
         var students = await _unitOfWork.StudentRecords.FindAllByCodeAsync(code, ct);
         if (students.Count > 0 || code.Any(item => !char.IsDigit(item)))
             return students;
         var rough = await _unitOfWork.StudentRecords.FindByCodeDigitsAsync(code, ct);
         return rough.Where(student => OmrRules.DigitRun(student.StudentCode) == code).ToList();
+    }
+
+    private async Task<ExamVariant?> ResolveVariantAsync(long examId, string? code, CancellationToken ct)
+    {
+        var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
+        if (exam is null)
+            return null;
+        await _unitOfWork.Exams.EnsureLegacyVariantAsync(exam, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        var variants = await _unitOfWork.Exams.ListVariantsAsync(examId, ct);
+        if (variants.Count == 0)
+            return null;
+        if (string.IsNullOrWhiteSpace(code))
+            return variants[0];
+        var trimmed = code.Trim();
+        return variants.FirstOrDefault(item => string.Equals(item.Code, trimmed, StringComparison.OrdinalIgnoreCase))
+            ?? variants.FirstOrDefault(item => OmrRules.SameExamCode(trimmed, item.Code))
+            ?? variants.FirstOrDefault(item => OmrRules.SameExamCode(trimmed, ExamCodeFor(exam)));
     }
 }

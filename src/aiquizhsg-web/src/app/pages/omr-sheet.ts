@@ -90,15 +90,18 @@ export class OmrSheetPage extends Page implements OnInit {
     }), (sheet) => {
       this.sheet = sheet;
       this.drafts = sheet.answers.map((answer) => this.toDraft(sheet.reviewStatus, answer));
-      this.showOk('Đã lưu phần xác nhận. Kết quả máy vẫn được giữ.');
+      this.showOk(sheet.status === 'Graded'
+        ? 'Đã cập nhật và chấm lại phiếu.'
+        : 'Đã lưu phần xác nhận.');
     });
   }
 
   private toDraft(reviewStatus: string, answer: OmrAnswer): Draft {
     const confirmed = answer.confirmedOptionIds ?? [];
-    const picked = reviewStatus === 'Confirmed'
+    // Phiếu đã chấm hoặc đã xác nhận dùng lựa chọn đã xác nhận; còn lại ưu tiên máy đọc.
+    const picked = confirmed.length
       ? confirmed
-      : confirmed.length ? confirmed : answer.recognizedOptionId ? [answer.recognizedOptionId] : [];
+      : answer.recognizedOptionId ? [answer.recognizedOptionId] : [];
     return { answer, single: picked[0] ?? null, many: [...picked] };
   }
 

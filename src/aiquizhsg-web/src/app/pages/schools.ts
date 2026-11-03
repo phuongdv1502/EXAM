@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { blankToNull, saveBlob } from '../core/format';
 import {
@@ -7,6 +8,7 @@ import {
   GradeLevel,
   School,
   SchoolYear,
+  SeatRow,
   StudentProfile,
 } from '../core/models';
 import { Page } from '../core/page';
@@ -25,8 +27,12 @@ export class SchoolsPage extends Page implements OnInit {
   students: StudentProfile[] = [];
   selected: School | null = null;
   tab: 'years' | 'classes' | 'students' = 'classes';
-  drawer: 'school' | 'year' | 'room' | 'student' | null = null;
+  drawer: 'school' | 'year' | 'room' | 'student' | 'seats' | null = null;
   schoolIsNew = false;
+  seatRoom: Classroom | null = null;
+  seats: SeatRow[] = [];
+  seatStart = '1';
+  assigningSeats = false;
 
   readonly schoolTabs = [
     { label: 'Lớp', value: 'classes' },
@@ -181,7 +187,7 @@ export class SchoolsPage extends Page implements OnInit {
     return this.editingStudentId ? 'Sửa hồ sơ' : 'Hồ sơ mới';
   }
 
-  private openDrawer(kind: 'school' | 'year' | 'room' | 'student'): void {
+  private openDrawer(kind: 'school' | 'year' | 'room' | 'student' | 'seats'): void {
     this.drawer = kind;
     this.openForm();
   }
@@ -286,6 +292,35 @@ export class SchoolsPage extends Page implements OnInit {
     this.capacity = room.capacity;
     this.roomStatus = room.status;
     this.openDrawer('room');
+  }
+
+  openSeats(room: Classroom): void {
+    this.seatRoom = room;
+    this.seatStart = '1';
+    this.seats = [];
+    this.openDrawer('seats');
+    this.watch(this.api.classroomSeats(room.id), (items) => (this.seats = items), () => (this.seats = []));
+  }
+
+  assignSeats(): void {
+    if (!this.seatRoom || this.assigningSeats) return;
+    this.assigningSeats = true;
+    this.watch(this.api.assignClassroomSeats(this.seatRoom.id, this.seatStart.trim() || '1'), (items) => {
+      this.seats = items;
+      this.assigningSeats = false;
+      this.showOk('Đã đánh số báo danh.');
+    }, (error) => {
+      this.assigningSeats = false;
+      this.showError(error);
+    });
+  }
+
+  exportSeats(): void {
+    if (!this.seatRoom) return;
+    this.api.exportClassroomSeats(this.seatRoom.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (blob) => saveBlob(blob, `sbd-${this.seatRoom?.classCode || 'lop'}.xlsx`),
+      error: (error: unknown) => this.showError(error),
+    });
   }
 
   loadStudents(): void {

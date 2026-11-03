@@ -21,7 +21,7 @@ public class ExamFlowTests
         var store = new FlowStore();
         var student = store.AddStudent("hs01");
         var question = store.AddApprovedQuestion("Nội dung A");
-        var exams = new ExamService(store, clock, new SaveExamRequestValidator());
+        var exams = new ExamService(store, clock, new SaveExamRequestValidator(), new StubPapers());
         var attempts = new AttemptService(store, clock, new SaveAnswerRequestValidator());
         var teacher = new Actor(1, "127.0.0.1");
         var pupil = new Actor(student.Id, "127.0.0.1");
@@ -70,7 +70,7 @@ public class ExamFlowTests
         var store = new FlowStore();
         var student = store.AddStudent("hs01");
         var question = store.AddApprovedQuestion("2 + 2");
-        var exams = new ExamService(store, clock, new SaveExamRequestValidator());
+        var exams = new ExamService(store, clock, new SaveExamRequestValidator(), new StubPapers());
         var attempts = new AttemptService(store, clock, new SaveAnswerRequestValidator());
         var teacher = new Actor(1, null);
         var pupil = new Actor(student.Id, null);
@@ -103,7 +103,7 @@ public class ExamFlowTests
         var allowed = store.AddStudent("hs01");
         var blocked = store.AddStudent("hs02");
         var question = store.AddApprovedQuestion("Câu 1");
-        var exams = new ExamService(store, clock, new SaveExamRequestValidator());
+        var exams = new ExamService(store, clock, new SaveExamRequestValidator(), new StubPapers());
         var attempts = new AttemptService(store, clock, new SaveAnswerRequestValidator());
 
         var request = ExamRequest(store.Subject.Id, question.Id);
@@ -113,6 +113,11 @@ public class ExamFlowTests
 
         var started = await attempts.StartAsync(published.Value!.Id, new Actor(blocked.Id, null), CancellationToken.None);
         Assert.Equal(Messages.ExamNotParticipant, started.Message);
+    }
+
+    private sealed class StubPapers : IExamPaperRenderer
+    {
+        public byte[] Pdf(Exam exam, ExamVariant variant) => [1, 2, 3];
     }
 
     private static SaveExamRequest ExamRequest(long subjectId, long questionId) => new()
@@ -329,6 +334,13 @@ public class ExamFlowTests
             public Task<List<ExamSummary>> ListAsync(CancellationToken ct) => throw new NotSupportedException();
             public Task<List<ExamSummary>> ListOpenForStudentAsync(long userId, CancellationToken ct) => throw new NotSupportedException();
             public Task<Exam?> FindByGenerationKeyAsync(string key, CancellationToken ct) => throw new NotSupportedException();
+            public Task<List<ExamVariant>> ListVariantsAsync(long examId, CancellationToken ct) =>
+                Task.FromResult(new List<ExamVariant>());
+            public Task<ExamVariant?> FindVariantByCodeAsync(long examId, string code, CancellationToken ct) =>
+                Task.FromResult<ExamVariant?>(null);
+            public Task ReplaceVariantsAsync(Exam exam, IReadOnlyList<ExamVariant> variants, CancellationToken ct) =>
+                Task.CompletedTask;
+            public Task EnsureLegacyVariantAsync(Exam exam, CancellationToken ct) => Task.CompletedTask;
         }
 
         private sealed class AttemptRepo(FlowStore owner) : IAttemptRepository

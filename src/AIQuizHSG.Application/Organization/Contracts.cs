@@ -104,6 +104,13 @@ public sealed class AssignTeacherRequest
     public long SubjectId { get; set; }
 }
 
+public sealed class AssignSeatCodesRequest
+{
+    public string StartCode { get; set; } = "1";
+}
+
+public sealed record SeatRow(long StudentId, string StudentCode, string FullName, string? SeatCode, string ClassName);
+
 public sealed record ClassTeacherResponse(long UserId, string FullName, long SubjectId, string SubjectName);
 
 public sealed class AssignExamRequest

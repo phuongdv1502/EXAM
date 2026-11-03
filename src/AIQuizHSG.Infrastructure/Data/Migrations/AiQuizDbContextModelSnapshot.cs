@@ -733,6 +733,47 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.ToTable("Exam_Questions", (string)null);
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamVariant", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("ExamId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OptionOrderJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("QuestionOrderJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExamId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("ExamId", "SortOrder")
+                        .IsUnique();
+
+                    b.ToTable("Exam_Variants", (string)null);
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.GradeLevel", b =>
                 {
                     b.Property<long>("Id")
@@ -1416,6 +1457,10 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<string>("SeatCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -1429,6 +1474,9 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.HasIndex("ClassroomId");
 
                     b.HasIndex("StudentId");
+
+                    b.HasIndex("ClassroomId", "SeatCode")
+                        .IsUnique();
 
                     b.ToTable("Student_Enrollments", null, t =>
                         {
@@ -2000,6 +2048,17 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.Navigation("SourceQuestion");
                 });
 
+            modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamVariant", b =>
+                {
+                    b.HasOne("AIQuizHSG.Domain.Entities.Exam", "Exam")
+                        .WithMany("Variants")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Exam");
+                });
+
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.OmrImportBatch", b =>
                 {
                     b.HasOne("AIQuizHSG.Domain.Entities.User", "CreatedBy")
@@ -2313,6 +2372,8 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                     b.Navigation("Participants");
 
                     b.Navigation("Questions");
+
+                    b.Navigation("Variants");
                 });
 
             modelBuilder.Entity("AIQuizHSG.Domain.Entities.ExamAttempt", b =>

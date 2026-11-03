@@ -86,6 +86,36 @@ public sealed class ExamRepository(AiQuizDbContext db) : IExamRepository
             .ThenInclude(participant => participant.User)
             .FirstOrDefaultAsync(exam => exam.GenerationRequestKey == key, ct);
 
+    public Task<List<ExamVariant>> ListVariantsAsync(long examId, CancellationToken ct) =>
+        db.ExamVariants.AsNoTracking()
+            .Where(item => item.ExamId == examId)
+            .OrderBy(item => item.SortOrder)
+            .ToListAsync(ct);
+
+    public Task<ExamVariant?> FindVariantByCodeAsync(long examId, string code, CancellationToken ct) =>
+        db.ExamVariants.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.ExamId == examId && item.Code == code, ct);
+
+    // Xóa mã cũ rồi gắn mã mới. Chỉ gọi khi đề chưa có phiếu đã chấm.
+    public async Task ReplaceVariantsAsync(Exam exam, IReadOnlyList<ExamVariant> variants, CancellationToken ct)
+    {
+        var old = await db.ExamVariants.Where(item => item.ExamId == exam.Id).ToListAsync(ct);
+        db.ExamVariants.RemoveRange(old);
+        foreach (var variant in variants)
+            await db.ExamVariants.AddAsync(variant, ct);
+    }
+
+    // Đề cũ chưa có biến thể thì thêm một mã từ Id đề để phiếu DE{id} vẫn khớp.
+    public async Task EnsureLegacyVariantAsync(Exam exam, CancellationToken ct)
+    {
+        if (await db.ExamVariants.AnyAsync(item => item.ExamId == exam.Id, ct))
+            return;
+        var now = DateTime.UtcNow;
+        var code = Domain.Exams.ExamVariantCodes.LegacyCode(exam.Id);
+        var variant = Application.Exams.ExamVariantLayout.Build(exam, code, 1, 1, now);
+        await db.ExamVariants.AddAsync(variant, ct);
+    }
+
     private static IQueryable<SummaryRow> Project(IQueryable<Exam> exams) =>
         exams.Select(exam => new SummaryRow(
             exam.Id,

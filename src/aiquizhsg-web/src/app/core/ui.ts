@@ -1,3 +1,4 @@
+import { Accordion, AccordionContent, AccordionHeader, AccordionPanel } from 'primeng/accordion';
 import { Button, ButtonDirective } from 'primeng/button';
 import { UIChart } from 'primeng/chart';
 import { Card } from 'primeng/card';
@@ -17,6 +18,10 @@ import { Textarea } from 'primeng/textarea';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 
 export const UI = [
+  Accordion,
+  AccordionPanel,
+  AccordionHeader,
+  AccordionContent,
   Button,
   ButtonDirective,
   UIChart,

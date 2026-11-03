@@ -10,7 +10,10 @@ public interface IStudentRecordRepository
     Task<StudentProfile?> FindByCodeAsync(long schoolId, string code, CancellationToken ct);
     Task<List<StudentProfile>> FindAllByCodeAsync(string code, CancellationToken ct);
     Task<List<StudentProfile>> FindByCodeDigitsAsync(string digits, CancellationToken ct);
+    Task<List<StudentProfile>> FindBySeatDigitsAsync(string digits, CancellationToken ct);
     Task<StudentProfile?> FindByUserAsync(long userId, CancellationToken ct);
+    Task AssignSeatCodesAsync(long classroomId, string startCode, CancellationToken ct);
+    Task<List<(StudentProfile Student, string? SeatCode, string ClassName)>> ListSeatsAsync(long classroomId, CancellationToken ct);
     Task AddAsync(StudentProfile student, CancellationToken ct);
     Task<StudentEnrollment?> FindActiveEnrollmentAsync(long studentId, CancellationToken ct);
     Task<List<StudentProfile>> ListActiveInClassroomAsync(long classroomId, CancellationToken ct);

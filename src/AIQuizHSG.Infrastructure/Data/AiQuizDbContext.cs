@@ -20,6 +20,7 @@ public class AiQuizDbContext(DbContextOptions<AiQuizDbContext> options) : DbCont
     public DbSet<ExamQuestion> ExamQuestions => Set<ExamQuestion>();
     public DbSet<ExamOption> ExamOptions => Set<ExamOption>();
     public DbSet<ExamParticipant> ExamParticipants => Set<ExamParticipant>();
+    public DbSet<ExamVariant> ExamVariants => Set<ExamVariant>();
     public DbSet<ExamAttempt> ExamAttempts => Set<ExamAttempt>();
     public DbSet<AttemptAnswer> AttemptAnswers => Set<AttemptAnswer>();
     public DbSet<AttemptAnswerOption> AttemptAnswerOptions => Set<AttemptAnswerOption>();

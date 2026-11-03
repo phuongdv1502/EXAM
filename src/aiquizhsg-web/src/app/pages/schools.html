@@ -94,6 +94,7 @@
               <td>
                 <div class="row-actions">
                   <p-button label="Sửa" size="small" severity="secondary" [outlined]="true" (onClick)="editRoom(room)" />
+                  <p-button label="SBD" size="small" severity="secondary" [outlined]="true" (onClick)="openSeats(room)" />
                   <p-button [label]="reportRoomId === room.id ? 'Ẩn kết quả' : 'Kết quả'" size="small" severity="secondary" [outlined]="true" (onClick)="showReport(room)" />
                 </div>
               </td>
@@ -276,6 +277,41 @@
         </div>
         <p-button label="Lưu lớp" icon="pi pi-check" type="submit" [loading]="loading" />
       </form>
+    }
+    @if (drawer === 'seats' && seatRoom) {
+      <div class="batch-form">
+        <div class="batch-form-head">
+          <span class="batch-form-icon"><i class="pi pi-hashtag"></i></span>
+          <div>
+            <h2>Số báo danh · {{ seatRoom.name }}</h2>
+            <p>Đánh SBD liên tiếp theo tên học sinh, rồi xuất Excel gửi lớp.</p>
+          </div>
+          <button type="button" class="drawer-close" aria-label="Đóng" (click)="closeForm()"><i class="pi pi-times"></i></button>
+        </div>
+        <div class="field">
+          <label for="seatStart">SBD bắt đầu</label>
+          <input pInputText id="seatStart" name="seatStart" [(ngModel)]="seatStart" />
+        </div>
+        <div class="exam-actions" style="margin: 0.25rem 0 0.85rem">
+          <p-button label="Đánh SBD" icon="pi pi-hashtag" [loading]="assigningSeats" (onClick)="assignSeats()" />
+          <p-button label="Xuất Excel" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="exportSeats()" />
+        </div>
+        <p-table [value]="seats" [paginator]="seats.length > 8" [rows]="8" styleClass="exam-seat-table">
+          <ng-template #header>
+            <tr><th>SBD</th><th>Mã HS</th><th>Họ tên</th></tr>
+          </ng-template>
+          <ng-template #body let-row>
+            <tr>
+              <td>{{ row.seatCode || '—' }}</td>
+              <td>{{ row.studentCode }}</td>
+              <td>{{ row.fullName }}</td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr><td colspan="3" class="muted">Lớp chưa có học sinh.</td></tr>
+          </ng-template>
+        </p-table>
+      </div>
     }
     @if (drawer === 'student') {
       <form class="batch-form" (ngSubmit)="saveStudent()">

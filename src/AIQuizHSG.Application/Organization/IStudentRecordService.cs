@@ -10,6 +10,9 @@ public interface IStudentRecordService
     Task<OperationResult<StudentProfileResponse>> UpdateAsync(long id, SaveStudentProfileRequest request, Actor actor, CancellationToken ct);
     Task<OperationResult<StudentProfileResponse>> EnrollAsync(long classroomId, EnrollStudentRequest request, Actor actor, CancellationToken ct);
     Task<OperationResult<StudentProfileResponse>> TransferAsync(long studentId, TransferStudentRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<IReadOnlyList<SeatRow>>> ListSeatsAsync(long classroomId, Actor actor, CancellationToken ct);
+    Task<OperationResult<IReadOnlyList<SeatRow>>> AssignSeatsAsync(long classroomId, AssignSeatCodesRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<byte[]>> ExportSeatsAsync(long classroomId, Actor actor, CancellationToken ct);
     byte[] CreateImportTemplate();
     Task<OperationResult<ImportResult>> ImportAsync(long schoolId, long schoolYearId, Stream stream, Actor actor, CancellationToken ct);
 }

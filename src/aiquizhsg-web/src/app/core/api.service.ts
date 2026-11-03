@@ -8,6 +8,7 @@ import {
   Availability,
   Classroom,
   ClassroomExamResult,
+  SeatRow,
   DashboardReport,
   DifficultyLevel,
   DrawnQuestion,
@@ -17,6 +18,7 @@ import {
   ExamProfile,
   ExamSummary,
   ExamValidation,
+  ExamVariant,
   AccountDirectory,
   AccountRole,
   AccountUser,
@@ -144,8 +146,33 @@ export class ApiService {
     return this.post(`/exams/${id}/close`, {});
   }
 
-  examSheets(id: number): Observable<Blob> {
-    return this.blob(`/exams/${id}/sheets`);
+  attachExamSheet(id: number, omrTemplateId: number): Observable<ExamDetail> {
+    return this.post(`/exams/${id}/sheet-template`, { omrTemplateId });
+  }
+
+  examSheets(id: number, options?: { count?: number; fillStudentCode?: boolean; fillExamCode?: boolean }): Observable<Blob> {
+    const params = new URLSearchParams();
+    if (options?.count && options.count > 0) params.set('count', String(options.count));
+    if (options?.fillStudentCode === false) params.set('fillStudentCode', 'false');
+    if (options?.fillExamCode === true) params.set('fillExamCode', 'true');
+    const query = params.toString();
+    return this.blob(`/exams/${id}/sheets${query ? `?${query}` : ''}`);
+  }
+
+  examVariants(id: number): Observable<ExamVariant[]> {
+    return this.get(`/exams/${id}/variants`);
+  }
+
+  generateExamVariants(id: number, body: { count: number; codes?: string | null }): Observable<ExamVariant[]> {
+    return this.post(`/exams/${id}/variants`, body);
+  }
+
+  examVariantPaper(id: number, code: string): Observable<Blob> {
+    return this.blob(`/exams/${id}/variants/${encodeURIComponent(code)}/paper`);
+  }
+
+  examPaper(id: number): Observable<Blob> {
+    return this.blob(`/exams/${id}/paper`);
   }
 
   validateExam(id: number): Observable<ExamValidation> {
@@ -324,6 +351,18 @@ export class ApiService {
 
   enroll(classroomId: number, studentId: number): Observable<StudentProfile> {
     return this.post(`/classrooms/${classroomId}/students`, { studentId });
+  }
+
+  classroomSeats(classroomId: number): Observable<SeatRow[]> {
+    return this.get(`/classrooms/${classroomId}/seats`);
+  }
+
+  assignClassroomSeats(classroomId: number, startCode: string): Observable<SeatRow[]> {
+    return this.post(`/classrooms/${classroomId}/seats`, { startCode });
+  }
+
+  exportClassroomSeats(classroomId: number): Observable<Blob> {
+    return this.blob(`/classrooms/${classroomId}/seats/export`);
   }
 
   transfer(studentId: number, classroomId: number): Observable<StudentProfile> {

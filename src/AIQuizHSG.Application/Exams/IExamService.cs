@@ -10,4 +10,9 @@ public interface IExamService
     Task<OperationResult<ExamResponse>> UpdateAsync(long id, SaveExamRequest request, Actor actor, CancellationToken ct);
     Task<OperationResult<ExamResponse>> PublishAsync(long id, Actor actor, CancellationToken ct);
     Task<OperationResult<ExamResponse>> CloseAsync(long id, Actor actor, CancellationToken ct);
+    Task<OperationResult<ExamResponse>> AttachSheetAsync(long id, AttachExamSheetRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<IReadOnlyList<ExamVariantItem>>> ListVariantsAsync(long examId, Actor actor, CancellationToken ct);
+    Task<OperationResult<IReadOnlyList<ExamVariantItem>>> GenerateVariantsAsync(long examId, GenerateExamVariantsRequest request, Actor actor, CancellationToken ct);
+    Task<OperationResult<byte[]>> PrintVariantPaperAsync(long examId, string code, Actor actor, CancellationToken ct);
+    Task<OperationResult<(byte[] Pdf, string Code)>> PrintPaperAsync(long examId, Actor actor, CancellationToken ct);
 }

@@ -7,6 +7,7 @@ using AIQuizHSG.Application.Persistence;
 using AIQuizHSG.Application.Validation;
 using AIQuizHSG.Domain.Common;
 using AIQuizHSG.Domain.Entities;
+using AIQuizHSG.Domain.Exams;
 using FluentValidation;
 
 namespace AIQuizHSG.Application.Exams;
@@ -15,10 +16,16 @@ namespace AIQuizHSG.Application.Exams;
 public sealed partial class ExamService : TimedService, IExamService
 {
     private readonly IValidator<SaveExamRequest> validator;
+    private readonly IExamPaperRenderer papers;
 
-    public ExamService(IUnitOfWork unitOfWork, IClock clock, IValidator<SaveExamRequest> validator) : base(unitOfWork, clock)
+    public ExamService(
+        IUnitOfWork unitOfWork,
+        IClock clock,
+        IValidator<SaveExamRequest> validator,
+        IExamPaperRenderer papers) : base(unitOfWork, clock)
     {
         this.validator = validator;
+        this.papers = papers;
     }
 
     public async Task<IReadOnlyList<ExamSummary>> ListAsync(CancellationToken ct) =>
@@ -29,7 +36,7 @@ public sealed partial class ExamService : TimedService, IExamService
         var exam = await _unitOfWork.Exams.FindAsync(id, ct);
         if (exam is null)
             return OperationResult<ExamResponse>.NotFound(Messages.ExamNotFound);
-        return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam));
+        return OperationResult<ExamResponse>.Ok(await ToExamResponseAsync(exam, null, ct));
     }
 
     public async Task<OperationResult<ExamResponse>> CreateAsync(SaveExamRequest request, Actor actor, CancellationToken ct)
@@ -68,10 +75,10 @@ public sealed partial class ExamService : TimedService, IExamService
         await _unitOfWork.Exams.AddAsync(exam, ct);
         await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CreateExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
         var names = await ParticipantNamesAsync(exam, ct);
-        return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam, names));
+        return OperationResult<ExamResponse>.Ok(await ToExamResponseAsync(exam, names, ct));
     }
 
-    // Chỉ đề nháp mới được đổi câu, điểm và danh sách thí sinh.
+    // Nháp luôn sửa được. Đề đã phát hành/đóng vẫn sửa được nếu chưa có phiếu chấm.
     public async Task<OperationResult<ExamResponse>> UpdateAsync(long id, SaveExamRequest request, Actor actor, CancellationToken ct)
     {
         Prepare(request);
@@ -81,8 +88,9 @@ public sealed partial class ExamService : TimedService, IExamService
         var exam = await _unitOfWork.Exams.FindAsync(id, ct);
         if (exam is null)
             return OperationResult<ExamResponse>.NotFound(Messages.ExamNotFound);
-        if (exam.Status != ExamStatus.Draft)
-            return OperationResult<ExamResponse>.Invalid(Messages.ExamLocked);
+        if (!await CanEditContentAsync(exam, ct))
+            return OperationResult<ExamResponse>.Invalid(
+                exam.Status == ExamStatus.Draft ? Messages.ExamLocked : Messages.ExamEditBlockedByOmr);
 
         var subject = await _unitOfWork.Subjects.FindAsync(request.SubjectId, ct);
         if (subject is null || !subject.IsActive)
@@ -95,7 +103,9 @@ public sealed partial class ExamService : TimedService, IExamService
         var (questions, snapshotError) = await BuildSnapshotsAsync(request.Questions, subject.Id, ct);
         if (snapshotError is not null || questions is null)
             return OperationResult<ExamResponse>.Invalid(snapshotError ?? Messages.ExamQuestionNotApproved);
-        if (await SheetErrorAsync(request.OmrTemplateId, questions, exact: false, ct) is { } sheetError)
+        // Đề đã phát hành thì mẫu phải khớp đủ câu từng phần.
+        var exactSheet = exam.Status != ExamStatus.Draft;
+        if (await SheetErrorAsync(request.OmrTemplateId, questions, exact: exactSheet, ct) is { } sheetError)
             return OperationResult<ExamResponse>.Invalid(sheetError);
 
         ExamMapper.Apply(exam, request);
@@ -104,7 +114,7 @@ public sealed partial class ExamService : TimedService, IExamService
         _unitOfWork.Exams.ReplaceParticipants(exam, request.ParticipantUserIds.Distinct().ToArray());
         await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.UpdateExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
         var names = await ParticipantNamesAsync(exam, ct);
-        return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam, names));
+        return OperationResult<ExamResponse>.Ok(await ToExamResponseAsync(exam, names, ct));
     }
 
     // Phát hành thì chụp lại nội dung câu đang duyệt. Sửa ngân hàng sau đó không đổi đề này.
@@ -148,7 +158,7 @@ public sealed partial class ExamService : TimedService, IExamService
         exam.Status = ExamStatus.Published;
         exam.PublishedAtUtc = clock.UtcNow;
         await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.PublishExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
-        return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam));
+        return OperationResult<ExamResponse>.Ok(await ToExamResponseAsync(exam, null, ct));
     }
 
     public async Task<OperationResult<ExamResponse>> CloseAsync(long id, Actor actor, CancellationToken ct)
@@ -161,7 +171,78 @@ public sealed partial class ExamService : TimedService, IExamService
 
         exam.Status = ExamStatus.Closed;
         await _unitOfWork.SaveWithAuditAsync(actor.UserId, AuditCodes.CloseExam, AuditCodes.Exam, () => exam.Id, null, actor.IpAddress, ct);
-        return OperationResult<ExamResponse>.Ok(ExamMapper.ToResponse(exam));
+        return OperationResult<ExamResponse>.Ok(await ToExamResponseAsync(exam, null, ct));
+    }
+
+    // Đề đã phát hành mà quên gắn mẫu vẫn gắn được, miễn chưa có phiếu chấm.
+    public async Task<OperationResult<ExamResponse>> AttachSheetAsync(
+        long id,
+        AttachExamSheetRequest request,
+        Actor actor,
+        CancellationToken ct)
+    {
+        var exam = await _unitOfWork.Exams.FindAsync(id, ct);
+        if (exam is null)
+            return OperationResult<ExamResponse>.NotFound(Messages.ExamNotFound);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, exam.SubjectId, ct) is { } denied)
+            return OperationResult<ExamResponse>.Forbidden(denied);
+        if (exam.Status is not (ExamStatus.Published or ExamStatus.Closed or ExamStatus.Draft))
+            return OperationResult<ExamResponse>.Invalid(Messages.ExamLocked);
+        if (request.OmrTemplateId < 1)
+            return OperationResult<ExamResponse>.Invalid(Messages.ExamSheetPickRequired);
+
+        // Đã có phiếu trong đợt thì không đổi mẫu để tránh lệch tọa độ đã quét.
+        if (exam.OmrTemplateId is long current && current != request.OmrTemplateId)
+        {
+            var busy = (await _unitOfWork.Omr.ListBatchesAsync(ct))
+                .Any(item => item.ExamId == exam.Id && (item.TotalSheets > 0 || item.ProcessedSheets > 0 || item.Sheets.Count > 0));
+            if (busy)
+                return OperationResult<ExamResponse>.Invalid(Messages.ExamSheetChangeBlocked);
+        }
+
+        var questions = exam.Questions.OrderBy(item => item.SortOrder).ThenBy(item => item.Id).ToList();
+        if (await SheetErrorAsync(request.OmrTemplateId, questions, exact: true, ct) is { } sheetError)
+            return OperationResult<ExamResponse>.Invalid(sheetError);
+
+        exam.OmrTemplateId = request.OmrTemplateId;
+        exam.ShuffleQuestions = false;
+        exam.ShuffleOptions = false;
+        await _unitOfWork.SaveWithAuditAsync(
+            actor.UserId,
+            AuditCodes.AttachExamSheet,
+            AuditCodes.Exam,
+            () => exam.Id,
+            request.OmrTemplateId.ToString(),
+            actor.IpAddress,
+            ct);
+        return OperationResult<ExamResponse>.Ok(await ToExamResponseAsync(exam, null, ct));
+    }
+
+    // Nháp luôn sửa. Đã phát hành thì chỉ sửa khi chưa có phiếu trong đợt chấm.
+    private async Task<bool> CanEditContentAsync(Exam exam, CancellationToken ct)
+    {
+        if (exam.Status == ExamStatus.Draft)
+            return true;
+        if (exam.Status is not (ExamStatus.Published or ExamStatus.Closed))
+            return false;
+        return !await HasOmrSheetActivityAsync(exam.Id, ct);
+    }
+
+    private async Task<bool> HasOmrSheetActivityAsync(long examId, CancellationToken ct)
+    {
+        var batches = await _unitOfWork.Omr.ListBatchesAsync(ct);
+        return batches.Any(item =>
+            item.ExamId == examId
+            && (item.TotalSheets > 0 || item.ProcessedSheets > 0 || item.Sheets.Count > 0));
+    }
+
+    private async Task<ExamResponse> ToExamResponseAsync(
+        Exam exam,
+        IReadOnlyDictionary<long, User>? users,
+        CancellationToken ct)
+    {
+        var canEdit = await CanEditContentAsync(exam, ct);
+        return ExamMapper.ToResponse(exam, users, canEdit);
     }
 
     private async Task<(List<ExamQuestion>? Questions, string? Error)> BuildSnapshotsAsync(
@@ -228,13 +309,157 @@ public sealed partial class ExamService : TimedService, IExamService
         if (!OmrTemplateConfig.TryParse(template.ConfigJson, out var config))
             return Messages.OmrTemplateConfigInvalid;
 
-        var counts = questions.Select(question => question.Options.Count).ToList();
-        return config.Accepts(counts, exact) ? null : Messages.ExamSheetMismatch;
+        // Xếp theo phần mẫu trước khi đối chiếu, tránh báo lệch chỉ vì thứ tự kéo thả.
+        var ordered = OrderQuestionsForSheet(questions, config);
+        var counts = ordered.Select(question => question.Options.Count).ToList();
+        if (!config.Accepts(counts, exact))
+            return SheetMismatchDetail(config, questions, exact);
+
+        for (var index = 0; index < ordered.Count; index++)
+            ordered[index].SortOrder = index + 1;
+        return null;
+    }
+
+    // Bốn đáp án → đúng/sai → điền số, khớp thứ tự phần trên phiếu.
+    private static List<ExamQuestion> OrderQuestionsForSheet(IReadOnlyList<ExamQuestion> questions, OmrTemplateConfig config)
+    {
+        if (config.Sections.Count == 0)
+            return questions.OrderBy(item => item.SortOrder).ThenBy(item => item.Id).ToList();
+
+        int Rank(ExamQuestion question) => question.Type switch
+        {
+            QuestionType.SingleChoice when question.Options.Count == 4 => 0,
+            QuestionType.TrueFalse => 1,
+            QuestionType.FillNumber => 2,
+            _ => question.Options.Count == 4 ? 0 : 9
+        };
+
+        return questions
+            .OrderBy(Rank)
+            .ThenBy(item => item.SortOrder)
+            .ThenBy(item => item.Id)
+            .ToList();
+    }
+
+    private static string SheetMismatchDetail(
+        OmrTemplateConfig config,
+        IReadOnlyList<ExamQuestion> questions,
+        bool exact)
+    {
+        var needBon = config.Sections.Where(item => item.Kind == OmrSectionKinds.BonDapAn).Sum(item => item.ItemCount);
+        var needTf = config.Sections.Where(item => item.Kind == OmrSectionKinds.DungSai).Sum(item => item.ItemCount);
+        var needNum = config.Sections.Where(item => item.Kind == OmrSectionKinds.DienSo).Sum(item => item.ItemCount);
+        var haveBon = questions.Count(item => item.Type == QuestionType.SingleChoice && item.Options.Count == 4);
+        var haveTf = questions.Count(item => item.Type == QuestionType.TrueFalse);
+        var haveNum = questions.Count(item => item.Type == QuestionType.FillNumber);
+
+        if (exact && questions.Count != config.QuestionCount)
+            return $"Mẫu phiếu cần {config.QuestionCount} câu ( {needBon} bốn đáp án, {needTf} đúng/sai, {needNum} điền số ), đề đang có {questions.Count} câu ( {haveBon} bốn đáp án, {haveTf} đúng/sai, {haveNum} điền số ). Hãy Ném vào đề theo mẫu hoặc chọn mẫu khác.";
+
+        if (config.Sections.Count == 0)
+            return Messages.ExamSheetMismatch;
+
+        return $"Đề chưa khớp mẫu phiếu. Cần: {needBon} bốn đáp án, {needTf} đúng/sai, {needNum} điền số. Đang có: {haveBon} bốn đáp án, {haveTf} đúng/sai, {haveNum} điền số.";
     }
 
     private static void Prepare(SaveExamRequest request)
     {
         request.Questions ??= [];
         request.ParticipantUserIds ??= [];
+    }
+
+    public async Task<OperationResult<IReadOnlyList<ExamVariantItem>>> ListVariantsAsync(long examId, Actor actor, CancellationToken ct)
+    {
+        var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
+        if (exam is null)
+            return OperationResult<IReadOnlyList<ExamVariantItem>>.NotFound(Messages.ExamNotFound);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, exam.SubjectId, ct) is { } denied)
+            return OperationResult<IReadOnlyList<ExamVariantItem>>.Forbidden(denied);
+
+        await _unitOfWork.Exams.EnsureLegacyVariantAsync(exam, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        var rows = await _unitOfWork.Exams.ListVariantsAsync(examId, ct);
+        return OperationResult<IReadOnlyList<ExamVariantItem>>.Ok(rows
+            .Select(item => new ExamVariantItem(item.Id, item.Code, item.SortOrder, item.CreatedAtUtc))
+            .ToList());
+    }
+
+    // Sinh lại toàn bộ mã đề đảo. Có phiếu đã chấm thì không cho đổi.
+    public async Task<OperationResult<IReadOnlyList<ExamVariantItem>>> GenerateVariantsAsync(
+        long examId,
+        GenerateExamVariantsRequest request,
+        Actor actor,
+        CancellationToken ct)
+    {
+        var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
+        if (exam is null)
+            return OperationResult<IReadOnlyList<ExamVariantItem>>.NotFound(Messages.ExamNotFound);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, exam.SubjectId, ct) is { } denied)
+            return OperationResult<IReadOnlyList<ExamVariantItem>>.Forbidden(denied);
+        if (exam.Questions.Count == 0)
+            return OperationResult<IReadOnlyList<ExamVariantItem>>.Invalid(Messages.ExamHasNoQuestions);
+        if (!ExamVariantCodes.TryParse(request.Codes, request.Count, out var codes, out var parseError))
+            return OperationResult<IReadOnlyList<ExamVariantItem>>.Invalid(parseError ?? Messages.ExamVariantCodesInvalid);
+
+        var batches = (await _unitOfWork.Omr.ListBatchesAsync(ct)).Where(item => item.ExamId == examId).ToList();
+        if (batches.Any(item => item.ProcessedSheets > 0 || item.TotalSheets > 0))
+            return OperationResult<IReadOnlyList<ExamVariantItem>>.Invalid(Messages.ExamVariantsLocked);
+
+        var now = clock.UtcNow;
+        var variants = codes
+            .Select((code, index) => ExamVariantLayout.Build(exam, code, index + 1, codes.Count, now))
+            .ToList();
+        await _unitOfWork.Exams.ReplaceVariantsAsync(exam, variants, ct);
+        await _unitOfWork.SaveWithAuditAsync(
+            actor.UserId,
+            AuditCodes.GenerateExamVariants,
+            AuditCodes.Exam,
+            () => exam.Id,
+            string.Join(',', codes),
+            actor.IpAddress,
+            ct);
+
+        var rows = await _unitOfWork.Exams.ListVariantsAsync(examId, ct);
+        return OperationResult<IReadOnlyList<ExamVariantItem>>.Ok(rows
+            .Select(item => new ExamVariantItem(item.Id, item.Code, item.SortOrder, item.CreatedAtUtc))
+            .ToList());
+    }
+
+    public async Task<OperationResult<byte[]>> PrintVariantPaperAsync(long examId, string code, Actor actor, CancellationToken ct)
+    {
+        var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
+        if (exam is null)
+            return OperationResult<byte[]>.NotFound(Messages.ExamNotFound);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, exam.SubjectId, ct) is { } denied)
+            return OperationResult<byte[]>.Forbidden(denied);
+
+        await _unitOfWork.Exams.EnsureLegacyVariantAsync(exam, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        var variant = await _unitOfWork.Exams.FindVariantByCodeAsync(examId, code.Trim(), ct);
+        if (variant is null)
+            return OperationResult<byte[]>.NotFound(Messages.ExamVariantNotFound);
+
+        return OperationResult<byte[]>.Ok(papers.Pdf(exam, variant));
+    }
+
+    // In đề: dùng mã đầu tiên, chưa có mã thì tạo mã gốc từ Id đề.
+    public async Task<OperationResult<(byte[] Pdf, string Code)>> PrintPaperAsync(long examId, Actor actor, CancellationToken ct)
+    {
+        var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
+        if (exam is null)
+            return OperationResult<(byte[] Pdf, string Code)>.NotFound(Messages.ExamNotFound);
+        if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, exam.SubjectId, ct) is { } denied)
+            return OperationResult<(byte[] Pdf, string Code)>.Forbidden(denied);
+        if (exam.Questions.Count == 0)
+            return OperationResult<(byte[] Pdf, string Code)>.Invalid(Messages.ExamHasNoQuestions);
+
+        await _unitOfWork.Exams.EnsureLegacyVariantAsync(exam, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        var variants = await _unitOfWork.Exams.ListVariantsAsync(examId, ct);
+        var variant = variants.OrderBy(item => item.SortOrder).FirstOrDefault();
+        if (variant is null)
+            return OperationResult<(byte[] Pdf, string Code)>.NotFound(Messages.ExamVariantNotFound);
+
+        return OperationResult<(byte[] Pdf, string Code)>.Ok((papers.Pdf(exam, variant), variant.Code));
     }
 }

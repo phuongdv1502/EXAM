@@ -1,4 +1,5 @@
 using AIQuizHSG.Api;
+using AIQuizHSG.Application.Common;
 using AIQuizHSG.Application.Organization;
 using AIQuizHSG.Application.Questions;
 using AIQuizHSG.Domain.Common;
@@ -191,6 +192,33 @@ public class ClassroomsController(IClassroomService classrooms, IStudentRecordSe
         if (!Actors.TryGet(HttpContext, out var actor))
             return ApiResults.Unauthorized();
         return ApiResults.From(await students.EnrollAsync(id, request, actor, ct));
+    }
+
+    [HttpGet("{id:long}/seats")]
+    public async Task<ActionResult<IReadOnlyList<SeatRow>>> Seats(long id, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await students.ListSeatsAsync(id, actor, ct));
+    }
+
+    [HttpPost("{id:long}/seats")]
+    public async Task<ActionResult<IReadOnlyList<SeatRow>>> AssignSeats(long id, AssignSeatCodesRequest request, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await students.AssignSeatsAsync(id, request, actor, ct));
+    }
+
+    [HttpGet("{id:long}/seats/export")]
+    public async Task<IActionResult> ExportSeats(long id, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        var result = await students.ExportSeatsAsync(id, actor, ct);
+        if (result.Status != OperationStatus.Ok || result.Value is null)
+            return ApiResults.From(result);
+        return File(result.Value, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "sbd.xlsx");
     }
 
     [HttpPost("{id:long}/teachers")]

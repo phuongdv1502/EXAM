@@ -178,6 +178,7 @@ export interface ExamDetail {
   status: string;
   publishedAtUtc: string | null;
   omrTemplateId: number | null;
+  canEditContent?: boolean;
   questions: ExamQuestion[];
   participants: ExamParticipant[];
 }
@@ -369,6 +370,21 @@ export interface Classroom {
   capacity: number | null;
   studentCount: number;
   status: string;
+}
+
+export interface SeatRow {
+  studentId: number;
+  studentCode: string;
+  fullName: string;
+  seatCode: string | null;
+  className: string;
+}
+
+export interface ExamVariant {
+  id: number;
+  code: string;
+  sortOrder: number;
+  createdAtUtc: string;
 }
 
 export interface StudentProfile {

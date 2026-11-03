@@ -35,4 +35,5 @@ public class Exam
     public ExamDifficultyProfile? DifficultyProfile { get; set; }
     public ICollection<ExamQuestion> Questions { get; set; } = new List<ExamQuestion>();
     public ICollection<ExamParticipant> Participants { get; set; } = new List<ExamParticipant>();
+    public ICollection<ExamVariant> Variants { get; set; } = new List<ExamVariant>();
 }

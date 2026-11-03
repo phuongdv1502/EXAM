@@ -4,8 +4,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SessionStore } from '../core/auth.service';
 import { readApiMessage } from '../core/api-error';
-import { blankToNull, toLocalInput, toUtcIso } from '../core/format';
-import { Classroom, ExamAssignment, ExamDetail, ExamProfile, omrChoiceLabel, OmrTemplate, QuestionSummary, School, Subject, Topic } from '../core/models';
+import { blankToNull, saveBlob, toLocalInput, toUtcIso } from '../core/format';
+import { Classroom, ExamAssignment, ExamDetail, ExamProfile, ExamVariant, omrChoiceLabel, OmrTemplate, QuestionSummary, School, SeatRow, Subject, Topic } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
 
@@ -47,6 +47,15 @@ export class ExamEditorPage extends Page implements OnInit {
   drawPoints = 1;
   drawing = false;
   printing = false;
+  sheetPrintCount = 1;
+  // Cách tô sẵn trên phiếu: không / SBD / mã đề / cả hai.
+  fillMarkMode: 'none' | 'seat' | 'exam' | 'both' = 'seat';
+  fillMarkOptions: { label: string; value: 'none' | 'seat' | 'exam' | 'both' }[] = [
+    { label: 'Không tô', value: 'none' },
+    { label: 'SBD', value: 'seat' },
+    { label: 'Mã đề', value: 'exam' },
+    { label: 'SBD + mã đề', value: 'both' },
+  ];
   durationMinutes = 45;
   opensAt = '';
   closesAt = '';
@@ -58,6 +67,10 @@ export class ExamEditorPage extends Page implements OnInit {
   bank: QuestionSummary[] = [];
   bankReady = false;
   bankQuery = '';
+  bankTopicId: number | null = null;
+  bankPage = 1;
+  bankPageSize = 10;
+  bankTotal = 0;
   participantIds: number[] = [];
   assignments: ExamAssignment[] = [];
   schools: School[] = [];
@@ -68,6 +81,19 @@ export class ExamEditorPage extends Page implements OnInit {
   sheetChoices: { id: number; label: string }[] = [];
   templateId: number | null = null;
   bankKind: string | null = null;
+  variants: ExamVariant[] = [];
+  variantCount = 3;
+  variantCodes = '';
+  generatingVariants = false;
+  printingPaper = false;
+  seatStart = '1';
+  seats: SeatRow[] = [];
+  assigningSeats = false;
+  openingBatch = false;
+  attachingSheet = false;
+  canEditContent = true;
+  // Mặc định mở thông tin đề, lấy câu tự động, thi offline (in đề) và ngân hàng câu.
+  examPanels: string[] = ['info', 'draw', 'offline', 'bank'];
 
   ngOnInit(): void {
     this.watch(this.api.teachingSubjects(), (items) => (this.subjects = items.filter((item) => item.isActive)));
@@ -90,28 +116,40 @@ export class ExamEditorPage extends Page implements OnInit {
     });
   }
 
+  // Khóa toàn bộ khi API báo không còn sửa (đã có phiếu chấm).
   get locked(): boolean {
-    return this.status !== 'Draft';
+    return !this.canEditContent;
+  }
+
+  // Đề đã phát hành/đóng vẫn gắn mẫu nếu chưa khóa nội dung.
+  get canAttachSheet(): boolean {
+    return this.status !== 'Draft' && !!this.examId;
   }
 
   selectedSubject(): Subject | undefined {
     return this.subjects.find((item) => item.id === this.subjectId);
   }
 
-  visibleBank(): QuestionSummary[] {
-    const query = this.bankQuery.trim().toLowerCase();
-    return this.bank.filter((item) => {
-      if (this.picked.some((picked) => picked.questionId === item.id)) return false;
-      if (this.templateId) {
-        const kind = this.kindOf(item.type, item.optionCount);
-        if (!kind) return false;
-        const section = this.sections().find((part) => part.kind === kind);
-        if (!section || section.filled >= section.needed) return false;
-        if (this.bankKind && kind !== this.bankKind) return false;
-      }
-      if (!query) return true;
-      return item.content.toLowerCase().includes(query) || item.topicName.toLowerCase().includes(query);
-    });
+  // Hiện đủ câu trang hiện tại; nút Thêm mới xét đã chọn / khớp mẫu.
+  bankRows(): { item: QuestionSummary; reason: string | null }[] {
+    return this.bank.map((item) => ({ item, reason: this.bankAddBlockReason(item) }));
+  }
+
+  addableBankCount(): number {
+    return this.bankRows().filter((row) => !row.reason).length;
+  }
+
+  private bankAddBlockReason(item: QuestionSummary): string | null {
+    if (this.picked.some((picked) => picked.questionId === item.id))
+      return 'Đã có trong đề';
+    if (!this.templateId) return null;
+    const kind = this.kindOf(item.type, item.optionCount);
+    if (!kind) return 'Không khớp mẫu phiếu';
+    if (this.bankKind && kind !== this.bankKind) return 'Không thuộc phần đang lọc';
+    const section = this.sections().find((part) => part.kind === kind);
+    if (!section) return 'Không khớp mẫu phiếu';
+    if (section.filled >= section.needed) return `Đã đủ phần ${section.label}`;
+    return null;
   }
 
   sections(): SheetSection[] {
@@ -179,14 +217,18 @@ export class ExamEditorPage extends Page implements OnInit {
 
   toggleBankKind(kind: string): void {
     this.bankKind = this.bankKind === kind ? null : kind;
+    this.searchBank();
   }
 
   onTemplate(): void {
     this.bankKind = null;
-    if (!this.templateId) return;
-    this.shuffleQuestions = false;
-    this.shuffleOptions = false;
-    this.picked = this.orderForTemplate(this.picked);
+    if (this.templateId) {
+      this.shuffleQuestions = false;
+      this.shuffleOptions = false;
+      this.picked = this.orderForTemplate(this.picked);
+    }
+    // Đổi mẫu thì về trang 1 để tránh trang trống do lọc phần.
+    this.searchBank();
   }
 
   totalPoints(): number {
@@ -195,10 +237,13 @@ export class ExamEditorPage extends Page implements OnInit {
 
   onSubject(): void {
     this.bankQuery = '';
+    this.bankTopicId = null;
+    this.bankPage = 1;
+    this.bankTotal = 0;
     this.bank = [];
     this.bankReady = false;
-    this.loadBank();
     this.loadTopics();
+    this.loadBank();
   }
 
   canDraw(): boolean {
@@ -280,17 +325,49 @@ export class ExamEditorPage extends Page implements OnInit {
     this[flag] = !this[flag];
   }
 
+  bankTypeFilter(): string | null {
+    if (this.bankKind === 'BonDapAn') return 'SingleChoice';
+    if (this.bankKind === 'DungSai') return 'TrueFalse';
+    if (this.bankKind === 'DienSo') return 'FillNumber';
+    return null;
+  }
+
+  searchBank(): void {
+    this.bankPage = 1;
+    this.loadBank();
+  }
+
+  turnBank(event: { page?: number }): void {
+    this.bankPage = (event.page ?? 0) + 1;
+    this.loadBank();
+  }
+
   loadBank(): void {
-    if (!this.subjectId) return;
+    if (!this.subjectId) {
+      this.bank = [];
+      this.bankTotal = 0;
+      this.bankReady = true;
+      return;
+    }
     this.bankReady = false;
     this.watch(
-      this.api.questions({ subjectId: this.subjectId, status: 'Approved', page: 1, pageSize: 100 }),
+      this.api.questions({
+        subjectId: this.subjectId,
+        topicId: this.bankTopicId,
+        status: 'Approved',
+        type: this.bankTypeFilter(),
+        keyword: this.bankQuery.trim() || null,
+        page: this.bankPage,
+        pageSize: this.bankPageSize,
+      }),
       (result) => {
         this.bank = result.items;
+        this.bankTotal = result.total;
         this.bankReady = true;
       },
       (error) => {
         this.bank = [];
+        this.bankTotal = 0;
         this.bankReady = true;
         this.showError(error);
       },
@@ -299,6 +376,10 @@ export class ExamEditorPage extends Page implements OnInit {
 
   fill(exam: ExamDetail): void {
     this.status = exam.status;
+    this.canEditContent = exam.canEditContent !== false;
+    // Còn sửa được thì mở sẵn khối ném câu.
+    if (this.canEditContent && !this.examPanels.includes('draw'))
+      this.examPanels = [...this.examPanels, 'draw'];
     this.title = exam.title;
     this.description = exam.description ?? '';
     this.subjectId = exam.subjectId;
@@ -324,6 +405,7 @@ export class ExamEditorPage extends Page implements OnInit {
     this.loadBank();
     this.loadTopics();
     this.loadAssignments();
+    this.loadVariants();
   }
 
   addQuestion(item: QuestionSummary): void {
@@ -427,6 +509,22 @@ export class ExamEditorPage extends Page implements OnInit {
     });
   }
 
+  attachSheet(): void {
+    if (!this.examId || !this.templateId || this.attachingSheet) {
+      if (!this.templateId) this.fail('Hãy chọn mẫu phiếu trước.');
+      return;
+    }
+    this.attachingSheet = true;
+    this.watch(this.api.attachExamSheet(this.examId, this.templateId), (exam) => {
+      this.attachingSheet = false;
+      this.fill(exam);
+      this.showOk('Đã gắn mẫu phiếu cho đề.');
+    }, (error) => {
+      this.attachingSheet = false;
+      this.showError(error);
+    });
+  }
+
   async close(): Promise<void> {
     if (!this.examId || !await this.confirm('Đóng đề này? Học sinh sẽ không vào làm tiếp.')) return;
     this.watch(this.api.closeExam(this.examId), (exam) => {
@@ -448,6 +546,8 @@ export class ExamEditorPage extends Page implements OnInit {
 
   loadRooms(): void {
     if (!this.assignSchoolId) return;
+    this.assignRoomId = null;
+    this.seats = [];
     this.watch(this.api.classrooms(this.assignSchoolId), (items) => (this.rooms = items));
   }
 
@@ -456,22 +556,144 @@ export class ExamEditorPage extends Page implements OnInit {
     this.watch(this.api.examAssignments(this.examId), (items) => (this.assignments = items), () => (this.assignments = []));
   }
 
-  printSheets(): void {
-    if (!this.examId || this.printing) return;
-    if (!this.templateId) {
-      this.fail('Hãy gắn mẫu phiếu và lưu đề trước khi in.');
+  loadVariants(): void {
+    if (!this.examId) return;
+    this.watch(this.api.examVariants(this.examId), (items) => (this.variants = items), () => (this.variants = []));
+  }
+
+  generateVariants(): void {
+    if (!this.examId || this.generatingVariants) return;
+    this.generatingVariants = true;
+    this.watch(this.api.generateExamVariants(this.examId, {
+      count: Number(this.variantCount) || 1,
+      codes: blankToNull(this.variantCodes),
+    }), (items) => {
+      this.variants = items;
+      this.generatingVariants = false;
+      this.showOk(`Đã sinh ${items.length} mã đề.`);
+    }, (error) => {
+      this.generatingVariants = false;
+      this.showError(error);
+    });
+  }
+
+  printVariantPaper(code: string): void {
+    if (!this.examId || this.printingPaper) return;
+    this.printingPaper = true;
+    this.api.examVariantPaper(this.examId, code).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (blob) => {
+        this.printingPaper = false;
+        saveBlob(blob, `de-${code}.pdf`);
+        this.cdr.markForCheck();
+      },
+      error: (error: unknown) => {
+        this.printingPaper = false;
+        void this.reportSheetError(error);
+      },
+    });
+  }
+
+  // Tải PDF đề (mã đầu / mã gốc nếu chưa sinh đảo).
+  printPaper(): void {
+    if (!this.examId || this.printingPaper) return;
+    if (!this.picked.length) {
+      this.showError('Đề chưa có câu hỏi.');
       return;
     }
-    this.printing = true;
-    this.api.examSheets(this.examId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (blob) => this.openPrintDialog(blob),
+    this.printingPaper = true;
+    this.api.examPaper(this.examId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (blob) => {
+        this.printingPaper = false;
+        saveBlob(blob, `de-${this.examId}.pdf`);
+        this.loadVariants();
+        this.cdr.markForCheck();
+      },
+      error: (error: unknown) => {
+        this.printingPaper = false;
+        void this.reportSheetError(error);
+      },
+    });
+  }
+
+  loadSeats(): void {
+    if (!this.assignRoomId) {
+      this.seats = [];
+      return;
+    }
+    this.watch(this.api.classroomSeats(this.assignRoomId), (items) => {
+      this.seats = items;
+      // Gợi ý số phiếu theo sĩ số lớp đang chọn.
+      if (items.length) this.sheetPrintCount = items.length;
+    }, () => (this.seats = []));
+  }
+
+  assignSeats(): void {
+    if (!this.assignRoomId || this.assigningSeats) return;
+    this.assigningSeats = true;
+    this.watch(this.api.assignClassroomSeats(this.assignRoomId, this.seatStart.trim() || '1'), (items) => {
+      this.seats = items;
+      if (items.length) this.sheetPrintCount = items.length;
+      this.assigningSeats = false;
+      this.showOk('Đã đánh số báo danh cho lớp.');
+    }, (error) => {
+      this.assigningSeats = false;
+      this.showError(error);
+    });
+  }
+
+  exportSeats(): void {
+    if (!this.assignRoomId) return;
+    this.api.exportClassroomSeats(this.assignRoomId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (blob) => saveBlob(blob, 'sbd.xlsx'),
       error: (error: unknown) => {
         void this.reportSheetError(error);
       },
     });
   }
 
-  private openPrintDialog(blob: Blob): void {
+  openGradeBatch(): void {
+    if (!this.examId || !this.templateId || this.openingBatch) {
+      if (!this.templateId) this.fail('Hãy gắn mẫu phiếu trước khi mở đợt chấm.');
+      return;
+    }
+    this.openingBatch = true;
+    this.watch(this.api.createOmrBatch({
+      examId: this.examId,
+      templateId: this.templateId,
+      sourceType: 'Camera',
+    }), (batch) => {
+      this.openingBatch = false;
+      this.showOk('Đã mở đợt chấm. Chuyển sang quét phiếu.');
+      void this.router.navigate(['/omr/batches', batch.id]);
+    }, (error) => {
+      this.openingBatch = false;
+      this.showError(error);
+    });
+  }
+
+  printSheets(): void {
+    if (!this.examId || this.printing) return;
+    if (!this.templateId) {
+      this.fail('Hãy gắn mẫu phiếu và lưu đề trước khi in.');
+      return;
+    }
+    const count = Math.min(200, Math.max(1, Number(this.sheetPrintCount) || 1));
+    this.sheetPrintCount = count;
+    this.printing = true;
+    this.api.examSheets(this.examId, {
+      count,
+      fillStudentCode: this.fillMarkMode === 'seat' || this.fillMarkMode === 'both',
+      fillExamCode: this.fillMarkMode === 'exam' || this.fillMarkMode === 'both',
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (blob) => this.openPrintDialog(blob, count),
+      error: (error: unknown) => {
+        void this.reportSheetError(error);
+      },
+    });
+  }
+
+  // Mở hộp thoại in của trình duyệt — tại đó chọn máy in và số bản sao.
+  private openPrintDialog(blob: Blob, count: number): void {
     const url = URL.createObjectURL(blob);
     document.getElementById('sheet-print')?.remove();
     const frame = document.createElement('iframe');
@@ -479,6 +701,7 @@ export class ExamEditorPage extends Page implements OnInit {
     frame.title = 'Phiếu thi';
     frame.onload = () => {
       this.printing = false;
+      this.showOk(`Đã tạo ${count} phiếu. Trong hộp thoại in có thể chọn thêm số bản sao.`);
       this.cdr.markForCheck();
       const finish = () => {
         frame.remove();

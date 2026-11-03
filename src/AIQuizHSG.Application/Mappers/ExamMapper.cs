@@ -53,7 +53,10 @@ public static class ExamMapper
         return examQuestion;
     }
 
-    public static ExamResponse ToResponse(Exam exam, IReadOnlyDictionary<long, User>? users = null) => new(
+    public static ExamResponse ToResponse(
+        Exam exam,
+        IReadOnlyDictionary<long, User>? users = null,
+        bool canEditContent = true) => new(
         exam.Id,
         exam.Title,
         exam.Description,
@@ -96,7 +99,8 @@ public static class ExamMapper
             .OrderBy(participant => participant.FullName)
             .ThenBy(participant => participant.UserId)
             .ToArray(),
-        exam.OmrTemplateId);
+        exam.OmrTemplateId,
+        canEditContent);
 
     public static AttemptPaper ToPaper(ExamAttempt attempt, DateTime serverNowUtc)
     {

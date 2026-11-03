@@ -39,6 +39,9 @@ public static class AuditCodes
     public const string UpdateExam = "UpdateExam";
     public const string PublishExam = "PublishExam";
     public const string CloseExam = "CloseExam";
+    public const string AttachExamSheet = "AttachExamSheet";
+    public const string GenerateExamVariants = "GenerateExamVariants";
+    public const string AssignSeatCodes = "AssignSeatCodes";
     public const string StartAttempt = "StartAttempt";
     public const string SubmitAttempt = "SubmitAttempt";
 

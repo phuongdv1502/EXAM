@@ -147,6 +147,73 @@ public sealed partial class StudentRecordService : TimedOrganizationService, ISt
         return OperationResult<StudentProfileResponse>.Ok(OrganizationMapper.ToStudent(student));
     }
 
+    public async Task<OperationResult<IReadOnlyList<SeatRow>>> ListSeatsAsync(long classroomId, Actor actor, CancellationToken ct)
+    {
+        var room = await _unitOfWork.Classrooms.FindAsync(classroomId, ct);
+        if (room is null)
+            return OperationResult<IReadOnlyList<SeatRow>>.NotFound(Messages.ClassroomNotFound);
+        if (await access.DenyAsync(actor.UserId, "class.view", room.SchoolId, ct) is { } denied)
+            return OperationResult<IReadOnlyList<SeatRow>>.Forbidden(denied);
+
+        var rows = await _unitOfWork.StudentRecords.ListSeatsAsync(classroomId, ct);
+        return OperationResult<IReadOnlyList<SeatRow>>.Ok(rows
+            .Select(item => new SeatRow(item.Student.Id, item.Student.StudentCode, item.Student.FullName, item.SeatCode, item.ClassName))
+            .ToList());
+    }
+
+    // Đánh SBD liên tiếp theo tên trong lớp, bắt đầu từ số nhập.
+    public async Task<OperationResult<IReadOnlyList<SeatRow>>> AssignSeatsAsync(
+        long classroomId,
+        AssignSeatCodesRequest request,
+        Actor actor,
+        CancellationToken ct)
+    {
+        var room = await _unitOfWork.Classrooms.FindAsync(classroomId, ct);
+        if (room is null)
+            return OperationResult<IReadOnlyList<SeatRow>>.NotFound(Messages.ClassroomNotFound);
+        if (await access.DenyAsync(actor.UserId, "student.create", room.SchoolId, ct) is { } denied)
+            return OperationResult<IReadOnlyList<SeatRow>>.Forbidden(denied);
+
+        var start = (request.StartCode ?? "1").Trim();
+        if (start.Length == 0 || start.Length > 20 || start.Any(ch => !char.IsDigit(ch)))
+            return OperationResult<IReadOnlyList<SeatRow>>.Invalid(Messages.SeatCodeInvalid);
+
+        try
+        {
+            await _unitOfWork.StudentRecords.AssignSeatCodesAsync(classroomId, start, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return OperationResult<IReadOnlyList<SeatRow>>.Invalid(ex.Message);
+        }
+
+        await _unitOfWork.SaveWithAuditAsync(
+            actor.UserId,
+            AuditCodes.AssignSeatCodes,
+            AuditCodes.Classroom,
+            () => room.Id,
+            start,
+            actor.IpAddress,
+            ct);
+        return await ListSeatsAsync(classroomId, actor, ct);
+    }
+
+    public async Task<OperationResult<byte[]>> ExportSeatsAsync(long classroomId, Actor actor, CancellationToken ct)
+    {
+        var listed = await ListSeatsAsync(classroomId, actor, ct);
+        if (listed.Status != OperationStatus.Ok || listed.Value is null)
+        {
+            return listed.Status switch
+            {
+                OperationStatus.NotFound => OperationResult<byte[]>.NotFound(listed.Message ?? Messages.ClassroomNotFound),
+                OperationStatus.Forbidden => OperationResult<byte[]>.Forbidden(listed.Message ?? Messages.PermissionDenied),
+                _ => OperationResult<byte[]>.Invalid(listed.Message ?? Messages.ClassroomNotFound)
+            };
+        }
+
+        return OperationResult<byte[]>.Ok(SeatExcel.Export(listed.Value));
+    }
+
     public byte[] CreateImportTemplate() => StudentExcel.CreateTemplate();
 
     public async Task<OperationResult<ImportResult>> ImportAsync(long schoolId, long schoolYearId, Stream stream, Actor actor, CancellationToken ct)

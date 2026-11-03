@@ -76,7 +76,8 @@ public sealed record ExamResponse(
     int? QuestionCountSnapshot,
     IReadOnlyList<ExamQuestionResponse> Questions,
     IReadOnlyList<ExamParticipantResponse> Participants,
-    long? OmrTemplateId);
+    long? OmrTemplateId,
+    bool CanEditContent = true);
 
 public sealed class SaveAnswerRequest
 {
@@ -115,3 +116,16 @@ public sealed record AttemptSummary(
     DateTime StartedAtUtc,
     DateTime DueAtUtc,
     DateTime? SubmittedAtUtc);
+
+public sealed class AttachExamSheetRequest
+{
+    public long OmrTemplateId { get; set; }
+}
+
+public sealed class GenerateExamVariantsRequest
+{
+    public int Count { get; set; } = 1;
+    public string? Codes { get; set; }
+}
+
+public sealed record ExamVariantItem(long Id, string Code, int SortOrder, DateTime CreatedAtUtc);

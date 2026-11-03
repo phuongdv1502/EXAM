@@ -32,11 +32,11 @@
       <form (ngSubmit)="save()">
         <div class="form-grid">
           <div class="field span-6">
-            <label for="studentCode">Mã học sinh</label>
+            <label for="studentCode">SBD / mã học sinh</label>
             <input pInputText id="studentCode" name="studentCode" [(ngModel)]="studentCode" [disabled]="locked() || pending()" />
           </div>
           <div class="field span-6">
-            <label for="examCode">Mã đề</label>
+            <label for="examCode">Mã đề trên phiếu</label>
             <input pInputText id="examCode" name="examCode" [(ngModel)]="examCode" [disabled]="locked() || pending()" />
           </div>
           <div class="field span-12">
@@ -71,7 +71,7 @@
         }
         @if (!locked() && !pending() && drafts.length) {
           <div class="row-actions">
-            <p-button label="Lưu xác nhận" icon="pi pi-check" type="submit" [loading]="loading" />
+            <p-button [label]="sheet.status === 'Graded' ? 'Sửa và chấm lại' : 'Lưu và chấm'" icon="pi pi-check" type="submit" [loading]="loading" />
           </div>
         }
       </form>

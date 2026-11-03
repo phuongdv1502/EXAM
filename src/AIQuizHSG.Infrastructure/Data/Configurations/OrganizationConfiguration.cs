@@ -104,10 +104,12 @@ internal sealed class StudentEnrollmentConfiguration : IEntityTypeConfiguration<
         entity.Property(x => x.EnrollmentDate).HasColumnType("date");
         entity.Property(x => x.LeaveDate).HasColumnType("date");
         entity.Property(x => x.Status).AsEnum();
+        entity.Property(x => x.SeatCode).HasMaxLength(20);
         entity.Property(x => x.Note).HasMaxLength(500);
         entity.Property(x => x.CreatedAtUtc).AsUtc();
         entity.HasIndex(x => x.StudentId);
         entity.HasIndex(x => x.ClassroomId);
+        entity.HasIndex(x => new { x.ClassroomId, x.SeatCode }).IsUnique();
         entity.HasOne(x => x.Student).WithMany(x => x.Enrollments).HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
         entity.HasOne(x => x.Classroom).WithMany().HasForeignKey(x => x.ClassroomId).OnDelete(DeleteBehavior.Restrict);
     }

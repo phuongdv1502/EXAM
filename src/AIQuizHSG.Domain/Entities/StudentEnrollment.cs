@@ -11,6 +11,8 @@ public class StudentEnrollment
     public DateOnly EnrollmentDate { get; set; }
     public DateOnly? LeaveDate { get; set; }
     public EnrollmentStatus Status { get; set; } = EnrollmentStatus.Active;
+    // Số báo danh trong lớp, dùng tô trên phiếu OMR. Khác mã học sinh hệ thống.
+    public string? SeatCode { get; set; }
     public string? Note { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 

@@ -59,16 +59,64 @@ public class ExamsController(IExamService exams, IExamGenerationService generati
         return ApiResults.From(await exams.PublishAsync(id, actor, ct));
     }
 
-    // Mỗi học sinh một trang. Trang web đưa tệp này vào hộp thoại in.
+    // In phiếu PDF theo số bản; có thể tô sẵn ô SBD / mã đề.
     [HttpGet("{id:long}/sheets")]
-    public async Task<IActionResult> Sheets(long id, CancellationToken ct)
+    public async Task<IActionResult> Sheets(
+        long id,
+        [FromQuery] int? count,
+        [FromQuery] bool fillStudentCode = true,
+        [FromQuery] bool fillExamCode = false,
+        CancellationToken ct = default)
     {
         if (!Actors.TryGet(HttpContext, out var actor))
             return ApiResults.Unauthorized();
-        var result = await omr.PrintSheetsAsync(id, actor, ct);
+        var result = await omr.PrintSheetsAsync(id, count, fillStudentCode, fillExamCode, actor, ct);
         if (result.Status != OperationStatus.Ok || result.Value is null)
             return ApiResults.From(result);
-        return File(result.Value, "application/pdf");
+        return File(result.Value, "application/pdf", $"phieu-de-{id}.pdf");
+    }
+
+    [HttpGet("{id:long}/variants")]
+    public async Task<ActionResult<IReadOnlyList<ExamVariantItem>>> Variants(long id, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await exams.ListVariantsAsync(id, actor, ct));
+    }
+
+    [HttpPost("{id:long}/variants")]
+    public async Task<ActionResult<IReadOnlyList<ExamVariantItem>>> GenerateVariants(
+        long id,
+        GenerateExamVariantsRequest request,
+        CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await exams.GenerateVariantsAsync(id, request, actor, ct));
+    }
+
+    // In nội dung đề theo một mã đảo.
+    [HttpGet("{id:long}/variants/{code}/paper")]
+    public async Task<IActionResult> VariantPaper(long id, string code, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        var result = await exams.PrintVariantPaperAsync(id, code, actor, ct);
+        if (result.Status != OperationStatus.Ok || result.Value is null)
+            return ApiResults.From(result);
+        return File(result.Value, "application/pdf", $"de-{code}.pdf");
+    }
+
+    // In đề PDF (mã đầu tiên hoặc mã gốc nếu chưa sinh đảo).
+    [HttpGet("{id:long}/paper")]
+    public async Task<IActionResult> Paper(long id, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        var result = await exams.PrintPaperAsync(id, actor, ct);
+        if (result.Status != OperationStatus.Ok || result.Value.Pdf is null)
+            return ApiResults.From(result);
+        return File(result.Value.Pdf, "application/pdf", $"de-{result.Value.Code}.pdf");
     }
 
     [HttpPost("{id:long}/close")]
@@ -77,5 +125,14 @@ public class ExamsController(IExamService exams, IExamGenerationService generati
         if (!Actors.TryGet(HttpContext, out var actor))
             return ApiResults.Unauthorized();
         return ApiResults.From(await exams.CloseAsync(id, actor, ct));
+    }
+
+    // Gắn mẫu phiếu sau khi phát hành (khi lúc tạo đề quên chọn).
+    [HttpPost("{id:long}/sheet-template")]
+    public async Task<ActionResult<ExamResponse>> AttachSheet(long id, AttachExamSheetRequest request, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await exams.AttachSheetAsync(id, request, actor, ct));
     }
 }

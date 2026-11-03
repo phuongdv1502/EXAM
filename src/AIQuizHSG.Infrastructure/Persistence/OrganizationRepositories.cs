@@ -178,8 +178,49 @@ public sealed class StudentRecordRepository(AiQuizDbContext db) : IStudentRecord
     public Task<List<StudentProfile>> FindByCodeDigitsAsync(string digits, CancellationToken ct) =>
         db.Students.AsNoTracking().Where(student => student.StudentCode.EndsWith(digits)).ToListAsync(ct);
 
+    // Khớp số báo danh đã đánh trong lớp.
+    public Task<List<StudentProfile>> FindBySeatDigitsAsync(string digits, CancellationToken ct) =>
+        db.StudentEnrollments.AsNoTracking()
+            .Where(item => item.Status == EnrollmentStatus.Active
+                && item.LeaveDate == null
+                && item.SeatCode != null
+                && item.SeatCode == digits)
+            .Select(item => item.Student)
+            .Distinct()
+            .ToListAsync(ct);
+
     public Task<StudentProfile?> FindByUserAsync(long userId, CancellationToken ct) =>
         db.Students.AsNoTracking().FirstOrDefaultAsync(student => student.UserId == userId, ct);
+
+    // Đánh SBD liên tiếp theo tên học sinh trong lớp.
+    public async Task AssignSeatCodesAsync(long classroomId, string startCode, CancellationToken ct)
+    {
+        if (!long.TryParse(startCode, out var start) || start < 0)
+            throw new InvalidOperationException(Messages.SeatCodeInvalid);
+        var width = Math.Max(startCode.Length, 1);
+        var rows = await db.StudentEnrollments
+            .Include(item => item.Student)
+            .Where(item => item.ClassroomId == classroomId && item.Status == EnrollmentStatus.Active && item.LeaveDate == null)
+            .OrderBy(item => item.Student.FullName)
+            .ThenBy(item => item.Student.Id)
+            .ToListAsync(ct);
+        if (rows.Count == 0)
+            throw new InvalidOperationException(Messages.SeatAssignEmpty);
+        for (var index = 0; index < rows.Count; index++)
+            rows[index].SeatCode = (start + index).ToString().PadLeft(width, '0');
+    }
+
+    public async Task<List<(StudentProfile Student, string? SeatCode, string ClassName)>> ListSeatsAsync(long classroomId, CancellationToken ct)
+    {
+        var rows = await db.StudentEnrollments.AsNoTracking()
+            .Include(item => item.Student)
+            .Include(item => item.Classroom)
+            .Where(item => item.ClassroomId == classroomId && item.Status == EnrollmentStatus.Active && item.LeaveDate == null)
+            .OrderBy(item => item.SeatCode)
+            .ThenBy(item => item.Student.FullName)
+            .ToListAsync(ct);
+        return rows.Select(item => (item.Student, item.SeatCode, item.Classroom.Name)).ToList();
+    }
 
     public async Task AddAsync(StudentProfile student, CancellationToken ct) =>
         await db.Students.AddAsync(student, ct);

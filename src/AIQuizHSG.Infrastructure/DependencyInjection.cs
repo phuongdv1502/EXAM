@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.AddSingleton<IOmrJobQueue>(provider => provider.GetRequiredService<OmrJobQueue>());
         services.AddSingleton<IOmrRecognitionService, OmrRecognitionService>();
         services.AddSingleton<IOmrFormRenderer, OmrFormRenderer>();
+        services.AddSingleton<AIQuizHSG.Application.Exams.IExamPaperRenderer, Exams.ExamPaperRenderer>();
         services.AddSingleton<IOmrPageSplitter, OmrPageSplitter>();
         services.AddSingleton<IOmrFileStore, OmrFileStore>();
         services.AddScoped<IOmrService, OmrService>();

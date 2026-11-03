@@ -26,8 +26,14 @@ public interface IOmrJobQueue
     void Enqueue(long sheetId);
 }
 
-// Một trang phiếu đã điền họ tên, lớp, mã học sinh và mã đề.
-public sealed record OmrSheetCopy(string? StudentName, string? StudentCode, string? ClassName, string? ExamCode);
+// Một trang phiếu: thông tin HS và tùy chọn tô sẵn ô SBD / mã đề.
+public sealed record OmrSheetCopy(
+    string? StudentName,
+    string? StudentCode,
+    string? ClassName,
+    string? ExamCode,
+    bool FillStudentCode = true,
+    bool FillExamCode = false);
 
 // Vẽ ảnh phiếu trống từ cấu hình mẫu, để xem trước bản in.
 public interface IOmrFormRenderer

@@ -152,6 +152,22 @@ internal sealed class ExamConfiguration : IEntityTypeConfiguration<Exam>
             .OnDelete(DeleteBehavior.Restrict);
         entity.HasOne(x => x.SheetTemplate).WithMany().HasForeignKey(x => x.OmrTemplateId)
             .OnDelete(DeleteBehavior.Restrict);
+        entity.HasMany(x => x.Variants).WithOne(x => x.Exam).HasForeignKey(x => x.ExamId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class ExamVariantConfiguration : IEntityTypeConfiguration<ExamVariant>
+{
+    public void Configure(EntityTypeBuilder<ExamVariant> entity)
+    {
+        entity.ToTable("Exam_Variants");
+        entity.Property(x => x.Code).HasMaxLength(20).IsRequired();
+        entity.Property(x => x.QuestionOrderJson).HasColumnType("longtext").IsRequired();
+        entity.Property(x => x.OptionOrderJson).HasColumnType("longtext").IsRequired();
+        entity.Property(x => x.CreatedAtUtc).AsUtc();
+        entity.HasIndex(x => new { x.ExamId, x.Code }).IsUnique();
+        entity.HasIndex(x => new { x.ExamId, x.SortOrder }).IsUnique();
     }
 }
 
