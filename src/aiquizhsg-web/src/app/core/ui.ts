@@ -16,6 +16,7 @@ import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { Textarea } from 'primeng/textarea';
 import { ToggleSwitch } from 'primeng/toggleswitch';
+import { PageCrumbs } from '../layout/page-crumbs';
 
 export const UI = [
   Accordion,
@@ -40,4 +41,5 @@ export const UI = [
   Tag,
   Textarea,
   ToggleSwitch,
+  PageCrumbs,
 ];

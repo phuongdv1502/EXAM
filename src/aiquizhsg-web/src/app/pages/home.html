@@ -1,6 +1,7 @@
 @if (staff()) {
   <div class="page-head">
     <div>
+      <app-page-crumbs />
       <h1>Xin chào, {{ store.user()?.fullName }}</h1>
       <p>Số liệu ngân hàng câu hỏi, đề thi và kết quả.</p>
     </div>
@@ -60,6 +61,7 @@
 } @else {
   <div class="page-head">
     <div>
+      <app-page-crumbs />
       <h1>Xin chào, {{ store.user()?.fullName }}</h1>
       <p>Chọn việc cần làm</p>
     </div>

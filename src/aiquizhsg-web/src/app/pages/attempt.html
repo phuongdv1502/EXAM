@@ -1,6 +1,7 @@
 @if (paper) {
   <div class="page-head">
     <div>
+      <app-page-crumbs />
       <h1>{{ paper.title }}</h1>
       <p>Lượt {{ paper.attemptNumber }} · Đã chọn {{ answeredCount() }}/{{ paper.questions.length }} câu</p>
     </div>

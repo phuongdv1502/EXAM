@@ -7,18 +7,29 @@
         <small>Smart assessment</small>
       </div>
     </div>
-    <nav>
-      @for (group of visible(); track group.label) {
-        <section class="nav-group">
-          <p>{{ group.label }}</p>
-          @for (item of group.items; track item.path) {
-            <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.exact }">
-              <i [class]="item.icon"></i>
-              <span>{{ item.label }}</span>
-            </a>
-          }
-        </section>
-      }
+    <nav aria-label="Menu chính">
+      <p-accordion styleClass="nav-accordion" [multiple]="true" [(value)]="navPanels">
+        @for (group of visible(); track group.label) {
+          <p-accordion-panel [value]="group.label">
+            <p-accordion-header>
+              <span class="nav-group-title">
+                <i [class]="group.icon" aria-hidden="true"></i>
+                <span>{{ group.label }}</span>
+              </span>
+            </p-accordion-header>
+            <p-accordion-content>
+              <div class="nav-links">
+                @for (item of group.items; track item.path) {
+                  <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.exact }">
+                    <i [class]="item.icon" aria-hidden="true"></i>
+                    <span>{{ item.label }}</span>
+                  </a>
+                }
+              </div>
+            </p-accordion-content>
+          </p-accordion-panel>
+        }
+      </p-accordion>
     </nav>
   </aside>
   <div class="workspace">
@@ -34,4 +45,3 @@
     </main>
   </div>
 </div>
-

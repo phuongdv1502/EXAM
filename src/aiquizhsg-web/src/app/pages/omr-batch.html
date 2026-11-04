@@ -1,5 +1,6 @@
 <div class="page-head">
   <div>
+    <app-page-crumbs />
     <h1>{{ batch?.examTitle || 'Đợt chấm' }}</h1>
     <p>{{ batch?.examCode }} · mẫu {{ batch?.templateCode }} · {{ label(labels.omrSource, batch?.sourceType) }}</p>
   </div>
@@ -16,7 +17,9 @@
 
   <p-accordion styleClass="page-accordion" [multiple]="true" [(value)]="batchPanels">
     <p-accordion-panel value="work">
-      <p-accordion-header>Thao tác chấm</p-accordion-header>
+      <p-accordion-header>
+        <span class="acc-head"><i class="pi pi-play" aria-hidden="true"></i><span>Thao tác chấm</span></span>
+      </p-accordion-header>
       <p-accordion-content>
         <p class="muted">Ảnh đúng mẫu thì nhận ô tô theo lưới. Ảnh lệch hoặc mờ vào đối soát, không tự ghi điểm.</p>
         <div class="row-actions" style="margin-top: 0.75rem">
@@ -40,7 +43,9 @@
     </p-accordion-panel>
 
     <p-accordion-panel value="sheets">
-      <p-accordion-header>Phiếu trong đợt · {{ total }}</p-accordion-header>
+      <p-accordion-header>
+        <span class="acc-head"><i class="pi pi-images" aria-hidden="true"></i><span>Phiếu trong đợt</span><span class="acc-count">{{ total }}</span></span>
+      </p-accordion-header>
       <p-accordion-content>
         <div class="field" style="max-width: 16rem; margin-bottom: 1rem">
           <label for="sheetStatus">Lọc trạng thái</label>
@@ -85,7 +90,9 @@
     </p-accordion-panel>
 
     <p-accordion-panel value="keys">
-      <p-accordion-header>Mã đề &amp; đáp án · {{ answerKeys.length }}</p-accordion-header>
+      <p-accordion-header>
+        <span class="acc-head"><i class="pi pi-key" aria-hidden="true"></i><span>Mã đề &amp; đáp án</span><span class="acc-count">{{ answerKeys.length }}</span></span>
+      </p-accordion-header>
       <p-accordion-content>
         <p class="muted">Đáp án suy từ đề đã nạp (sau đảo theo mã). Mã dự phòng dùng khi phiếu không đọc được mã đề.</p>
         <p-table [value]="answerKeys">
@@ -115,8 +122,11 @@
 
     <p-accordion-panel value="stats">
       <p-accordion-header>
-        Thống kê câu
-        @if (stats) { · {{ stats.gradedSheets }} đã chấm }
+        <span class="acc-head">
+          <i class="pi pi-chart-bar" aria-hidden="true"></i>
+          <span>Thống kê câu</span>
+          @if (stats) { <span class="acc-count">{{ stats.gradedSheets }} đã chấm</span> }
+        </span>
       </p-accordion-header>
       <p-accordion-content>
         @if (stats; as s) {
@@ -169,7 +179,9 @@
     </p-accordion-panel>
 
     <p-accordion-panel value="results">
-      <p-accordion-header>Bảng điểm · {{ results.length }}</p-accordion-header>
+      <p-accordion-header>
+        <span class="acc-head"><i class="pi pi-list" aria-hidden="true"></i><span>Bảng điểm</span><span class="acc-count">{{ results.length }}</span></span>
+      </p-accordion-header>
       <p-accordion-content>
         @if (!results.length && !showResults) {
           <p class="muted">Bấm «Bảng điểm» ở Thao tác chấm để tải kết quả.</p>

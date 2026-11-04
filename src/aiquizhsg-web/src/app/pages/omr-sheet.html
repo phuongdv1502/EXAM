@@ -1,5 +1,6 @@
 <div class="page-head">
   <div>
+    <app-page-crumbs />
     <h1>Đối soát phiếu</h1>
     <p>Mã đề của đợt: {{ sheet?.expectedExamCode || '—' }}</p>
   </div>
@@ -47,7 +48,9 @@
 
         <p-accordion styleClass="page-accordion omr-sheet-accordion" [multiple]="true" [(value)]="sheetPanels">
           <p-accordion-panel value="focus">
-            <p-accordion-header>Câu cần xem · {{ focusDrafts.length }}</p-accordion-header>
+            <p-accordion-header>
+              <span class="acc-head"><i class="pi pi-exclamation-circle" aria-hidden="true"></i><span>Câu cần xem</span><span class="acc-count">{{ focusDrafts.length }}</span></span>
+            </p-accordion-header>
             <p-accordion-content>
               @for (draft of focusDrafts; track draft.answer.questionNumber) {
                 <div class="answer-block">
@@ -76,7 +79,9 @@
             </p-accordion-content>
           </p-accordion-panel>
           <p-accordion-panel value="rest">
-            <p-accordion-header>Các câu còn lại · {{ restDrafts.length }}</p-accordion-header>
+            <p-accordion-header>
+              <span class="acc-head"><i class="pi pi-check-circle" aria-hidden="true"></i><span>Các câu còn lại</span><span class="acc-count">{{ restDrafts.length }}</span></span>
+            </p-accordion-header>
             <p-accordion-content>
               @for (draft of restDrafts; track draft.answer.questionNumber) {
                 <div class="answer-block">

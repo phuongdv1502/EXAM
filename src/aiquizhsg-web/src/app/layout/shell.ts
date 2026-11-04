@@ -1,78 +1,45 @@
-import { Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
 import { SessionStore } from '../core/auth.service';
 import { label, labels } from '../core/labels';
+import { NAV_GROUPS, NavGroup, pathMatches } from '../core/nav';
 import { UI } from '../core/ui';
-
-interface NavItem {
-  path: string;
-  label: string;
-  icon: string;
-  exact: boolean;
-  roles: string[];
-}
-
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
 
 @Component({
   selector: 'app-shell',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, ...UI],
   templateUrl: './shell.html',
 })
-export class Shell {
+export class Shell implements OnInit {
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   readonly store = inject(SessionStore);
   readonly label = label;
   readonly roles = labels.role;
 
-  private readonly groups: NavGroup[] = [
-    {
-      label: 'Chung',
-      items: [
-        { path: '/', label: 'Tổng quan', icon: 'pi pi-home', exact: true, roles: [] },
-        { path: '/reports', label: 'Báo cáo', icon: 'pi pi-chart-bar', exact: false, roles: ['ADMIN', 'TEACHER', 'SCHOOL_ADMIN'] },
-      ],
-    },
-    {
-      label: 'Ngân hàng câu',
-      items: [
-        { path: '/subjects', label: 'Môn học', icon: 'pi pi-book', exact: false, roles: ['ADMIN', 'TEACHER'] },
-        { path: '/topics', label: 'Chuyên đề', icon: 'pi pi-bookmark', exact: false, roles: ['ADMIN', 'TEACHER'] },
-        { path: '/questions', label: 'Câu hỏi', icon: 'pi pi-question-circle', exact: false, roles: ['ADMIN', 'TEACHER'] },
-      ],
-    },
-    {
-      label: 'Tổ chức thi',
-      items: [
-        { path: '/exams', label: 'Đề thi', icon: 'pi pi-file', exact: false, roles: ['ADMIN', 'TEACHER'] },
-        { path: '/profiles', label: 'Ma trận đề', icon: 'pi pi-table', exact: false, roles: ['ADMIN', 'TEACHER'] },
-        { path: '/omr', label: 'Chấm phiếu OMR', icon: 'pi pi-qrcode', exact: false, roles: ['ADMIN', 'TEACHER'] },
-      ],
-    },
-    {
-      label: 'Nhà trường',
-      items: [
-        { path: '/schools', label: 'Trường học', icon: 'pi pi-building', exact: false, roles: ['ADMIN', 'SCHOOL_ADMIN'] },
-        { path: '/accounts', label: 'Tài khoản', icon: 'pi pi-users', exact: false, roles: ['ADMIN', 'SCHOOL_ADMIN'] },
-        { path: '/roles', label: 'Phân quyền', icon: 'pi pi-shield', exact: false, roles: ['ADMIN'] },
-      ],
-    },
-    {
-      label: 'Làm bài',
-      items: [
-        { path: '/my-exams', label: 'Đề của tôi', icon: 'pi pi-pencil', exact: false, roles: ['ADMIN', 'STUDENT'] },
-        { path: '/attempts', label: 'Lượt làm bài', icon: 'pi pi-clock', exact: false, roles: ['ADMIN', 'STUDENT'] },
-      ],
-    },
-  ];
+  // Nhóm đang mở trên menu accordion.
+  navPanels: string[] = [];
+
+  private readonly groups = NAV_GROUPS;
+
+  ngOnInit(): void {
+    // Mặc định thu hết; chỉ mở nhóm chứa trang đang mở.
+    this.syncActiveOnly();
+    this.router.events
+      .pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => this.syncActiveOnly());
+  }
 
   visible(): NavGroup[] {
     return this.groups
       .map((group) => ({
         label: group.label,
+        icon: group.icon,
         items: group.items.filter((item) => item.roles.length === 0 || this.store.hasRole(...item.roles)),
       }))
       .filter((group) => group.items.length > 0);
@@ -85,5 +52,13 @@ export class Shell {
   logout(): void {
     this.store.clear();
     void this.router.navigate(['/login']);
+  }
+
+  // Chỉ mở đúng nhóm cha của mục đang focus; các nhóm khác đóng.
+  private syncActiveOnly(): void {
+    const url = this.router.url.split('?')[0];
+    this.navPanels = this.visible()
+      .filter((group) => group.items.some((item) => pathMatches(url, item)))
+      .map((group) => group.label);
   }
 }
