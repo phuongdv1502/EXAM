@@ -10,7 +10,7 @@ Giai đoạn đang làm: **ngân hàng câu hỏi** — môn học, chuyên đ�
 - Quản trị viên tạo tài khoản. Học sinh không tự đăng ký.
 - Mỗi đề có số lượt thi tối đa, mặc định 1.
 - Học sinh chỉ xem kết quả khi đề được công bố (cột `PublishResults`).
-- AI nằm sau một dịch vụ riêng và không chặn thi hay chấm điểm. Phần AI sẽ làm ở giai đoạn sau.
+- AI sinh câu hỏi qua Ollama (mặc định, miễn phí local) hoặc API tương thích OpenAI; câu vào trạng thái chờ duyệt, không đưa thẳng vào đề.
 - Mục tiêu tải ban đầu là 100 người đồng thời, cần kiểm thử trước khi cam kết.
 
 ## Chạy máy chủ
@@ -49,9 +49,21 @@ Tên class, thư mục, thuộc tính, bảng và cột MySQL dùng tiếng Anh.
 - `GET/POST /api/topics`, `PUT /api/topics/{id}`
 - `GET/POST /api/questions`, `PUT /api/questions/{id}`
 - `POST /api/questions/{id}/submit`, `/approve`, `/reject`
+- `POST /api/questions/ai-generate`
 - `GET /api/questions/import-template`, `POST /api/questions/import`
 
 Câu hỏi mới ở trạng thái nháp. Gửi duyệt rồi mới được phê duyệt. Sửa câu đã duyệt sẽ đưa câu về chờ duyệt. Tệp Excel dùng cột `MaMon`, `ChuyenDe`, `NoiDung`, `MucDo`, `Loai`, `LoiGiai`, `PhuongAn1`–`PhuongAn6`, `Dung1`–`Dung6`. Mức độ nhận `Dễ`, `Trung bình`, `Khó`. Loại nhận `Một đáp án` hoặc `Nhiều đáp án`.
+
+### Sinh câu bằng AI (Ollama)
+
+Cài [Ollama](https://ollama.com/), kéo model rồi để dịch vụ chạy ở cổng 11434:
+
+```powershell
+ollama pull qwen2.5:7b
+ollama serve
+```
+
+Cấu hình trong `appsettings` mục `Ai` (`BaseUrl`, `Model`, `ApiKey`, `TimeoutSeconds`). Mặc định: `http://127.0.0.1:11434/v1`, model `qwen2.5:7b`. Trên trang Câu hỏi bấm **Sinh bằng AI**; kết quả vào **Chờ duyệt** với nguồn AI.
 
 ## Kiểm thử
 

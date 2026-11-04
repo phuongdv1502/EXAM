@@ -857,6 +857,115 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         return OperationResult<byte[]>.Ok(ToExcel(results.Value));
     }
 
+    // Hiện đáp án từng mã đề để GV đối chiếu khi chấm; nguồn là IsCorrect trên đề.
+    public async Task<OperationResult<OmrAnswerKeysResult>> GetAnswerKeysAsync(long batchId, Actor actor, CancellationToken ct)
+    {
+        if (await Deny(actor, BatchPermission, ct) is { } denied)
+            return OperationResult<OmrAnswerKeysResult>.Forbidden(denied);
+        var batch = await _unitOfWork.Omr.FindBatchAsync(batchId, ct);
+        if (batch is null)
+            return OperationResult<OmrAnswerKeysResult>.NotFound(Messages.OmrBatchNotFound);
+
+        await _unitOfWork.Exams.EnsureLegacyVariantAsync(batch.Exam, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        var variants = await _unitOfWork.Exams.ListVariantsAsync(batch.ExamId, ct);
+        if (variants.Count == 0)
+        {
+            variants =
+            [
+                ExamVariantLayout.Build(batch.Exam, batch.ExamCode, 1, 1, clock.UtcNow)
+            ];
+        }
+
+        var keys = variants
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Id)
+            .Select(variant => BuildAnswerKey(batch, variant))
+            .ToList();
+        return OperationResult<OmrAnswerKeysResult>.Ok(new OmrAnswerKeysResult(batch.ExamCode, keys));
+    }
+
+    // Thống kê theo câu gốc đề trên các phiếu Graded của đợt.
+    public async Task<OperationResult<OmrBatchStats>> GetQuestionStatsAsync(long batchId, Actor actor, CancellationToken ct)
+    {
+        if (await Deny(actor, BatchPermission, ct) is { } denied)
+            return OperationResult<OmrBatchStats>.Forbidden(denied);
+        var batch = await _unitOfWork.Omr.FindBatchAsync(batchId, ct);
+        if (batch is null)
+            return OperationResult<OmrBatchStats>.NotFound(Messages.OmrBatchNotFound);
+
+        var questions = OrderedQuestions(batch.Exam);
+        var sheets = await _unitOfWork.Omr.ListSheetsAsync(batchId, nameof(OmrSheetStatus.Graded), 0, 2000, ct);
+        var examMax = questions.Sum(question => question.Points);
+        if (sheets.Count == 0)
+        {
+            return OperationResult<OmrBatchStats>.Ok(new OmrBatchStats(
+                0,
+                null,
+                null,
+                null,
+                examMax,
+                [],
+                questions.Select((question, index) => new OmrQuestionStatRow(
+                    index + 1,
+                    question.Id,
+                    Preview(question.ContentSnapshot),
+                    0,
+                    0,
+                    0,
+                    0)).ToList()));
+        }
+
+        var tallies = questions.ToDictionary(
+            question => question.Id,
+            _ => (Correct: 0, Wrong: 0, Blank: 0));
+        var scores = new List<decimal>();
+        foreach (var sheet in sheets)
+        {
+            if (sheet.ExamAttempt?.Score is decimal score)
+                scores.Add(score);
+
+            var selections = GradedSelections(sheet, questions);
+            foreach (var question in questions)
+            {
+                var picked = selections[question.Id];
+                var expected = question.Options.Where(option => option.IsCorrect).Select(option => option.Id).ToHashSet();
+                var row = tallies[question.Id];
+                if (picked.Count == 0)
+                    row.Blank++;
+                else if (picked.ToHashSet().SetEquals(expected))
+                    row.Correct++;
+                else
+                    row.Wrong++;
+                tallies[question.Id] = row;
+            }
+        }
+
+        var graded = sheets.Count;
+        var questionRows = questions.Select((question, index) =>
+        {
+            var row = tallies[question.Id];
+            var percent = graded == 0 ? 0 : Math.Round(100m * row.Correct / graded, 1);
+            return new OmrQuestionStatRow(
+                index + 1,
+                question.Id,
+                Preview(question.ContentSnapshot),
+                row.Correct,
+                row.Wrong,
+                row.Blank,
+                percent);
+        }).ToList();
+
+        return OperationResult<OmrBatchStats>.Ok(new OmrBatchStats(
+            graded,
+            scores.Count == 0 ? null : Math.Round(scores.Average(), 2),
+            scores.Count == 0 ? null : scores.Min(),
+            scores.Count == 0 ? null : scores.Max(),
+            examMax,
+            ScoreBuckets(scores, examMax),
+            questionRows));
+    }
+
     private async Task GradeSheetAsync(OmrScannedSheet sheet, CancellationToken ct)
     {
         var studentCode = (sheet.ConfirmedStudentCode ?? sheet.RecognizedStudentCode)?.Trim();
@@ -1183,6 +1292,101 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
 
     private static List<ExamQuestion> OrderedQuestions(Exam exam) =>
         exam.Questions.OrderBy(question => question.SortOrder).ThenBy(question => question.Id).ToList();
+
+    // Chuỗi đáp án theo thứ tự câu trên phiếu của mã đề.
+    private static OmrAnswerKeyItem BuildAnswerKey(OmrImportBatch batch, ExamVariant variant)
+    {
+        var byId = OrderedQuestions(batch.Exam).ToDictionary(question => question.Id);
+        var orderedIds = ExamVariantLayout.QuestionIds(variant);
+        var optionMap = ExamVariantLayout.OptionIds(variant);
+        var marks = new List<OmrAnswerKeyMark>();
+        for (var index = 0; index < orderedIds.Count; index++)
+        {
+            var questionId = orderedIds[index];
+            if (!byId.TryGetValue(questionId, out var question))
+                continue;
+            var correctIds = question.Options.Where(option => option.IsCorrect).Select(option => option.Id).ToHashSet();
+            IReadOnlyList<long> optionOrder = optionMap.TryGetValue(questionId, out var shuffled)
+                ? shuffled
+                : question.Options.OrderBy(option => option.SortOrder).ThenBy(option => option.Id).Select(option => option.Id).ToList();
+            var letters = new List<string>();
+            for (var choice = 0; choice < optionOrder.Count; choice++)
+            {
+                if (correctIds.Contains(optionOrder[choice]))
+                    letters.Add(ChoiceLetter(choice));
+            }
+
+            marks.Add(new OmrAnswerKeyMark(index + 1, questionId, letters.Count == 0 ? "-" : string.Join("+", letters)));
+        }
+
+        var keyText = string.Join(" ", marks.Select(mark => $"{mark.SheetNumber}:{mark.Mark}"));
+        var isFallback = OmrRules.SameExamCode(variant.Code, batch.ExamCode)
+            || string.Equals(variant.Code, batch.ExamCode, StringComparison.OrdinalIgnoreCase);
+        return new OmrAnswerKeyItem(variant.Code, isFallback, marks.Count, keyText, marks);
+    }
+
+    private static Dictionary<long, IReadOnlyList<long>> GradedSelections(
+        OmrScannedSheet sheet,
+        IReadOnlyList<ExamQuestion> questions)
+    {
+        var map = new Dictionary<long, IReadOnlyList<long>>();
+        foreach (var question in questions)
+        {
+            if (sheet.ExamAttempt is not null)
+            {
+                var answer = sheet.ExamAttempt.Answers.FirstOrDefault(item => item.ExamQuestionId == question.Id);
+                map[question.Id] = answer?.SelectedOptions.Select(option => option.ExamOptionId).ToArray() ?? [];
+                continue;
+            }
+
+            var row = sheet.Answers.FirstOrDefault(item => item.ExamQuestionId == question.Id);
+            if (row is null)
+            {
+                map[question.Id] = [];
+                continue;
+            }
+
+            map[question.Id] = !string.IsNullOrWhiteSpace(row.ConfirmedMarksJson)
+                ? ReadIds(row.ConfirmedMarksJson)
+                : row.RecognizedOptionId is long optionId ? [optionId] : [];
+        }
+
+        return map;
+    }
+
+    private static IReadOnlyList<OmrScoreBucket> ScoreBuckets(IReadOnlyList<decimal> scores, decimal examMax)
+    {
+        if (examMax <= 0)
+            return [];
+        var step = examMax <= 10 ? 2m : Math.Max(1m, Math.Ceiling(examMax / 5m));
+        var buckets = new List<OmrScoreBucket>();
+        for (var start = 0m; start < examMax; start += step)
+        {
+            var end = Math.Min(start + step, examMax);
+            var last = end >= examMax;
+            var count = scores.Count(score => last
+                ? score >= start && score <= end
+                : score >= start && score < end);
+            var label = last
+                ? $"{TrimScore(start)}–{TrimScore(end)}"
+                : $"{TrimScore(start)}–<{TrimScore(end)}";
+            buckets.Add(new OmrScoreBucket(label, count));
+        }
+
+        return buckets;
+    }
+
+    private static string ChoiceLetter(int index) =>
+        index >= 0 && index < 26 ? ((char)('A' + index)).ToString() : (index + 1).ToString();
+
+    private static string Preview(string? content)
+    {
+        var text = (content ?? string.Empty).Trim().Replace('\n', ' ');
+        return text.Length <= 80 ? text : text[..80] + "…";
+    }
+
+    private static string TrimScore(decimal value) =>
+        value == decimal.Truncate(value) ? ((int)value).ToString() : value.ToString("0.##");
 
     private async Task<string?> Deny(Actor actor, string permission, CancellationToken ct) =>
         await access.DenyAsync(actor.UserId, permission, null, ct);

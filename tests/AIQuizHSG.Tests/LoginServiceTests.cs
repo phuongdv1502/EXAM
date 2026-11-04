@@ -104,6 +104,7 @@ public class LoginServiceTests
         public ISubjectRepository Subjects => throw new NotSupportedException();
         public ITopicRepository Topics => throw new NotSupportedException();
         public IQuestionRepository Questions => throw new NotSupportedException();
+        public IAiQuestionRequestRepository AiQuestions => throw new NotSupportedException();
         public IDifficultyLevelRepository DifficultyLevels => throw new NotSupportedException();
         public IExamProfileRepository ExamProfiles => throw new NotSupportedException();
         public ISchoolRepository Schools => throw new NotSupportedException();

@@ -25,6 +25,10 @@ public interface IOmrService
     Task<OperationResult<OmrBatchSummary>> PublishAsync(long batchId, Actor actor, CancellationToken ct);
     Task<OperationResult<IReadOnlyList<OmrResultRow>>> ResultsAsync(long batchId, Actor actor, CancellationToken ct);
     Task<OperationResult<byte[]>> ExportAsync(long batchId, Actor actor, CancellationToken ct);
+    // Đáp án theo mã đề (suy từ ngân hàng + variant), không nạp tay.
+    Task<OperationResult<OmrAnswerKeysResult>> GetAnswerKeysAsync(long batchId, Actor actor, CancellationToken ct);
+    // % đúng từng câu gốc và tóm tắt điểm từ phiếu đã chấm.
+    Task<OperationResult<OmrBatchStats>> GetQuestionStatsAsync(long batchId, Actor actor, CancellationToken ct);
 }
 
 public sealed record OmrUploadFile(string FileName, string ContentType, byte[] Content);

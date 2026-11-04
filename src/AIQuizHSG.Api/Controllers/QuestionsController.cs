@@ -1,4 +1,5 @@
 using AIQuizHSG.Api;
+using AIQuizHSG.Application.Ai;
 using AIQuizHSG.Application.Questions;
 using AIQuizHSG.Domain.Common;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +11,7 @@ namespace AIQuizHSG.Api.Controllers;
 [Authorize(Policy = RoleCodes.Teacher)]
 [Route("api/questions")]
 // Giáo viên và quản trị quản lý ngân hàng câu hỏi.
-public class QuestionsController(IQuestionService questions) : ControllerBase
+public class QuestionsController(IQuestionService questions, IAiQuestionService aiQuestions) : ControllerBase
 {
     [HttpGet]
     public async Task<QuestionPage> Search(
@@ -79,6 +80,17 @@ public class QuestionsController(IQuestionService questions) : ControllerBase
         if (!Actors.TryGet(HttpContext, out var actor))
             return ApiResults.Unauthorized();
         return ApiResults.From(await questions.RejectAsync(id, request, actor, ct));
+    }
+
+    // Sinh câu bằng Ollama/OpenAI; kết quả vào chờ duyệt.
+    [HttpPost("ai-generate")]
+    public async Task<ActionResult<GenerateAiQuestionsResult>> AiGenerate(
+        [FromBody] GenerateAiQuestionsRequest request,
+        CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await aiQuestions.GenerateAsync(request, actor, ct));
     }
 
     [HttpGet("import-template")]

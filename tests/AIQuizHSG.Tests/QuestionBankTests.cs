@@ -229,6 +229,7 @@ public class QuestionServiceTests
         public ISubjectRepository Subjects => SubjectsRepo;
         public ITopicRepository Topics => TopicsRepo;
         public IQuestionRepository Questions => QuestionsRepo;
+        public IAiQuestionRequestRepository AiQuestions => throw new NotSupportedException();
         public IDifficultyLevelRepository DifficultyLevels { get; } = new MemoryLevels();
         public IExamProfileRepository ExamProfiles => throw new NotSupportedException();
         public ISchoolRepository Schools => throw new NotSupportedException();

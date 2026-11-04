@@ -157,6 +157,7 @@ public class ExamFlowTests
         public ISubjectRepository Subjects => new SubjectRepo(this);
         public ITopicRepository Topics => throw new NotSupportedException();
         public IQuestionRepository Questions { get; }
+        public IAiQuestionRequestRepository AiQuestions => throw new NotSupportedException();
         public IDifficultyLevelRepository DifficultyLevels => throw new NotSupportedException();
         public IExamProfileRepository ExamProfiles => throw new NotSupportedException();
         public ISchoolRepository Schools => throw new NotSupportedException();
@@ -450,6 +451,7 @@ public class AccountServiceTests
         public ISubjectRepository Subjects => throw new NotSupportedException();
         public ITopicRepository Topics => throw new NotSupportedException();
         public IQuestionRepository Questions => throw new NotSupportedException();
+        public IAiQuestionRequestRepository AiQuestions => throw new NotSupportedException();
         public IDifficultyLevelRepository DifficultyLevels => throw new NotSupportedException();
         public IExamProfileRepository ExamProfiles => throw new NotSupportedException();
         public ISchoolRepository Schools => throw new NotSupportedException();

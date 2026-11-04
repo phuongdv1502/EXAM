@@ -41,6 +41,32 @@ public static class QuestionMapper
         Options = BuildOptions(row.Options)
     };
 
+    // Câu AI sinh ra vào chờ duyệt; giáo viên phải duyệt mới đưa vào đề.
+    public static Question CreateFromAi(
+        long topicId,
+        QuestionType type,
+        QuestionLevel level,
+        string content,
+        string? explanation,
+        IReadOnlyList<OptionInput> options,
+        byte? difficultyLevelId,
+        Actor actor,
+        DateTime now) => new()
+    {
+        TopicId = topicId,
+        Content = content.Trim(),
+        Level = level,
+        Type = type,
+        Status = QuestionStatus.PendingReview,
+        Source = QuestionSource.Ai,
+        Explanation = NormalizeOptional(explanation),
+        DifficultyLevelId = difficultyLevelId,
+        CreatedById = actor.UserId,
+        CreatedAtUtc = now,
+        UpdatedAtUtc = now,
+        Options = BuildOptions(options)
+    };
+
     // Gán lại nội dung. Không đụng trạng thái duyệt.
     public static void ApplyContent(Question question, SaveQuestionRequest request, Topic topic)
     {

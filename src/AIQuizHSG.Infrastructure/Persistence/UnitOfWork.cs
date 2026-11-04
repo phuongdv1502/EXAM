@@ -12,6 +12,7 @@ public sealed class UnitOfWork(AiQuizDbContext db) : IUnitOfWork
     public ISubjectRepository Subjects { get; } = new SubjectRepository(db);
     public ITopicRepository Topics { get; } = new TopicRepository(db);
     public IQuestionRepository Questions { get; } = new QuestionRepository(db);
+    public IAiQuestionRequestRepository AiQuestions { get; } = new AiQuestionRequestRepository(db);
     public IDifficultyLevelRepository DifficultyLevels { get; } = new DifficultyLevelRepository(db);
     public IExamProfileRepository ExamProfiles { get; } = new ExamProfileRepository(db);
     public IExamRepository Exams { get; } = new ExamRepository(db);

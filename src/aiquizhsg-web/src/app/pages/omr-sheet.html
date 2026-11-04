@@ -44,33 +44,73 @@
             <textarea pTextarea id="reviewNote" name="reviewNote" rows="2" [(ngModel)]="reviewNote" [disabled]="locked() || pending()"></textarea>
           </div>
         </div>
-        @for (draft of drafts; track draft.answer.questionNumber) {
-          <div class="answer-block">
-            <strong>Câu {{ draft.answer.questionNumber }}</strong>
-            <p-tag [value]="label(labels.omrMark, draft.answer.recognitionStatus)" [severity]="tagColor(draft.answer.recognitionStatus)" />
-            <p>{{ draft.answer.content || 'Không gắn được câu trong đề.' }}</p>
-            @if (draft.answer.recognizedText) {
-              <p class="muted">Đã đọc: {{ draft.answer.recognizedText }}</p>
-            }
-            <div class="choice-list">
-              @for (choice of draft.answer.choices; track choice.id; let index = $index) {
-                <div class="choice">
-                  @if (draft.answer.questionType === 'MultipleChoice') {
-                    <p-checkbox [name]="'q' + draft.answer.questionNumber + '-' + choice.id" [value]="choice.id" [(ngModel)]="draft.many" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
-                  } @else {
-                    <p-radiobutton [name]="'q' + draft.answer.questionNumber" [value]="choice.id" [(ngModel)]="draft.single" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
+
+        <p-accordion styleClass="page-accordion omr-sheet-accordion" [multiple]="true" [(value)]="sheetPanels">
+          <p-accordion-panel value="focus">
+            <p-accordion-header>Câu cần xem · {{ focusDrafts.length }}</p-accordion-header>
+            <p-accordion-content>
+              @for (draft of focusDrafts; track draft.answer.questionNumber) {
+                <div class="answer-block">
+                  <strong>Câu {{ draft.answer.questionNumber }}</strong>
+                  <p-tag [value]="label(labels.omrMark, draft.answer.recognitionStatus)" [severity]="tagColor(draft.answer.recognitionStatus)" />
+                  <p>{{ draft.answer.content || 'Không gắn được câu trong đề.' }}</p>
+                  @if (draft.answer.recognizedText) {
+                    <p class="muted">Đã đọc: {{ draft.answer.recognizedText }}</p>
                   }
-                  <label [for]="'c' + draft.answer.questionNumber + '-' + choice.id">{{ letter(index) }}. {{ choice.content }}</label>
+                  <div class="choice-list">
+                    @for (choice of draft.answer.choices; track choice.id; let index = $index) {
+                      <div class="choice">
+                        @if (draft.answer.questionType === 'MultipleChoice') {
+                          <p-checkbox [name]="'q' + draft.answer.questionNumber + '-' + choice.id" [value]="choice.id" [(ngModel)]="draft.many" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
+                        } @else {
+                          <p-radiobutton [name]="'q' + draft.answer.questionNumber" [value]="choice.id" [(ngModel)]="draft.single" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
+                        }
+                        <label [for]="'c' + draft.answer.questionNumber + '-' + choice.id">{{ letter(index) }}. {{ choice.content }}</label>
+                      </div>
+                    }
+                  </div>
                 </div>
+              } @empty {
+                <p class="muted">Không có câu mơ hồ hoặc bỏ trống.</p>
               }
-            </div>
-          </div>
-        }
+            </p-accordion-content>
+          </p-accordion-panel>
+          <p-accordion-panel value="rest">
+            <p-accordion-header>Các câu còn lại · {{ restDrafts.length }}</p-accordion-header>
+            <p-accordion-content>
+              @for (draft of restDrafts; track draft.answer.questionNumber) {
+                <div class="answer-block">
+                  <strong>Câu {{ draft.answer.questionNumber }}</strong>
+                  <p-tag [value]="label(labels.omrMark, draft.answer.recognitionStatus)" [severity]="tagColor(draft.answer.recognitionStatus)" />
+                  <p>{{ draft.answer.content || 'Không gắn được câu trong đề.' }}</p>
+                  @if (draft.answer.recognizedText) {
+                    <p class="muted">Đã đọc: {{ draft.answer.recognizedText }}</p>
+                  }
+                  <div class="choice-list">
+                    @for (choice of draft.answer.choices; track choice.id; let index = $index) {
+                      <div class="choice">
+                        @if (draft.answer.questionType === 'MultipleChoice') {
+                          <p-checkbox [name]="'q' + draft.answer.questionNumber + '-' + choice.id" [value]="choice.id" [(ngModel)]="draft.many" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
+                        } @else {
+                          <p-radiobutton [name]="'q' + draft.answer.questionNumber" [value]="choice.id" [(ngModel)]="draft.single" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
+                        }
+                        <label [for]="'c' + draft.answer.questionNumber + '-' + choice.id">{{ letter(index) }}. {{ choice.content }}</label>
+                      </div>
+                    }
+                  </div>
+                </div>
+              } @empty {
+                <p class="muted">Không còn câu khác.</p>
+              }
+            </p-accordion-content>
+          </p-accordion-panel>
+        </p-accordion>
+
         @if (!drafts.length) {
           <p class="muted">Chưa có câu để đối soát. Nhận dạng lại phiếu từ trang đợt.</p>
         }
         @if (!locked() && !pending() && drafts.length) {
-          <div class="row-actions">
+          <div class="row-actions" style="margin-top: 1rem">
             <p-button [label]="sheet.status === 'Graded' ? 'Sửa và chấm lại' : 'Lưu và chấm'" icon="pi pi-check" type="submit" [loading]="loading" />
           </div>
         }

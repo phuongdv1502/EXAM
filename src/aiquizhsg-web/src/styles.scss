@@ -142,6 +142,74 @@ body {
   color: var(--p-text-muted-color, #6b7280);
 }
 
+.answer-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.ai-dialog.p-dialog {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ai-dialog .p-dialog-content {
+  padding: 0;
+}
+
+.ai-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: 1.25rem 1.35rem 1.2rem;
+}
+
+.ai-dialog-body .batch-form-head {
+  padding-bottom: 0.15rem;
+}
+
+.ai-dialog-body .batch-form-head .drawer-close {
+  margin-left: auto;
+  align-self: flex-start;
+}
+
+.ai-dialog-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--p-content-border-color, #e5e7eb);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--p-surface-50, #f8fafc) 88%, transparent);
+}
+
+.ai-dialog-label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--p-text-muted-color, #6b7280);
+}
+
+.ai-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.15rem;
+}
+
+.ai-dialog .field .p-select,
+.ai-dialog .field .p-inputnumber,
+.ai-dialog .field .p-inputnumber-input,
+.ai-dialog .field .p-textarea {
+  width: 100%;
+}
+
+tr.row-highlight > td {
+  background: color-mix(in srgb, var(--p-primary-color, #2563eb) 8%, transparent);
+}
+
 .preview-note {
   display: block;
   margin-top: 0.75rem;
@@ -791,27 +859,39 @@ body {
 .exam-page .exam-form > *:nth-child(3) { animation-delay: 0.12s; }
 
 .exam-accordion.p-accordion,
-.exam-page .p-accordion.exam-accordion {
+.exam-page .p-accordion.exam-accordion,
+.page-accordion.p-accordion {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.exam-page .exam-accordion .p-accordionpanel {
+.exam-page .exam-accordion .p-accordionpanel,
+.page-accordion .p-accordionpanel {
   border: 1px solid var(--p-content-border-color, #e5e7eb);
   border-radius: 14px;
   background: var(--p-surface-0, #fff);
   overflow: hidden;
 }
 
-.exam-page .exam-accordion .p-accordionheader {
+.exam-page .exam-accordion .p-accordionheader,
+.page-accordion .p-accordionheader {
   padding: 0.95rem 1.1rem;
   font-weight: 650;
   gap: 0.75rem;
 }
 
-.exam-page .exam-accordion .p-accordioncontent-content {
+.exam-page .exam-accordion .p-accordioncontent-content,
+.page-accordion .p-accordioncontent-content {
   padding: 0 1.1rem 1.15rem;
+}
+
+.omr-batch-status {
+  margin-bottom: 0.85rem;
+}
+
+.omr-sheet-accordion {
+  margin-top: 1rem;
 }
 
 .exam-section-hint {

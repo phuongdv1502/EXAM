@@ -27,6 +27,10 @@ export class OmrSheetPage extends Page implements OnInit {
   examCode = '';
   reviewNote = '';
   drafts: Draft[] = [];
+  focusDrafts: Draft[] = [];
+  restDrafts: Draft[] = [];
+  // Ưu tiên mở nhóm câu mơ hồ / bỏ trống.
+  sheetPanels: string[] = ['focus'];
 
   constructor() {
     super();
@@ -65,7 +69,7 @@ export class OmrSheetPage extends Page implements OnInit {
       this.studentCode = sheet.studentCode ?? '';
       this.examCode = sheet.examCode ?? sheet.expectedExamCode ?? '';
       this.reviewNote = sheet.reviewNote ?? '';
-      this.drafts = sheet.answers.map((answer) => this.toDraft(sheet.reviewStatus, answer));
+      this.setDrafts(sheet);
       if (sheet.failureReason) this.warn(sheet.failureReason);
       this.loadImage();
     });
@@ -89,14 +93,29 @@ export class OmrSheetPage extends Page implements OnInit {
       answers,
     }), (sheet) => {
       this.sheet = sheet;
-      this.drafts = sheet.answers.map((answer) => this.toDraft(sheet.reviewStatus, answer));
+      this.setDrafts(sheet);
       this.showOk(sheet.status === 'Graded'
         ? 'Đã cập nhật và chấm lại phiếu.'
         : 'Đã lưu phần xác nhận.');
     });
   }
 
-  private toDraft(reviewStatus: string, answer: OmrAnswer): Draft {
+  private setDrafts(sheet: OmrSheetDetail): void {
+    this.drafts = sheet.answers.map((answer) => this.toDraft(answer));
+    this.focusDrafts = this.drafts.filter((draft) => this.needsFocus(draft.answer));
+    this.restDrafts = this.drafts.filter((draft) => !this.needsFocus(draft.answer));
+    // Có câu cần xem thì mở panel đó; không thì mở cả danh sách còn lại.
+    this.sheetPanels = this.focusDrafts.length ? ['focus'] : ['rest'];
+  }
+
+  // Mơ hồ, bỏ trống, hoặc chưa gắn câu trong đề thì đưa lên đầu.
+  private needsFocus(answer: OmrAnswer): boolean {
+    return answer.recognitionStatus === 'Ambiguous'
+      || answer.recognitionStatus === 'Blank'
+      || !answer.examQuestionId;
+  }
+
+  private toDraft(answer: OmrAnswer): Draft {
     const confirmed = answer.confirmedOptionIds ?? [];
     // Phiếu đã chấm hoặc đã xác nhận dùng lựa chọn đã xác nhận; còn lại ưu tiên máy đọc.
     const picked = confirmed.length

@@ -5,8 +5,9 @@
   </div>
   <div class="page-actions">
     <a pButton routerLink="/questions/new"><i class="pi pi-plus"></i><span>Thêm câu</span></a>
-    <p-button label="Tải mẫu Excel" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="downloadTemplate()" />
-    <p-button label="Nhập Excel" icon="pi pi-upload" severity="secondary" [outlined]="true" (onClick)="excel.click()" />
+    <p-button label="Sinh bằng AI" icon="pi pi-sparkles" severity="secondary" [outlined]="true" (onClick)="openAi()" />
+    <p-button label="Tải mẫu Excel" icon="pi pi-file-export" severity="secondary" [outlined]="true" (onClick)="downloadTemplate()" />
+    <p-button label="Nhập Excel" icon="pi pi-file-import" severity="secondary" [outlined]="true" (onClick)="excel.click()" />
     <input #excel type="file" accept=".xlsx" hidden (change)="importFile($event)" />
   </div>
 </div>
@@ -86,3 +87,72 @@
     <p-paginator [first]="(page - 1) * pageSize" [rows]="pageSize" [totalRecords]="total" (onPageChange)="turn($event)" />
   </div>
 </p-card>
+
+<p-dialog
+  styleClass="ai-dialog"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [closable]="!loading"
+  [showHeader]="false"
+  [visible]="aiOpen"
+  [style]="{ width: 'min(520px, 96vw)' }"
+  (visibleChange)="aiOpen = $event"
+>
+  <div class="ai-dialog-body">
+    <div class="batch-form-head">
+      <span class="batch-form-icon" aria-hidden="true"><i class="pi pi-sparkles"></i></span>
+      <div>
+        <h2>Sinh câu bằng AI</h2>
+        <p>Chạy qua Ollama trên máy. Câu vào <strong>chờ duyệt</strong>, chưa đưa thẳng vào đề.</p>
+      </div>
+      <button type="button" class="drawer-close" aria-label="Đóng" [disabled]="loading" (click)="aiOpen = false">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+
+    <div class="ai-dialog-section">
+      <p class="ai-dialog-label">Phạm vi</p>
+      <div class="form-grid">
+        <div class="field span-6">
+          <label for="aiSubjectId">Môn</label>
+          <p-select inputId="aiSubjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="aiSubjectId" (ngModelChange)="loadAiTopics()" name="aiSubjectId" placeholder="Chọn môn" appendTo="body" [fluid]="true" />
+        </div>
+        <div class="field span-6">
+          <label for="aiTopicId">Chuyên đề</label>
+          <p-select inputId="aiTopicId" [options]="aiTopics" optionLabel="name" optionValue="id" [(ngModel)]="aiTopicId" name="aiTopicId" placeholder="Chọn chuyên đề" appendTo="body" [fluid]="true" />
+        </div>
+      </div>
+    </div>
+
+    <div class="ai-dialog-section">
+      <p class="ai-dialog-label">Cấu hình câu</p>
+      <div class="form-grid">
+        <div class="field span-4">
+          <label for="aiType">Loại</label>
+          <p-select inputId="aiType" [options]="aiTypes" optionLabel="label" optionValue="value" [(ngModel)]="aiType" name="aiType" appendTo="body" [fluid]="true" />
+        </div>
+        <div class="field span-4">
+          <label for="aiLevel">Mức</label>
+          <p-select inputId="aiLevel" [options]="choices.level" optionLabel="label" optionValue="value" [(ngModel)]="aiLevel" name="aiLevel" appendTo="body" [fluid]="true" />
+        </div>
+        <div class="field span-4">
+          <label for="aiCount">Số câu</label>
+          <p-inputNumber inputId="aiCount" [(ngModel)]="aiCount" name="aiCount" [min]="1" [max]="10" [showButtons]="true" [fluid]="true" />
+        </div>
+      </div>
+    </div>
+
+    <div class="ai-dialog-section">
+      <div class="field">
+        <label for="aiHint">Gợi ý thêm <span class="muted">(tuỳ chọn)</span></label>
+        <textarea pTextarea id="aiHint" name="aiHint" [(ngModel)]="aiHint" rows="3" placeholder="Ví dụ: tập trung vòng lặp for, không dùng đệ quy"></textarea>
+      </div>
+    </div>
+
+    <div class="ai-dialog-actions">
+      <p-button label="Huỷ" severity="secondary" [outlined]="true" (onClick)="aiOpen = false" [disabled]="loading" />
+      <p-button label="Sinh câu" icon="pi pi-sparkles" (onClick)="generateAi()" [loading]="loading" />
+    </div>
+  </div>
+</p-dialog>

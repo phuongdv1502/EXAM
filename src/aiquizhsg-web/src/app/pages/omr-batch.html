@@ -7,39 +7,203 @@
     <a pButton severity="secondary" [outlined]="true" routerLink="/omr"><i class="pi pi-arrow-left"></i><span>Danh sách</span></a>
   </div>
 </div>
-@if (batch) {
-  <p-card>
-    <div class="row-actions">
-      <p-tag [value]="label(labels.omrBatch, batch.status)" [severity]="tagColor(batch.status)" />
-      <span class="muted">{{ batch.processedSheets }}/{{ batch.totalSheets }} phiếu đã xử lý · {{ batch.failedSheets }} lỗi · {{ batch.needsReviewSheets }} cần đối soát</span>
-    </div>
-    <p class="muted">Ảnh đúng mẫu thì nhận ô tô theo lưới. Ảnh lệch hoặc mờ sẽ vào hàng đối soát, không tự ghi điểm.</p>
-    <div class="row-actions">
-      @if (!locked()) {
-        <p-button label="Chấm phiếu đã nhận" icon="pi pi-check-square" [loading]="loading" (onClick)="grade()" />
-        <p-button label="Duyệt đợt" icon="pi pi-verified" severity="secondary" [outlined]="true" (onClick)="approve()" />
-      }
-      @if (batch.status === 'Approved') {
-        <p-button label="Công bố điểm" icon="pi pi-megaphone" (onClick)="publish()" />
-      }
-      <p-button label="Bảng điểm" icon="pi pi-list" severity="secondary" [outlined]="true" (onClick)="loadResults()" />
-      <p-button label="Xuất Excel" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="exportFile()" />
-    </div>
-  </p-card>
-}
 
-@if (!locked()) {
-  <p-card header="Tải phiếu">
-    <p class="muted">Quét chấm giữ camera mở: phiếu nào đứng yên thì hệ thống tự nhận mẫu và chấm. Chụp từng phiếu hoặc tải ảnh, PDF khi cần, tối đa 20 tệp, mỗi tệp 12 MB.</p>
-    <div class="row-actions">
-      <p-button label="Quét chấm" icon="pi pi-camera" (onClick)="openScan()" />
-      <p-button label="Chụp phiếu" icon="pi pi-camera" severity="secondary" [outlined]="true" (onClick)="openCamera()" />
-      <label pButton severity="secondary" [outlined]="true">
-        <i class="pi pi-upload"></i><span>Tải ảnh hoặc PDF</span>
-        <input type="file" accept="image/*,application/pdf" multiple hidden (change)="onFiles($event, 'Scanner')" />
-      </label>
-    </div>
-  </p-card>
+@if (batch) {
+  <div class="row-actions omr-batch-status">
+    <p-tag [value]="label(labels.omrBatch, batch.status)" [severity]="tagColor(batch.status)" />
+    <span class="muted">{{ batch.processedSheets }}/{{ batch.totalSheets }} phiếu · {{ batch.failedSheets }} lỗi · {{ batch.needsReviewSheets }} đối soát</span>
+  </div>
+
+  <p-accordion styleClass="page-accordion" [multiple]="true" [(value)]="batchPanels">
+    <p-accordion-panel value="work">
+      <p-accordion-header>Thao tác chấm</p-accordion-header>
+      <p-accordion-content>
+        <p class="muted">Ảnh đúng mẫu thì nhận ô tô theo lưới. Ảnh lệch hoặc mờ vào đối soát, không tự ghi điểm.</p>
+        <div class="row-actions" style="margin-top: 0.75rem">
+          @if (!locked()) {
+            <p-button label="Chấm phiếu đã nhận" icon="pi pi-check-square" [loading]="loading" (onClick)="grade()" />
+            <p-button label="Duyệt đợt" icon="pi pi-verified" severity="secondary" [outlined]="true" (onClick)="approve()" />
+            <p-button label="Quét chấm" icon="pi pi-camera" (onClick)="openScan()" />
+            <p-button label="Chụp phiếu" icon="pi pi-camera" severity="secondary" [outlined]="true" (onClick)="openCamera()" />
+            <label pButton severity="secondary" [outlined]="true">
+              <i class="pi pi-upload"></i><span>Tải ảnh hoặc PDF</span>
+              <input type="file" accept="image/*,application/pdf" multiple hidden (change)="onFiles($event, 'Scanner')" />
+            </label>
+          }
+          @if (batch.status === 'Approved') {
+            <p-button label="Công bố điểm" icon="pi pi-megaphone" (onClick)="publish()" />
+          }
+          <p-button label="Bảng điểm" icon="pi pi-list" severity="secondary" [outlined]="true" (onClick)="loadResults()" />
+          <p-button label="Xuất Excel" icon="pi pi-file-export" severity="secondary" [outlined]="true" (onClick)="exportFile()" />
+        </div>
+      </p-accordion-content>
+    </p-accordion-panel>
+
+    <p-accordion-panel value="sheets">
+      <p-accordion-header>Phiếu trong đợt · {{ total }}</p-accordion-header>
+      <p-accordion-content>
+        <div class="field" style="max-width: 16rem; margin-bottom: 1rem">
+          <label for="sheetStatus">Lọc trạng thái</label>
+          <p-select inputId="sheetStatus" name="sheetStatus" [options]="choices.omrSheet" optionLabel="label" optionValue="value" [(ngModel)]="status" (ngModelChange)="page = 1; refresh()" placeholder="Mọi trạng thái" [showClear]="true" appendTo="body" />
+        </div>
+        <p-table [value]="sheets">
+          <ng-template #header>
+            <tr>
+              <th>Tệp</th>
+              <th>Học sinh</th>
+              <th>Mã đề</th>
+              <th>Độ tin cậy</th>
+              <th>Trạng thái</th>
+              <th></th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-item>
+            <tr>
+              <td>
+                {{ item.fileName }}
+                <div class="muted">Trang {{ item.pageNumber }}</div>
+                @if (item.failureReason) { <div class="muted">{{ item.failureReason }}</div> }
+              </td>
+              <td>{{ item.studentCode || '—' }}</td>
+              <td>{{ item.examCode || '—' }}</td>
+              <td>{{ percent(item.confidence) }}</td>
+              <td><p-tag [value]="label(labels.omrSheet, item.status)" [severity]="tagColor(item.status)" /></td>
+              <td class="row-actions">
+                <a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/omr/sheets', item.id]">Đối soát</a>
+                @if (!locked() && item.status !== 'Graded' && item.status !== 'Uploaded' && item.status !== 'Processing') {
+                  <p-button label="Nhận dạng lại" size="small" severity="secondary" [text]="true" (onClick)="retry(item)" />
+                }
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr><td colspan="6" class="muted">Chưa có phiếu.</td></tr>
+          </ng-template>
+        </p-table>
+        <p-paginator [first]="(page - 1) * pageSize" [rows]="pageSize" [totalRecords]="total" (onPageChange)="turn($event)" />
+      </p-accordion-content>
+    </p-accordion-panel>
+
+    <p-accordion-panel value="keys">
+      <p-accordion-header>Mã đề &amp; đáp án · {{ answerKeys.length }}</p-accordion-header>
+      <p-accordion-content>
+        <p class="muted">Đáp án suy từ đề đã nạp (sau đảo theo mã). Mã dự phòng dùng khi phiếu không đọc được mã đề.</p>
+        <p-table [value]="answerKeys">
+          <ng-template #header>
+            <tr>
+              <th>Mã đề</th>
+              <th>Số câu</th>
+              <th>Đáp án theo phiếu</th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-item>
+            <tr [class.row-highlight]="item.isFallback">
+              <td>
+                {{ item.examCode }}
+                @if (item.isFallback) { <span class="muted"> · dự phòng</span> }
+              </td>
+              <td>{{ item.questionCount }}</td>
+              <td class="answer-key">{{ item.keyText || '—' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr><td colspan="3" class="muted">Chưa có mã đề. Sinh mã đảo trên trang đề hoặc dùng mã dự phòng {{ fallbackExamCode || '—' }}.</td></tr>
+          </ng-template>
+        </p-table>
+      </p-accordion-content>
+    </p-accordion-panel>
+
+    <p-accordion-panel value="stats">
+      <p-accordion-header>
+        Thống kê câu
+        @if (stats) { · {{ stats.gradedSheets }} đã chấm }
+      </p-accordion-header>
+      <p-accordion-content>
+        @if (stats; as s) {
+          <div class="row-actions" style="margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.75rem">
+            <span>Đã chấm: <strong>{{ s.gradedSheets }}</strong></span>
+            <span>Điểm TB: <strong>{{ s.averageScore ?? '—' }}</strong>@if (s.examMaxScore != null) { / {{ s.examMaxScore }} }</span>
+            <span>Thấp nhất: <strong>{{ s.minScore ?? '—' }}</strong></span>
+            <span>Cao nhất: <strong>{{ s.maxScore ?? '—' }}</strong></span>
+          </div>
+          @if (s.scoreBuckets.length) {
+            <p class="muted">Phân bố điểm</p>
+            <div class="row-actions" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem">
+              @for (bucket of s.scoreBuckets; track bucket.label) {
+                <p-tag [value]="bucket.label + ': ' + bucket.count" severity="secondary" />
+              }
+            </div>
+          }
+          <p-table [value]="s.questions" [scrollable]="true" scrollHeight="320px">
+            <ng-template #header>
+              <tr>
+                <th>Câu</th>
+                <th>Nội dung</th>
+                <th>% đúng</th>
+                <th>Đúng</th>
+                <th>Sai</th>
+                <th>Bỏ</th>
+              </tr>
+            </ng-template>
+            <ng-template #body let-item>
+              <tr>
+                <td>{{ item.sortOrder }}</td>
+                <td>{{ item.contentPreview || '—' }}</td>
+                <td>{{ item.percentCorrect }}%</td>
+                <td>{{ item.correct }}</td>
+                <td>{{ item.wrong }}</td>
+                <td>{{ item.blank }}</td>
+              </tr>
+            </ng-template>
+            <ng-template #emptymessage>
+              <tr><td colspan="6" class="muted">Đề chưa có câu hỏi.</td></tr>
+            </ng-template>
+          </p-table>
+          @if (!s.gradedSheets) {
+            <p class="muted" style="margin-top: 0.75rem">Chưa có phiếu Graded — % đúng cập nhật sau khi chấm.</p>
+          }
+        } @else {
+          <p class="muted">Đang tải thống kê…</p>
+        }
+      </p-accordion-content>
+    </p-accordion-panel>
+
+    <p-accordion-panel value="results">
+      <p-accordion-header>Bảng điểm · {{ results.length }}</p-accordion-header>
+      <p-accordion-content>
+        @if (!results.length && !showResults) {
+          <p class="muted">Bấm «Bảng điểm» ở Thao tác chấm để tải kết quả.</p>
+        }
+        <p-table [value]="results" [paginator]="results.length > 10" [rows]="10">
+          <ng-template #header>
+            <tr>
+              <th>Học sinh</th>
+              <th>Mã đề</th>
+              <th>Đúng</th>
+              <th>Sai</th>
+              <th>Bỏ</th>
+              <th>Điểm</th>
+              <th>Trạng thái</th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-item>
+            <tr>
+              <td>{{ item.studentName || '—' }} <div class="muted">{{ item.studentCode || '—' }}</div></td>
+              <td>{{ item.examCode || '—' }}</td>
+              <td>{{ item.correct }}</td>
+              <td>{{ item.wrong }}</td>
+              <td>{{ item.blank }}</td>
+              <td>{{ item.score ?? '—' }} / {{ item.maxScore ?? '—' }}</td>
+              <td><p-tag [value]="label(labels.omrSheet, item.status)" [severity]="tagColor(item.status)" /></td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr><td colspan="7" class="muted">Chưa có kết quả.</td></tr>
+          </ng-template>
+        </p-table>
+      </p-accordion-content>
+    </p-accordion-panel>
+  </p-accordion>
 }
 
 @if (scanOpen) {
@@ -69,78 +233,4 @@
       </div>
     </section>
   </div>
-}
-
-<p-card header="Phiếu trong đợt">
-  <div class="field" style="max-width: 16rem; margin-bottom: 1rem">
-    <label for="sheetStatus">Lọc trạng thái</label>
-    <p-select inputId="sheetStatus" name="sheetStatus" [options]="choices.omrSheet" optionLabel="label" optionValue="value" [(ngModel)]="status" (ngModelChange)="page = 1; refresh()" placeholder="Mọi trạng thái" [showClear]="true" appendTo="body" />
-  </div>
-  <p-table [value]="sheets">
-    <ng-template #header>
-      <tr>
-        <th>Tệp</th>
-        <th>Học sinh</th>
-        <th>Mã đề</th>
-        <th>Độ tin cậy</th>
-        <th>Trạng thái</th>
-        <th></th>
-      </tr>
-    </ng-template>
-    <ng-template #body let-item>
-      <tr>
-        <td>
-          {{ item.fileName }}
-          <div class="muted">Trang {{ item.pageNumber }}</div>
-          @if (item.failureReason) { <div class="muted">{{ item.failureReason }}</div> }
-        </td>
-        <td>{{ item.studentCode || '—' }}</td>
-        <td>{{ item.examCode || '—' }}</td>
-        <td>{{ percent(item.confidence) }}</td>
-        <td><p-tag [value]="label(labels.omrSheet, item.status)" [severity]="tagColor(item.status)" /></td>
-        <td class="row-actions">
-          <a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/omr/sheets', item.id]">Đối soát</a>
-          @if (!locked() && item.status !== 'Graded' && item.status !== 'Uploaded' && item.status !== 'Processing') {
-            <p-button label="Nhận dạng lại" size="small" severity="secondary" [text]="true" (onClick)="retry(item)" />
-          }
-        </td>
-      </tr>
-    </ng-template>
-    <ng-template #emptymessage>
-      <tr><td colspan="6" class="muted">Chưa có phiếu.</td></tr>
-    </ng-template>
-  </p-table>
-  <p-paginator [first]="(page - 1) * pageSize" [rows]="pageSize" [totalRecords]="total" (onPageChange)="turn($event)" />
-</p-card>
-
-@if (showResults) {
-  <p-card header="Kết quả">
-    <p-table [value]="results" [paginator]="results.length > 10" [rows]="10">
-      <ng-template #header>
-        <tr>
-          <th>Học sinh</th>
-          <th>Mã đề</th>
-          <th>Đúng</th>
-          <th>Sai</th>
-          <th>Bỏ</th>
-          <th>Điểm</th>
-          <th>Trạng thái</th>
-        </tr>
-      </ng-template>
-      <ng-template #body let-item>
-        <tr>
-          <td>{{ item.studentName || '—' }} <div class="muted">{{ item.studentCode || '—' }}</div></td>
-          <td>{{ item.examCode || '—' }}</td>
-          <td>{{ item.correct }}</td>
-          <td>{{ item.wrong }}</td>
-          <td>{{ item.blank }}</td>
-          <td>{{ item.score ?? '—' }} / {{ item.maxScore ?? '—' }}</td>
-          <td><p-tag [value]="label(labels.omrSheet, item.status)" [severity]="tagColor(item.status)" /></td>
-        </tr>
-      </ng-template>
-      <ng-template #emptymessage>
-        <tr><td colspan="7" class="muted">Chưa có kết quả.</td></tr>
-      </ng-template>
-    </p-table>
-  </p-card>
 }

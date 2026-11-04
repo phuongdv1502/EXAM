@@ -26,6 +26,8 @@ public static class AuditCodes
     public const string ApproveQuestion = "ApproveQuestion";
     public const string RejectQuestion = "RejectQuestion";
     public const string ImportQuestions = "ImportQuestions";
+    public const string GenerateAiQuestions = "GenerateAiQuestions";
+    public const string AiQuestionRequest = "AiQuestionRequest";
 
     public const string Exam = "Exam";
     public const string Attempt = "Attempt";

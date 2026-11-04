@@ -8,6 +8,7 @@ public interface IUnitOfWork
     ISubjectRepository Subjects { get; }
     ITopicRepository Topics { get; }
     IQuestionRepository Questions { get; }
+    IAiQuestionRequestRepository AiQuestions { get; }
     IDifficultyLevelRepository DifficultyLevels { get; }
     IExamProfileRepository ExamProfiles { get; }
     IExamRepository Exams { get; }

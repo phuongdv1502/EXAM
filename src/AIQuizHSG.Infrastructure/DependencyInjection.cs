@@ -1,4 +1,5 @@
 using AIQuizHSG.Application.Accounts;
+using AIQuizHSG.Application.Ai;
 using AIQuizHSG.Application.Omr;
 using AIQuizHSG.Infrastructure.Omr;
 using AIQuizHSG.Application.Authentication;
@@ -11,6 +12,7 @@ using AIQuizHSG.Application.Questions;
 using AIQuizHSG.Application.Reports;
 using AIQuizHSG.Application.Validation;
 using FluentValidation;
+using AIQuizHSG.Infrastructure.Ai;
 using AIQuizHSG.Infrastructure.Data;
 using AIQuizHSG.Infrastructure.Persistence;
 using AIQuizHSG.Infrastructure.Security;
@@ -34,6 +36,17 @@ public static class DependencyInjection
             throw new InvalidOperationException("Jwt:SigningKey phải có ít nhất 32 ký tự.");
 
         services.Configure<JwtOptions>(config.GetSection(JwtOptions.SectionName));
+        services.Configure<AiOptions>(config.GetSection(AiOptions.SectionName));
+        // LLM mặc định Ollama local; đổi BaseUrl/Model sang OpenAI khi cần.
+        services.AddHttpClient<IAiChatClient, OpenAiCompatibleChatClient>((provider, client) =>
+        {
+            var ai = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<AiOptions>>().Value;
+            var baseUrl = string.IsNullOrWhiteSpace(ai.BaseUrl) ? "http://127.0.0.1:11434/v1" : ai.BaseUrl.TrimEnd('/');
+            if (!baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+                baseUrl += "/v1";
+            client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(ai.TimeoutSeconds, 30, 300));
+        });
         // Khóa phiên bản server để Pomelo không cần hỏi MySQL lúc khởi động. Mất kết nối thì thử lại 5 lần.
         services.AddDbContext<AiQuizDbContext>(options =>
             options.UseMySql(
@@ -53,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<ITeachingSubjectService, TeachingSubjectService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IQuestionService, QuestionService>();
+        services.AddScoped<IAiQuestionService, AiQuestionService>();
         services.AddScoped<IExamService, ExamService>();
         services.AddScoped<IAttemptService, AttemptService>();
         services.AddScoped<IExamProfileService, ExamProfileService>();

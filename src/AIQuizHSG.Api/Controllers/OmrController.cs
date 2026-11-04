@@ -195,6 +195,24 @@ public class OmrController(IOmrService omr) : ControllerBase
         return ApiResults.From(await omr.ResultsAsync(id, actor, ct));
     }
 
+    // Đáp án suy từ đề + mã đảo của đợt chấm.
+    [HttpGet("batches/{id:long}/answer-keys")]
+    public async Task<ActionResult<OmrAnswerKeysResult>> AnswerKeys(long id, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await omr.GetAnswerKeysAsync(id, actor, ct));
+    }
+
+    // % đúng từng câu và tóm tắt điểm phiếu đã chấm.
+    [HttpGet("batches/{id:long}/stats")]
+    public async Task<ActionResult<OmrBatchStats>> Stats(long id, CancellationToken ct)
+    {
+        if (!Actors.TryGet(HttpContext, out var actor))
+            return ApiResults.Unauthorized();
+        return ApiResults.From(await omr.GetQuestionStatsAsync(id, actor, ct));
+    }
+
     [HttpGet("batches/{id:long}/export")]
     public async Task<IActionResult> Export(long id, CancellationToken ct)
     {

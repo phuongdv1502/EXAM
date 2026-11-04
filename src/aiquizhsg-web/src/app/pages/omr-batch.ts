@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, interval, switchMap, takeWhile } from 'rxjs';
-import { OmrBatch, OmrResultRow, OmrSheet } from '../core/models';
+import { OmrAnswerKeyItem, OmrBatch, OmrBatchStats, OmrResultRow, OmrSheet } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
 import { CameraFacing, cameraDeviceId, openCameraStream } from './omr-camera';
@@ -22,10 +22,15 @@ export class OmrBatchPage extends Page implements OnInit {
   sheets: OmrSheet[] = [];
   total = 0;
   results: OmrResultRow[] = [];
+  answerKeys: OmrAnswerKeyItem[] = [];
+  fallbackExamCode = '';
+  stats: OmrBatchStats | null = null;
   status: string | null = null;
   page = 1;
   pageSize = 20;
   showResults = false;
+  // Mặc định mở thao tác + danh sách phiếu; khóa đáp án/thống kê/bảng điểm.
+  batchPanels: string[] = ['work', 'sheets'];
   cameraOpen = false;
   cameraError = '';
   cameraNote = '';
@@ -62,12 +67,23 @@ export class OmrBatchPage extends Page implements OnInit {
 
   refresh(): void {
     const id = this.batchId();
-    this.watch(forkJoin({ batch: this.api.omrBatch(id), sheets: this.api.omrSheets(id, this.status, this.page, this.pageSize) }), (data) => {
-      this.batch = data.batch;
-      this.sheets = data.sheets.items;
-      this.total = data.sheets.total;
-      this.arm();
-    });
+    this.watch(
+      forkJoin({
+        batch: this.api.omrBatch(id),
+        sheets: this.api.omrSheets(id, this.status, this.page, this.pageSize),
+        keys: this.api.omrAnswerKeys(id),
+        stats: this.api.omrBatchStats(id),
+      }),
+      (data) => {
+        this.batch = data.batch;
+        this.sheets = data.sheets.items;
+        this.total = data.sheets.total;
+        this.answerKeys = data.keys.keys;
+        this.fallbackExamCode = data.keys.fallbackExamCode;
+        this.stats = data.stats;
+        this.arm();
+      },
+    );
   }
 
   turn(event: { page?: number; rows?: number }): void {
@@ -189,6 +205,9 @@ export class OmrBatchPage extends Page implements OnInit {
 
   loadResults(): void {
     this.showResults = true;
+    if (!this.batchPanels.includes('results')) {
+      this.batchPanels = [...this.batchPanels, 'results'];
+    }
     this.watch(this.api.omrResults(this.batchId()), (rows) => (this.results = rows));
   }
 

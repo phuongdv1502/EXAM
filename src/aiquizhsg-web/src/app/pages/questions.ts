@@ -27,6 +27,17 @@ export class QuestionsPage extends Page implements OnInit {
   rejectingId: number | null = null;
   rejectReason = '';
 
+  aiOpen = false;
+  aiSubjectId: number | null = null;
+  aiTopics: Topic[] = [];
+  aiTopicId: number | null = null;
+  aiType = 'SingleChoice';
+  aiLevel = 'Medium';
+  aiCount = 3;
+  aiHint = '';
+  // AI chưa hỗ trợ nhiều đáp án.
+  readonly aiTypes = this.choices.questionType.filter((item) => item.value !== 'MultipleChoice');
+
   ngOnInit(): void {
     this.watch(this.api.teachingSubjects(), (items) => (this.subjects = items));
     this.loadTopics();
@@ -92,6 +103,62 @@ export class QuestionsPage extends Page implements OnInit {
       }
       this.load();
     });
+  }
+
+  openAi(): void {
+    this.aiOpen = true;
+    this.aiSubjectId = this.subjectId;
+    this.aiType = 'SingleChoice';
+    this.aiLevel = 'Medium';
+    this.aiCount = 3;
+    this.aiHint = '';
+    this.loadAiTopics(this.topicId);
+  }
+
+  loadAiTopics(keepTopicId: number | null = null): void {
+    this.aiTopicId = keepTopicId;
+    if (!this.aiSubjectId) {
+      this.aiTopics = [];
+      this.aiTopicId = null;
+      return;
+    }
+    this.watch(this.api.topics(this.aiSubjectId), (items) => {
+      this.aiTopics = items.filter((item) => item.isActive);
+      if (this.aiTopicId && !this.aiTopics.some((item) => item.id === this.aiTopicId)) {
+        this.aiTopicId = null;
+      }
+    });
+  }
+
+  generateAi(): void {
+    if (!this.aiTopicId) {
+      this.fail('Hãy chọn chuyên đề để sinh câu.');
+      return;
+    }
+    if (this.aiCount < 1 || this.aiCount > 10) {
+      this.fail('Số câu AI sinh phải từ 1 đến 10.');
+      return;
+    }
+    this.loading = true;
+    this.watch(
+      this.api.generateAiQuestions({
+        topicId: this.aiTopicId,
+        type: this.aiType,
+        level: this.aiLevel,
+        questionCount: this.aiCount,
+        hint: this.aiHint.trim() || null,
+      }),
+      (result) => {
+        this.aiOpen = false;
+        this.status = 'PendingReview';
+        this.page = 1;
+        this.showOk(`Đã sinh ${result.created} câu (chờ duyệt).`);
+        if (result.errors.length) {
+          this.warn('Một số câu AI không hợp lệ', result.errors.join('\n'));
+        }
+        this.load();
+      },
+    );
   }
 
   submit(item: QuestionSummary): void {

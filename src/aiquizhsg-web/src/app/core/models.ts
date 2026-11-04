@@ -98,6 +98,13 @@ export interface ImportResult {
   errors: ImportError[];
 }
 
+export interface GenerateAiQuestionsResult {
+  requestId: number;
+  created: number;
+  questionIds: number[];
+  errors: string[];
+}
+
 export interface ExamDrawSeat {
   studentId: number;
   studentCode: string;
@@ -544,6 +551,50 @@ export interface OmrResultRow {
   score: number | null;
   maxScore: number | null;
   status: string;
+}
+
+export interface OmrAnswerKeyMark {
+  sheetNumber: number;
+  examQuestionId: number;
+  mark: string;
+}
+
+export interface OmrAnswerKeyItem {
+  examCode: string;
+  isFallback: boolean;
+  questionCount: number;
+  keyText: string;
+  marks: OmrAnswerKeyMark[];
+}
+
+export interface OmrAnswerKeysResult {
+  fallbackExamCode: string;
+  keys: OmrAnswerKeyItem[];
+}
+
+export interface OmrQuestionStatRow {
+  sortOrder: number;
+  examQuestionId: number;
+  contentPreview: string;
+  correct: number;
+  wrong: number;
+  blank: number;
+  percentCorrect: number;
+}
+
+export interface OmrScoreBucket {
+  label: string;
+  count: number;
+}
+
+export interface OmrBatchStats {
+  gradedSheets: number;
+  averageScore: number | null;
+  minScore: number | null;
+  maxScore: number | null;
+  examMaxScore: number | null;
+  scoreBuckets: OmrScoreBucket[];
+  questions: OmrQuestionStatRow[];
 }
 
 export interface CountItem {

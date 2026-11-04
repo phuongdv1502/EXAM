@@ -46,8 +46,8 @@
         }
         @if (tab === 'students') {
           <p-button label="Hồ sơ mới" icon="pi pi-plus" (onClick)="openNewStudent()" />
-          <p-button label="Tải mẫu" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="downloadTemplate()" />
-          <p-button label="Nhập Excel" icon="pi pi-upload" severity="secondary" [outlined]="true" (onClick)="excel.click()" />
+          <p-button label="Tải mẫu" icon="pi pi-file-export" severity="secondary" [outlined]="true" (onClick)="downloadTemplate()" />
+          <p-button label="Nhập Excel" icon="pi pi-file-import" severity="secondary" [outlined]="true" (onClick)="excel.click()" />
           <input #excel type="file" accept=".xlsx" hidden (change)="importFile($event)" />
         }
       </div>
@@ -294,7 +294,7 @@
         </div>
         <div class="exam-actions" style="margin: 0.25rem 0 0.85rem">
           <p-button label="Đánh SBD" icon="pi pi-hashtag" [loading]="assigningSeats" (onClick)="assignSeats()" />
-          <p-button label="Xuất Excel" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="exportSeats()" />
+          <p-button label="Xuất Excel" icon="pi pi-file-export" severity="secondary" [outlined]="true" (onClick)="exportSeats()" />
         </div>
         <p-table [value]="seats" [paginator]="seats.length > 8" [rows]="8" styleClass="exam-seat-table">
           <ng-template #header>

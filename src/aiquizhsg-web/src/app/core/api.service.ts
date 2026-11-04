@@ -26,6 +26,8 @@ import {
   UserPermissionGrant,
   OmrBatch,
   OmrFormStyle,
+  OmrAnswerKeysResult,
+  OmrBatchStats,
   OmrResultRow,
   OmrScanResult,
   OmrSheet,
@@ -34,6 +36,7 @@ import {
   OmrTemplate,
   OmrUploadResult,
   GradeLevel,
+  GenerateAiQuestionsResult,
   ImportResult,
   ProfilePreview,
   QuestionDetail,
@@ -120,6 +123,17 @@ export class ApiService {
 
   importQuestions(file: File): Observable<ImportResult> {
     return this.upload('/questions/import', file);
+  }
+
+  // Gọi Ollama/OpenAI; có thể mất 1–2 phút tùy model.
+  generateAiQuestions(body: {
+    topicId: number;
+    type: string;
+    level: string;
+    questionCount: number;
+    hint: string | null;
+  }): Observable<GenerateAiQuestionsResult> {
+    return this.post('/questions/ai-generate', body);
   }
 
   difficultyLevels(): Observable<DifficultyLevel[]> {
@@ -479,6 +493,14 @@ export class ApiService {
 
   omrResults(id: number): Observable<OmrResultRow[]> {
     return this.get(`/omr/batches/${id}/results`);
+  }
+
+  omrAnswerKeys(id: number): Observable<OmrAnswerKeysResult> {
+    return this.get(`/omr/batches/${id}/answer-keys`);
+  }
+
+  omrBatchStats(id: number): Observable<OmrBatchStats> {
+    return this.get(`/omr/batches/${id}/stats`);
   }
 
   omrExport(id: number): Observable<Blob> {

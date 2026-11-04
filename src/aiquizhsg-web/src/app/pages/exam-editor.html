@@ -343,7 +343,7 @@
                 </div>
                 <div class="exam-offline-btns">
                   <p-button label="Đánh SBD" icon="pi pi-hashtag" [disabled]="!assignRoomId" [loading]="assigningSeats" (onClick)="assignSeats()" />
-                  <p-button label="Xuất Excel" icon="pi pi-download" severity="secondary" [outlined]="true" [disabled]="!assignRoomId" (onClick)="exportSeats()" />
+                  <p-button label="Xuất Excel" icon="pi pi-file-export" severity="secondary" [outlined]="true" [disabled]="!assignRoomId" (onClick)="exportSeats()" />
                 </div>
               </div>
               @if (!assignRoomId) {

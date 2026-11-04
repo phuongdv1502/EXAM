@@ -148,6 +148,40 @@ public sealed record OmrResultRow(
     decimal? MaxScore,
     string Status);
 
+// Đáp án suy từ đề + mã đảo; Mark là A/B/C… theo thứ tự ô trên phiếu.
+public sealed record OmrAnswerKeyMark(int SheetNumber, long ExamQuestionId, string Mark);
+
+public sealed record OmrAnswerKeyItem(
+    string ExamCode,
+    bool IsFallback,
+    int QuestionCount,
+    string KeyText,
+    IReadOnlyList<OmrAnswerKeyMark> Marks);
+
+public sealed record OmrAnswerKeysResult(
+    string FallbackExamCode,
+    IReadOnlyList<OmrAnswerKeyItem> Keys);
+
+public sealed record OmrQuestionStatRow(
+    int SortOrder,
+    long ExamQuestionId,
+    string ContentPreview,
+    int Correct,
+    int Wrong,
+    int Blank,
+    decimal PercentCorrect);
+
+public sealed record OmrScoreBucket(string Label, int Count);
+
+public sealed record OmrBatchStats(
+    int GradedSheets,
+    decimal? AverageScore,
+    decimal? MinScore,
+    decimal? MaxScore,
+    decimal? ExamMaxScore,
+    IReadOnlyList<OmrScoreBucket> ScoreBuckets,
+    IReadOnlyList<OmrQuestionStatRow> Questions);
+
 public sealed record OmrStoredFile(string RelativePath, string Sha256, string ContentType);
 
 public sealed record OmrPageImage(int PageNumber, string ContentType, byte[] Content, string? Error);

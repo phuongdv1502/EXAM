@@ -142,6 +142,17 @@ public static class Messages
     public const string ExcelDifficultyInvalid = "MucDoCauHoi không hợp lệ. Dùng tên hoặc mã mức từ 1 đến 5.";
     public const string ExamHasNoQuestions = "Đề chưa có câu hỏi.";
 
+    public const string AiNotConfigured = "Chưa cấu hình dịch vụ AI (Ai:BaseUrl / Ai:Model).";
+    public const string AiUnreachable = "Không kết nối được Ollama/AI. Hãy chạy Ollama và kiểm tra Ai:BaseUrl.";
+    public const string AiTimeout = "AI trả lời quá lâu. Thử giảm số câu hoặc dùng model nhỏ hơn.";
+    public const string AiEmptyResponse = "AI không trả về nội dung.";
+    public const string AiCallFailed = "AI lỗi HTTP {0}: {1}";
+    public const string AiCallUnexpected = "Gọi AI thất bại. Kiểm tra Ollama và model đã kéo chưa.";
+    public const string AiParseFailed = "AI trả JSON không đọc được. Hãy thử lại.";
+    public const string AiNoValidQuestions = "Không có câu hợp lệ từ AI. Hãy thử lại hoặc đổi gợi ý.";
+    public const string AiQuestionCountInvalid = "Số câu AI sinh phải từ 1 đến 10.";
+    public const string AiMultipleChoiceUnsupported = "Chưa hỗ trợ sinh câu nhiều đáp án bằng AI.";
+
     public const string PermissionDenied = "Bạn không có quyền thực hiện thao tác này.";
     public const string SchoolScopeDenied = "Bạn không có quyền với dữ liệu của trường này.";
     public const string ClassScopeDenied = "Bạn không được phụ trách lớp này.";
