@@ -50,9 +50,23 @@ public sealed class OmrRepository(AiQuizDbContext db) : IOmrRepository
     public Task<OmrScannedSheet?> FindSheetAsync(long id, CancellationToken ct) =>
         Detail().FirstOrDefaultAsync(sheet => sheet.Id == id, ct);
 
+    // Danh sách chỉ cần cột phiếu. Kèm cả đề và đáp án sẽ nhân hàng và hết giờ truy vấn.
     public Task<List<OmrScannedSheet>> ListSheetsAsync(long batchId, string? status, int skip, int take, CancellationToken ct)
     {
-        var query = Detail().Where(sheet => sheet.BatchId == batchId);
+        var query = db.OmrScannedSheets.AsNoTracking().Where(sheet => sheet.BatchId == batchId);
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<OmrSheetStatus>(status, true, out var parsed))
+            query = query.Where(sheet => sheet.Status == parsed);
+        return query.OrderBy(sheet => sheet.Id).Skip(skip).Take(take).ToListAsync(ct);
+    }
+
+    public Task<List<OmrScannedSheet>> ListScoredSheetsAsync(long batchId, string? status, int skip, int take, CancellationToken ct)
+    {
+        var query = db.OmrScannedSheets.AsNoTracking()
+            .Include(sheet => sheet.Answers)
+            .Include(sheet => sheet.ExamAttempt!)
+            .ThenInclude(attempt => attempt.Answers)
+            .ThenInclude(answer => answer.SelectedOptions)
+            .Where(sheet => sheet.BatchId == batchId);
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<OmrSheetStatus>(status, true, out var parsed))
             query = query.Where(sheet => sheet.Status == parsed);
         return query.OrderBy(sheet => sheet.Id).Skip(skip).Take(take).ToListAsync(ct);

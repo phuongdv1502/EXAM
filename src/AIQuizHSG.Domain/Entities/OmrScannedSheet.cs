@@ -17,6 +17,8 @@ public class OmrScannedSheet
     public string? ConfirmedStudentCode { get; set; }
     public string? ConfirmedExamCode { get; set; }
     public long? ExamAttemptId { get; set; }
+    public decimal? Score { get; set; }
+    public decimal? MaxScore { get; set; }
     public OmrSheetStatus Status { get; set; } = OmrSheetStatus.Uploaded;
     public OmrReviewStatus ReviewStatus { get; set; } = OmrReviewStatus.Pending;
     public decimal Confidence { get; set; }

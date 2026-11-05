@@ -1011,6 +1011,10 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("varchar(80)");
 
+                    b.Property<decimal?>("MaxScore")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("decimal(8,2)");
+
                     b.Property<string>("OriginalFileName")
                         .IsRequired()
                         .HasMaxLength(260)
@@ -1046,6 +1050,10 @@ namespace AIQuizHSG.Infrastructure.Data.Migrations
 
                     b.Property<long?>("ReviewedById")
                         .HasColumnType("bigint");
+
+                    b.Property<decimal?>("Score")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("decimal(8,2)");
 
                     b.Property<string>("Status")
                         .IsRequired()

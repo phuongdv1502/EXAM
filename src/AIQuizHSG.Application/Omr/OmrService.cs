@@ -174,8 +174,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         return OperationResult<byte[]>.Ok(forms.Png(config));
     }
 
-    // Mỗi học sinh một trang PDF, mã QR ghi mã học sinh và mã đề.
-    public async Task<OperationResult<byte[]>> PrintSheetsAsync(
+    // Mỗi trang một ảnh, trang web đưa vào hộp thoại in của trình duyệt.
+    public async Task<OperationResult<IReadOnlyList<byte[]>>> PrintSheetsAsync(
         long examId,
         int? count,
         bool fillStudentCode,
@@ -185,32 +185,32 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
     {
         var exam = await _unitOfWork.Exams.FindAsync(examId, ct);
         if (exam is null)
-            return OperationResult<byte[]>.NotFound(Messages.ExamNotFound);
+            return OperationResult<IReadOnlyList<byte[]>>.NotFound(Messages.ExamNotFound);
         if (await TeachingGuard.DenyAsync(_unitOfWork, actor.UserId, exam.SubjectId, ct) is { } denied)
-            return OperationResult<byte[]>.Forbidden(denied);
+            return OperationResult<IReadOnlyList<byte[]>>.Forbidden(denied);
         if (exam.OmrTemplateId is not long templateId)
-            return OperationResult<byte[]>.Invalid(Messages.ExamSheetRequired);
+            return OperationResult<IReadOnlyList<byte[]>>.Invalid(Messages.ExamSheetRequired);
         if (count is < 1 or > 200)
-            return OperationResult<byte[]>.Invalid(Messages.ExamSheetCountInvalid);
+            return OperationResult<IReadOnlyList<byte[]>>.Invalid(Messages.ExamSheetCountInvalid);
 
         var template = await _unitOfWork.Omr.FindTemplateAsync(templateId, ct);
         if (template is null || !template.IsActive)
-            return OperationResult<byte[]>.Invalid(Messages.ExamSheetMissing);
+            return OperationResult<IReadOnlyList<byte[]>>.Invalid(Messages.ExamSheetMissing);
         if (!OmrTemplateConfig.TryParse(template.ConfigJson, out var config))
-            return OperationResult<byte[]>.Invalid(Messages.OmrTemplateConfigInvalid);
+            return OperationResult<IReadOnlyList<byte[]>>.Invalid(Messages.OmrTemplateConfigInvalid);
 
         var counts = exam.Questions.Select(question => question.Options.Count).ToList();
         if (!config.Accepts(counts, exact: true))
-            return OperationResult<byte[]>.Invalid(Messages.ExamSheetMismatch);
+            return OperationResult<IReadOnlyList<byte[]>>.Invalid(Messages.ExamSheetMismatch);
 
         await _unitOfWork.Exams.EnsureLegacyVariantAsync(exam, ct);
         await _unitOfWork.SaveChangesAsync(ct);
         // Số phiếu do người dùng chọn; thiếu học sinh thì bù phiếu mẫu.
         var copies = await SheetCopiesAsync(exam, count, fillStudentCode, fillExamCode, ct);
         if (copies.Count == 0)
-            return OperationResult<byte[]>.Invalid(Messages.ExamSheetNoStudents);
+            return OperationResult<IReadOnlyList<byte[]>>.Invalid(Messages.ExamSheetNoStudents);
 
-        return OperationResult<byte[]>.Ok(forms.Pdf(config, copies));
+        return OperationResult<IReadOnlyList<byte[]>>.Ok(forms.PngPages(config, copies));
     }
 
     // Ghép đúng số phiếu: ưu tiên học sinh đã giao, thiếu thì thêm phiếu mẫu; mã đề xoay vòng.
@@ -277,7 +277,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             else
                 copies.Add(new OmrSheetCopy(
                     "Họ và tên",
-                    "SBD",
+                    "-",
                     "Lớp",
                     variants[index % variants.Count].Code,
                     fillStudentCode,
@@ -749,9 +749,10 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return OperationResult<OmrSheetSummary>.NotFound(Messages.OmrSheetNotFound);
         if (sheet.Batch.Status is OmrBatchStatus.Approved or OmrBatchStatus.Published)
             return OperationResult<OmrSheetSummary>.Invalid(Messages.OmrBatchLocked);
-        if (sheet.Status is OmrSheetStatus.Graded)
+        if (sheet.Status is OmrSheetStatus.Uploaded or OmrSheetStatus.Processing)
             return OperationResult<OmrSheetSummary>.Invalid(Messages.OmrSheetNotReady);
 
+        // Phiếu đã chấm vẫn đọc lại được sau khi sửa nhận dạng.
         sheet.Status = OmrSheetStatus.Uploaded;
         sheet.FailureReason = null;
         sheet.Batch.Status = OmrBatchStatus.Processing;
@@ -834,10 +835,13 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         var batch = await _unitOfWork.Omr.FindBatchAsync(batchId, ct);
         if (batch is null)
             return OperationResult<IReadOnlyList<OmrResultRow>>.NotFound(Messages.OmrBatchNotFound);
-        var sheets = await _unitOfWork.Omr.ListSheetsAsync(batchId, null, 0, 500, ct);
+        var sheets = await _unitOfWork.Omr.ListScoredSheetsAsync(batchId, null, 0, 500, ct);
         var rows = new List<OmrResultRow>();
         foreach (var sheet in sheets)
+        {
+            sheet.Batch = batch;
             rows.Add(await ToResultAsync(sheet, ct));
+        }
         return OperationResult<IReadOnlyList<OmrResultRow>>.Ok(rows);
     }
 
@@ -895,7 +899,9 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return OperationResult<OmrBatchStats>.NotFound(Messages.OmrBatchNotFound);
 
         var questions = OrderedQuestions(batch.Exam);
-        var sheets = await _unitOfWork.Omr.ListSheetsAsync(batchId, nameof(OmrSheetStatus.Graded), 0, 2000, ct);
+        var sheets = await _unitOfWork.Omr.ListScoredSheetsAsync(batchId, nameof(OmrSheetStatus.Graded), 0, 2000, ct);
+        foreach (var sheet in sheets)
+            sheet.Batch = batch;
         var examMax = questions.Sum(question => question.Points);
         if (sheets.Count == 0)
         {
@@ -922,7 +928,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         var scores = new List<decimal>();
         foreach (var sheet in sheets)
         {
-            if (sheet.ExamAttempt?.Score is decimal score)
+            if ((sheet.Score ?? sheet.ExamAttempt?.Score) is decimal score)
                 scores.Add(score);
 
             var selections = GradedSelections(sheet, questions);
@@ -970,11 +976,6 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
     {
         var studentCode = (sheet.ConfirmedStudentCode ?? sheet.RecognizedStudentCode)?.Trim();
         var examCode = (sheet.ConfirmedExamCode ?? sheet.RecognizedExamCode)?.Trim();
-        if (string.IsNullOrWhiteSpace(studentCode))
-        {
-            Hold(sheet, Messages.OmrStudentMissing);
-            return;
-        }
 
         var variant = await ResolveVariantAsync(sheet.Batch.ExamId, examCode, ct);
         if (variant is null && !OmrRules.SameExamCode(examCode, sheet.Batch.ExamCode))
@@ -983,33 +984,25 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return;
         }
 
-        if (await _unitOfWork.Omr.HasOtherGradedStudentAsync(sheet.BatchId, sheet.Id, studentCode, ct))
+        if (!string.IsNullOrWhiteSpace(studentCode)
+            && await _unitOfWork.Omr.HasOtherGradedStudentAsync(sheet.BatchId, sheet.Id, studentCode, ct))
         {
             Hold(sheet, Messages.OmrStudentDuplicate);
             return;
         }
 
-        var students = await MatchStudentsAsync(studentCode, ct);
-        if (students.Count == 0)
+        // Đúng một học sinh có tài khoản thì gắn điểm vào lượt làm. Không thấy hoặc thấy nhiều thì vẫn chấm trên phiếu.
+        long? userId = null;
+        if (!string.IsNullOrWhiteSpace(studentCode))
         {
-            Hold(sheet, Messages.OmrStudentMissing);
-            return;
+            var students = await MatchStudentsAsync(studentCode, ct);
+            if (students.Count == 1)
+                userId = students[0].UserId;
         }
 
-        if (students.Count > 1)
-        {
-            Hold(sheet, Messages.OmrStudentAmbiguous);
-            return;
-        }
-
-        var student = students[0];
-        if (student.UserId is not long userId)
-        {
-            Hold(sheet, Messages.OmrStudentNoAccount);
-            return;
-        }
-
-        var latest = await _unitOfWork.Attempts.FindLatestAsync(sheet.Batch.ExamId, userId, ct);
+        var latest = userId is long linked
+            ? await _unitOfWork.Attempts.FindLatestAsync(sheet.Batch.ExamId, linked, ct)
+            : null;
         if (latest?.Status == AttemptStatus.InProgress)
         {
             Hold(sheet, Messages.OmrAttemptInProgress);
@@ -1024,42 +1017,48 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
             return;
         }
 
-        var attempt = latest;
-        if (attempt is null)
-        {
-            attempt = new ExamAttempt
-            {
-                ExamId = sheet.Batch.ExamId,
-                UserId = userId,
-                AttemptNumber = await _unitOfWork.Attempts.CountAsync(sheet.Batch.ExamId, userId, ct) + 1,
-                StartedAtUtc = clock.UtcNow,
-                DueAtUtc = clock.UtcNow
-            };
-            await _unitOfWork.Attempts.AddAsync(attempt, ct);
-        }
-
-        foreach (var question in questions)
-        {
-            var answer = attempt.Answers.FirstOrDefault(item => item.ExamQuestionId == question.Id);
-            if (answer is null)
-            {
-                answer = new AttemptAnswer { ExamQuestionId = question.Id, UpdatedAtUtc = clock.UtcNow };
-                attempt.Answers.Add(answer);
-            }
-            else
-            {
-                answer.UpdatedAtUtc = clock.UtcNow;
-            }
-
-            _unitOfWork.Attempts.ReplaceSelections(answer, selections[question.Id]);
-        }
-
         var scored = ExamGrading.Score(questions, questionId => selections[questionId]);
-        attempt.Status = AttemptStatus.Graded;
-        attempt.SubmittedAtUtc = clock.UtcNow;
-        attempt.Score = scored.Score;
-        attempt.MaxScore = scored.MaxScore;
-        sheet.ExamAttempt = attempt;
+        if (userId is long accountId)
+        {
+            var attempt = latest;
+            if (attempt is null)
+            {
+                attempt = new ExamAttempt
+                {
+                    ExamId = sheet.Batch.ExamId,
+                    UserId = accountId,
+                    AttemptNumber = await _unitOfWork.Attempts.CountAsync(sheet.Batch.ExamId, accountId, ct) + 1,
+                    StartedAtUtc = clock.UtcNow,
+                    DueAtUtc = clock.UtcNow
+                };
+                await _unitOfWork.Attempts.AddAsync(attempt, ct);
+            }
+
+            foreach (var question in questions)
+            {
+                var answer = attempt.Answers.FirstOrDefault(item => item.ExamQuestionId == question.Id);
+                if (answer is null)
+                {
+                    answer = new AttemptAnswer { ExamQuestionId = question.Id, UpdatedAtUtc = clock.UtcNow };
+                    attempt.Answers.Add(answer);
+                }
+                else
+                {
+                    answer.UpdatedAtUtc = clock.UtcNow;
+                }
+
+                _unitOfWork.Attempts.ReplaceSelections(answer, selections[question.Id]);
+            }
+
+            attempt.Status = AttemptStatus.Graded;
+            attempt.SubmittedAtUtc = clock.UtcNow;
+            attempt.Score = scored.Score;
+            attempt.MaxScore = scored.MaxScore;
+            sheet.ExamAttempt = attempt;
+        }
+
+        sheet.Score = scored.Score;
+        sheet.MaxScore = scored.MaxScore;
         sheet.Status = OmrSheetStatus.Graded;
         sheet.FailureReason = null;
     }
@@ -1078,8 +1077,13 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
                 continue;
             }
 
+            // Câu mơ hồ không chặn cả phiếu. Coi như bỏ trống rồi vẫn tính điểm các câu đã đọc.
             if (row.RecognitionStatus == OmrMarkStatus.Ambiguous)
-                return null;
+            {
+                map[question.Id] = [];
+                continue;
+            }
+
             map[question.Id] = row.RecognizedOptionId is long optionId ? [optionId] : [];
         }
 
@@ -1163,17 +1167,29 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
                     long? optionId = bubble.ChoiceIndex >= 0 && bubble.ChoiceIndex < options.Count ? options[bubble.ChoiceIndex].Id : null;
                     return new { bubble.ChoiceIndex, bubble.Ratio, bubble.Status, optionId };
                 }).ToList();
-                var marked = choiceMarks.Where(item => item.Status == nameof(OmrMarkStatus.Marked)).ToList();
-                var ambiguous = choiceMarks.Any(item => item.Status == nameof(OmrMarkStatus.Ambiguous)) || marked.Count > 1;
-                status = ambiguous
-                    ? OmrMarkStatus.Ambiguous
-                    : marked.Count == 1 ? OmrMarkStatus.Marked : OmrMarkStatus.Blank;
-                if (status == OmrMarkStatus.Ambiguous)
+                var ordered = choiceMarks.OrderByDescending(item => item.Ratio).ToList();
+                var top = ordered.FirstOrDefault();
+                var nextRatio = ordered.Count > 1 ? ordered[1].Ratio : 0;
+                var strong = choiceMarks.Where(item => item.Ratio >= config.MarkedRatio).ToList();
+                // Một ô đậm hơn hẳn các ô còn lại thì lấy ô đó. Vệt mờ cạnh chỗ tô không làm cả câu thành bỏ trống.
+                if (strong.Count > 1 || (strong.Count == 1 && top!.Ratio - nextRatio < 0.25))
+                {
+                    status = OmrMarkStatus.Ambiguous;
                     needsReview = true;
-                recognized = status == OmrMarkStatus.Marked ? marked[0].optionId : null;
+                }
+                else if (strong.Count == 1)
+                {
+                    status = OmrMarkStatus.Marked;
+                    recognized = strong[0].optionId;
+                }
+                else
+                {
+                    status = OmrMarkStatus.Blank;
+                }
+
                 confidence = status switch
                 {
-                    OmrMarkStatus.Marked => (decimal)marked[0].Ratio,
+                    OmrMarkStatus.Marked => (decimal)strong[0].Ratio,
                     OmrMarkStatus.Blank => (decimal)(1 - choiceMarks.Select(item => item.Ratio).DefaultIfEmpty(0).Max()),
                     _ => 0.4m
                 };
@@ -1245,8 +1261,8 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         var correct = 0;
         var wrong = 0;
         var blank = 0;
-        decimal? score = sheet.ExamAttempt?.Score;
-        decimal? max = sheet.ExamAttempt?.MaxScore;
+        decimal? score = sheet.Score ?? sheet.ExamAttempt?.Score;
+        decimal? max = sheet.MaxScore ?? sheet.ExamAttempt?.MaxScore;
         if (sheet.ExamAttempt is null && sheet.Answers.Count > 0 && sheet.Batch.Exam.Questions.Count > 0)
         {
             var questions = OrderedQuestions(sheet.Batch.Exam);
@@ -1491,8 +1507,9 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
         var answers = sheet.Answers.OrderBy(answer => answer.QuestionNumber).Select(answer =>
         {
             questions.TryGetValue(answer.ExamQuestionId ?? 0, out var question);
+            // Gắn đáp án đúng để đối chiếu, không dùng đáp án đó thay cho ô học sinh đã tô.
             var choices = question?.Options.OrderBy(option => option.SortOrder).ThenBy(option => option.Id)
-                .Select(option => new OmrChoiceDetail(option.Id, option.ContentSnapshot, option.SortOrder))
+                .Select(option => new OmrChoiceDetail(option.Id, option.ContentSnapshot, option.SortOrder, option.IsCorrect))
                 .ToList() ?? [];
             var recognizedText = config.KindOf(answer.QuestionNumber) == OmrSectionKinds.DienSo
                 ? OmrDigitGrid.ReadStored(answer.DetectedMarksJson)

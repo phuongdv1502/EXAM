@@ -29,7 +29,7 @@ export class OmrSheetPage extends Page implements OnInit {
   drafts: Draft[] = [];
   focusDrafts: Draft[] = [];
   restDrafts: Draft[] = [];
-  // Ưu tiên mở nhóm câu mơ hồ / bỏ trống.
+  // Mở nhóm câu học sinh đã tô để đối chiếu với đáp án.
   sheetPanels: string[] = ['focus'];
 
   constructor() {
@@ -108,10 +108,10 @@ export class OmrSheetPage extends Page implements OnInit {
     this.sheetPanels = this.focusDrafts.length ? ['focus'] : ['rest'];
   }
 
-  // Mơ hồ, bỏ trống, hoặc chưa gắn câu trong đề thì đưa lên đầu.
+  // Câu đã tô hoặc còn mơ hồ thì đưa lên đầu. Radio giữ lựa chọn máy đọc được.
   private needsFocus(answer: OmrAnswer): boolean {
-    return answer.recognitionStatus === 'Ambiguous'
-      || answer.recognitionStatus === 'Blank'
+    return answer.recognitionStatus === 'Marked'
+      || answer.recognitionStatus === 'Ambiguous'
       || !answer.examQuestionId;
   }
 

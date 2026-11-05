@@ -67,6 +67,26 @@ public static class OmrFormImage
         return EssayBook(image);
     }
 
+    // Mỗi ảnh là một trang A4, để trang web đưa thẳng vào hộp thoại in.
+    public static List<byte[]> PngPages(OmrTemplateConfig config, IReadOnlyList<OmrSheetCopy> copies)
+    {
+        var plan = OmrFormLayout.For(config);
+        var matched = SameLayout(config, plan);
+        var pages = new List<byte[]>();
+        foreach (var copy in copies)
+        {
+            var png = matched
+                ? Png(plan, copy.StudentName, copy.StudentCode, copy.ClassName, copy.ExamCode, null, copy.FillStudentCode, copy.FillExamCode)
+                : Legacy(config, copy);
+            using var bitmap = SKBitmap.Decode(png);
+            if (bitmap is null)
+                continue;
+            pages.AddRange(SlicePngs(bitmap));
+        }
+
+        return pages;
+    }
+
     // Ghép mỗi học sinh một trang A4. Phiếu tự luận tách thêm các trang giấy kẻ.
     public static byte[] Pdf(OmrTemplateConfig config, IReadOnlyList<OmrSheetCopy> copies)
     {
@@ -88,6 +108,31 @@ public static class OmrFormImage
 
         document.Close();
         return stream.ToArray();
+    }
+
+    private static List<byte[]> SlicePngs(SKBitmap bitmap)
+    {
+        const int gap = 28;
+        var pageHeight = OmrFormLayout.PageHeight;
+        if (bitmap.Height <= pageHeight)
+            return [Encode(bitmap)];
+
+        var pages = new List<byte[]>();
+        for (var top = 0; top < bitmap.Height; top += pageHeight + gap)
+        {
+            using var page = new SKBitmap(bitmap.Width, pageHeight);
+            using (var canvas = new SKCanvas(page))
+            {
+                canvas.Clear(SKColors.White);
+                canvas.DrawBitmap(bitmap, 0, -top);
+            }
+
+            pages.Add(Encode(page));
+            if (top + pageHeight >= bitmap.Height)
+                break;
+        }
+
+        return pages;
     }
 
     private static void AppendPages(SKDocument document, SKBitmap bitmap)

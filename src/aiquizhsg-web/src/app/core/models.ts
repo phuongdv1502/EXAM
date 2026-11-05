@@ -487,6 +487,7 @@ export interface OmrChoice {
   id: number;
   content: string;
   sortOrder: number;
+  isCorrect?: boolean;
 }
 
 export interface OmrAnswer {

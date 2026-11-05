@@ -51,6 +51,8 @@ internal sealed class OmrScannedSheetConfiguration : IEntityTypeConfiguration<Om
         entity.Property(x => x.Status).AsEnum();
         entity.Property(x => x.ReviewStatus).AsEnum();
         entity.Property(x => x.Confidence).HasPrecision(6, 4);
+        entity.Property(x => x.Score).HasPrecision(8, 2);
+        entity.Property(x => x.MaxScore).HasPrecision(8, 2);
         entity.Property(x => x.FailureReason).HasMaxLength(1000);
         entity.Property(x => x.ReviewNote).HasMaxLength(1000);
         entity.Property(x => x.ReviewedAtUtc).AsUtc();

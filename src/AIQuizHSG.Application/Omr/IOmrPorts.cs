@@ -42,5 +42,7 @@ public interface IOmrFormRenderer
 
     byte[] Png(OmrTemplateConfig config, OmrSheetCopy copy);
 
+    IReadOnlyList<byte[]> PngPages(OmrTemplateConfig config, IReadOnlyList<OmrSheetCopy> copies);
+
     byte[] Pdf(OmrTemplateConfig config, IReadOnlyList<OmrSheetCopy> copies);
 }

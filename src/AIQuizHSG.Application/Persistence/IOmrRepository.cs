@@ -17,6 +17,7 @@ public interface IOmrRepository
     Task<OmrScannedSheet?> FindSheetByHashAsync(long batchId, string hash, CancellationToken ct);
     Task<OmrScannedSheet?> FindSheetAsync(long id, CancellationToken ct);
     Task<List<OmrScannedSheet>> ListSheetsAsync(long batchId, string? status, int skip, int take, CancellationToken ct);
+    Task<List<OmrScannedSheet>> ListScoredSheetsAsync(long batchId, string? status, int skip, int take, CancellationToken ct);
     Task<int> CountSheetsAsync(long batchId, string? status, CancellationToken ct);
     Task<List<OmrScannedSheet>> ListSheetStatusesAsync(long batchId, CancellationToken ct);
     Task AddSheetAsync(OmrScannedSheet sheet, CancellationToken ct);

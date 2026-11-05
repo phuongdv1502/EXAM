@@ -7,8 +7,9 @@ public static class OmrRules
 {
     public const string QrPrefix = "HSG";
 
+    // Phiếu đã đọc xong thì chấm được, kể cả khi còn câu mơ hồ hoặc chưa khớp học sinh.
     public static bool CanGrade(OmrSheetStatus status) =>
-        status is OmrSheetStatus.Recognized or OmrSheetStatus.Confirmed;
+        status is OmrSheetStatus.Recognized or OmrSheetStatus.Confirmed or OmrSheetStatus.NeedsReview;
 
     public static bool IsSettled(OmrSheetStatus status) => status == OmrSheetStatus.Graded;
 
@@ -34,9 +35,9 @@ public static class OmrRules
         if (string.IsNullOrWhiteSpace(examCode))
             return false;
 
-        // Dấu gạch là phiếu in trống, chưa có mã học sinh.
+        // Dấu gạch hoặc chữ SBD trên phiếu in mẫu, chưa phải số báo danh thật.
         var student = parts[1].Trim();
-        studentCode = student == "-" ? string.Empty : student;
+        studentCode = student is "-" or "SBD" ? string.Empty : student;
         return true;
     }
 

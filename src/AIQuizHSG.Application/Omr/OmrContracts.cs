@@ -108,7 +108,7 @@ public sealed record OmrScanResult(
         new(false, message, null, null, null, null, null, null, null, null, null, 0, 0, 0, null);
 }
 
-public sealed record OmrChoiceDetail(long Id, string Content, int SortOrder);
+public sealed record OmrChoiceDetail(long Id, string Content, int SortOrder, bool IsCorrect);
 
 public sealed record OmrAnswerDetail(
     int QuestionNumber,

@@ -13,6 +13,26 @@ namespace AIQuizHSG.Tests;
 public class OmrTests
 {
     [Fact]
+    public void Recognize_ReadsFilledChoicesOnPrinterScanAndDeskPhoto()
+    {
+        Assert.True(OmrTemplateConfig.TryFromCheck([("BonDapAn", 32), ("DungSai", 2)], out var config));
+        var printerPath = @"F:\Project\Exam\src\AIQuizHSG.Api\storage\omr\16\66C8A1699543C7D7077E233501E721C9E2AEFAC02CBC73485845C97D6BEC6252.jpg";
+        var deskPath = @"F:\Project\Exam\src\AIQuizHSG.Api\storage\omr\9\7C00E227846116958A954DB9A1B84503666377878FD29343B4E7CA5BF7E87D2B.jpg";
+        var canonPath = @"F:\Project\Exam\src\AIQuizHSG.Api\storage\omr\14\6EA5D36E992CCD0D590697B1AA7C2A13FA068853D3C04ABCE9469171F4579DE3.jpg";
+        if (!File.Exists(printerPath) || !File.Exists(deskPath) || !File.Exists(canonPath))
+            return;
+
+        string Marks(string path) => string.Join(" ", new OmrRecognitionService().Recognize(File.ReadAllBytes(path), config)
+            .Bubbles.Where(item => item.Ratio >= 0.4)
+            .OrderBy(item => item.QuestionNumber)
+            .Select(item => $"q{item.QuestionNumber}:{item.ChoiceIndex}"));
+
+        Assert.Equal("q1:1 q2:1 q3:2 q4:3 q5:3 q6:0 q7:0 q8:1 q9:1 q10:2 q18:1 q19:2 q20:3", Marks(printerPath));
+        Assert.Equal("q1:2 q2:1", Marks(deskPath));
+        Assert.StartsWith("q1:2 q2:1", Marks(canonPath));
+    }
+
+    [Fact]
     public void Grade_GivesPointsOnlyWhenTheChosenSetMatches()
     {
         var questions = new List<ExamQuestion>

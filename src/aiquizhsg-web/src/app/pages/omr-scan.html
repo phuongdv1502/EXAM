@@ -4,7 +4,7 @@
       <span class="batch-form-icon"><i class="pi pi-camera"></i></span>
       <div>
         <h2>Quét chấm</h2>
-        <p>Đưa phiếu vào khung. Khi thấy đủ bốn góc, hệ thống tự chụp, đọc số báo danh và mã đề rồi chấm.</p>
+        <p>Đưa cả tờ phiếu vào khung, chừa mép giấy. Hệ thống tự chụp khi bốn góc ổn, hoặc bấm Chụp và chấm.</p>
       </div>
       <button type="button" class="drawer-close" aria-label="Đóng" (click)="close()"><i class="pi pi-times"></i></button>
     </div>
@@ -36,6 +36,7 @@
     }
     <div class="row-actions">
       <p-button [label]="facing === 'environment' ? 'Camera trước' : 'Camera sau'" icon="pi pi-sync" severity="secondary" [outlined]="true" (onClick)="flipCamera()" />
+      <p-button label="Chụp và chấm" icon="pi pi-camera" [disabled]="!!cameraError || busy" (onClick)="shoot()" />
       <p-button label="Đóng" severity="secondary" [outlined]="true" (onClick)="close()" />
     </div>
   </section>

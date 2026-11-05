@@ -75,7 +75,7 @@
               <td><p-tag [value]="label(labels.omrSheet, item.status)" [severity]="tagColor(item.status)" /></td>
               <td class="row-actions">
                 <a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/omr/sheets', item.id]">Đối soát</a>
-                @if (!locked() && item.status !== 'Graded' && item.status !== 'Uploaded' && item.status !== 'Processing') {
+                @if (!locked() && item.status !== 'Uploaded' && item.status !== 'Processing') {
                   <p-button label="Nhận dạng lại" size="small" severity="secondary" [text]="true" (onClick)="retry(item)" />
                 }
               </td>

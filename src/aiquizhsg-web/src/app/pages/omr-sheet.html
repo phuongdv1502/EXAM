@@ -16,7 +16,7 @@
     <p-tag [value]="label(labels.omrReview, sheet.reviewStatus)" [severity]="tagColor(sheet.reviewStatus)" />
     <span class="muted">Độ tin cậy {{ percent(sheet.confidence) }}</span>
   </div>
-  <div class="split">
+  <div class="split omr-review">
     <p-card header="Ảnh phiếu">
       @if (imageUrl) {
         <img class="sheet-image" [src]="imageUrl" alt="Ảnh phiếu đã tải" />
@@ -68,13 +68,13 @@
                         } @else {
                           <p-radiobutton [name]="'q' + draft.answer.questionNumber" [value]="choice.id" [(ngModel)]="draft.single" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
                         }
-                        <label [for]="'c' + draft.answer.questionNumber + '-' + choice.id">{{ letter(index) }}. {{ choice.content }}</label>
+                        <label [for]="'c' + draft.answer.questionNumber + '-' + choice.id">{{ letter(index) }}. {{ choice.content }}@if (choice.isCorrect) { <span class="key-mark">Đáp án</span> }</label>
                       </div>
                     }
                   </div>
                 </div>
               } @empty {
-                <p class="muted">Không có câu mơ hồ hoặc bỏ trống.</p>
+                <p class="muted">Không có câu đã tô để đối chiếu.</p>
               }
             </p-accordion-content>
           </p-accordion-panel>
@@ -99,7 +99,7 @@
                         } @else {
                           <p-radiobutton [name]="'q' + draft.answer.questionNumber" [value]="choice.id" [(ngModel)]="draft.single" [inputId]="'c' + draft.answer.questionNumber + '-' + choice.id" [disabled]="locked() || pending()" />
                         }
-                        <label [for]="'c' + draft.answer.questionNumber + '-' + choice.id">{{ letter(index) }}. {{ choice.content }}</label>
+                        <label [for]="'c' + draft.answer.questionNumber + '-' + choice.id">{{ letter(index) }}. {{ choice.content }}@if (choice.isCorrect) { <span class="key-mark">Đáp án</span> }</label>
                       </div>
                     }
                   </div>

@@ -20,12 +20,24 @@ public sealed class OmrPageSplitter : IOmrPageSplitter
             var image = page.GetImages()
                 .OrderByDescending(item => (long)item.WidthInSamples * item.HeightInSamples)
                 .FirstOrDefault();
-            if (image is not null && image.TryGetPng(out var png) && png.Length > 0)
+            // Máy scan Canon nhúng JPEG. Thư viện không ghép được PNG thì giữ nguyên dòng JPEG đó.
+            if (image is not null && image.TryGetPng(out var png) && png is { Length: > 0 })
                 pages.Add(new OmrPageImage(page.Number, "image/png", png, null));
+            else if (image is not null && TryJpeg(image.RawBytes, out var jpeg))
+                pages.Add(new OmrPageImage(page.Number, "image/jpeg", jpeg, null));
             else
                 pages.Add(new OmrPageImage(page.Number, contentType, [], "Trang PDF không chứa ảnh phiếu."));
         }
 
         return pages;
+    }
+
+    private static bool TryJpeg(ReadOnlySpan<byte> raw, out byte[] jpeg)
+    {
+        jpeg = [];
+        if (raw.Length < 3 || raw[0] != 0xFF || raw[1] != 0xD8 || raw[2] != 0xFF)
+            return false;
+        jpeg = raw.ToArray();
+        return true;
     }
 }

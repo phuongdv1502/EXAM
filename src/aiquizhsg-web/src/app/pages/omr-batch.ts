@@ -6,7 +6,7 @@ import { forkJoin, interval, switchMap, takeWhile } from 'rxjs';
 import { OmrAnswerKeyItem, OmrBatch, OmrBatchStats, OmrResultRow, OmrSheet } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
-import { CameraFacing, cameraDeviceId, openCameraStream } from './omr-camera';
+import { CameraFacing, cameraDeviceId, cameraFailure, openCameraStream } from './omr-camera';
 import { OmrScanPanel } from './omr-scan';
 
 @Component({
@@ -250,8 +250,8 @@ export class OmrBatchPage extends Page implements OnInit {
     }
     try {
       this.stream = await openCameraStream(this.facing, 1920, 1080);
-    } catch {
-      this.cameraError = 'Không mở được camera. Cho phép quyền camera trên trình duyệt, hoặc tải ảnh phiếu lên.';
+    } catch (error) {
+      this.cameraError = cameraFailure(error, 'Không mở được camera. Cho phép quyền camera trên trình duyệt, hoặc tải ảnh phiếu lên.');
       this.cdr.markForCheck();
       return;
     }

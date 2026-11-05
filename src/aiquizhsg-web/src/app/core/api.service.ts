@@ -164,13 +164,13 @@ export class ApiService {
     return this.post(`/exams/${id}/sheet-template`, { omrTemplateId });
   }
 
-  examSheets(id: number, options?: { count?: number; fillStudentCode?: boolean; fillExamCode?: boolean }): Observable<Blob> {
+  examSheets(id: number, options?: { count?: number; fillStudentCode?: boolean; fillExamCode?: boolean }): Observable<string[]> {
     const params = new URLSearchParams();
     if (options?.count && options.count > 0) params.set('count', String(options.count));
     if (options?.fillStudentCode === false) params.set('fillStudentCode', 'false');
     if (options?.fillExamCode === true) params.set('fillExamCode', 'true');
     const query = params.toString();
-    return this.blob(`/exams/${id}/sheets${query ? `?${query}` : ''}`);
+    return this.get<string[]>(`/exams/${id}/sheets${query ? `?${query}` : ''}`);
   }
 
   examVariants(id: number): Observable<ExamVariant[]> {

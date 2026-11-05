@@ -24,3 +24,13 @@ export async function openCameraStream(facing: CameraFacing, width: number, heig
 export function cameraDeviceId(stream: MediaStream | null): string {
   return stream?.getVideoTracks()[0]?.getSettings().deviceId ?? '';
 }
+
+// Phân biệt máy không có camera với trường hợp người dùng chặn quyền.
+export function cameraFailure(error: unknown, fallback: string): string {
+  const name = error instanceof DOMException ? error.name : '';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError' || name === 'DevicesNotFoundError')
+    return 'Không tìm thấy camera. Hãy cắm camera hoặc bật camera trong Windows rồi thử lại.';
+  if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError')
+    return 'Camera đang bị ứng dụng khác dùng. Hãy đóng ứng dụng đó rồi thử lại.';
+  return fallback;
+}

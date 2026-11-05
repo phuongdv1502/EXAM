@@ -59,7 +59,7 @@ public class ExamsController(IExamService exams, IExamGenerationService generati
         return ApiResults.From(await exams.PublishAsync(id, actor, ct));
     }
 
-    // In phiếu PDF theo số bản; có thể tô sẵn ô SBD / mã đề.
+    // Ảnh từng trang phiếu. Trang web đưa vào hộp thoại in, không tải file.
     [HttpGet("{id:long}/sheets")]
     public async Task<IActionResult> Sheets(
         long id,
@@ -73,7 +73,7 @@ public class ExamsController(IExamService exams, IExamGenerationService generati
         var result = await omr.PrintSheetsAsync(id, count, fillStudentCode, fillExamCode, actor, ct);
         if (result.Status != OperationStatus.Ok || result.Value is null)
             return ApiResults.From(result);
-        return File(result.Value, "application/pdf", $"phieu-de-{id}.pdf");
+        return Ok(result.Value.Select(page => Convert.ToBase64String(page)).ToList());
     }
 
     [HttpGet("{id:long}/variants")]

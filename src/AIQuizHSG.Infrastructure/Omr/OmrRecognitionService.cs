@@ -11,17 +11,33 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
 {
     public OmrRecognitionResult Recognize(ReadOnlyMemory<byte> image, OmrTemplateConfig config)
     {
-        using var bitmap = Decode(image);
-        if (bitmap is null)
+        using var decoded = Decode(image);
+        if (decoded is null)
             return new OmrRecognitionResult { Error = "Không đọc được ảnh phiếu." };
 
-        var qr = ReadQr(bitmap);
+        // Ảnh chụp tay còn nền xung quanh. Kéo tờ phiếu về trang A4 rồi mới đọc ô số báo danh.
+        var page = OmrPageAlign.Straighten(decoded);
+        // Sau khi kéo mép giấy, canh lại theo ô mốc cột. Scan máy in còn lề trắng dưới tờ.
+        var fitted = OmrPageAlign.AlignForm(page, config);
+        if (!ReferenceEquals(fitted, page))
+        {
+            if (!ReferenceEquals(page, decoded))
+                page.Dispose();
+            page = fitted;
+        }
+
+        try
+        {
+        var qr = ReadQr(page);
         var found = OmrRules.TryReadQr(qr, out var qrStudent, out var qrExam);
-        ReadCodes(bitmap, config, out var bubbledStudent, out var bubbledExam);
+        ReadCodes(page, config, out var bubbledStudent, out var bubbledExam);
+        // Ảnh chụp tay lệch so với mẫu. Số báo danh đã tự canh. Cột đáp án bám mép khung của chính cột đó.
+        var answerShift = AlignAnswers(page, config);
         var bubbles = new List<OmrBubbleReading>(config.Bubbles.Count);
         foreach (var bubble in config.Bubbles)
         {
-            var ratio = DarkRatio(bitmap, bubble);
+            answerShift.TryGetValue(bubble.QuestionNumber, out var nudge);
+            var ratio = DarkRatio(page, bubble, nudge);
             var status = ratio >= config.MarkedRatio
                 ? nameof(OmrMarkStatus.Marked)
                 : ratio <= config.BlankRatio ? nameof(OmrMarkStatus.Blank) : nameof(OmrMarkStatus.Ambiguous);
@@ -41,6 +57,12 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
             QrFound = found,
             Bubbles = bubbles
         };
+        }
+        finally
+        {
+            if (!ReferenceEquals(page, decoded))
+                page.Dispose();
+        }
     }
 
     private static SKBitmap? Decode(ReadOnlyMemory<byte> image)
@@ -111,6 +133,162 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
     }
 
     // QR có thì dùng. Không có thì đọc ô tô số báo danh và mã đề trên phiếu.
+    private readonly record struct NudgeShift(double X, double Y);
+
+    // Méo giấy làm cột đáp án lệch khác lưới số báo danh. Lấy mép trên của khung cột rồi dịch cả cột theo mép đó.
+    private static Dictionary<int, NudgeShift> AlignAnswers(SKBitmap image, OmrTemplateConfig config)
+    {
+        var shifts = new Dictionary<int, NudgeShift>();
+        var plan = OmrFormLayout.For(config);
+        foreach (var column in plan.Columns)
+        {
+            var shift = AlignFrame(image, OmrFormLayout.Pixels(column.Area));
+            foreach (var number in column.Questions)
+            {
+                if (number > 0)
+                    shifts[number] = shift;
+            }
+        }
+
+        foreach (var block in plan.Truths)
+        {
+            var shift = AlignFrame(image, OmrFormLayout.Pixels(block.Area));
+            foreach (var row in block.Rows)
+                shifts[row.QuestionNumber] = shift;
+        }
+
+        return shifts;
+    }
+
+    private static NudgeShift AlignFrame(SKBitmap image, (int Left, int Top, int Width, int Height) frame)
+    {
+        var x0 = Math.Max(0, frame.Left - 36);
+        var x1 = Math.Min(image.Width - 1, frame.Left + frame.Width + 36);
+        var span = Math.Max(1, x1 - x0);
+        var bestY = -1;
+        var best = 0;
+        var yStart = Math.Max(0, frame.Top - 28);
+        // Khung in có thể thấp hơn mẫu khoảng một hàng sau khi kéo trang.
+        var yEnd = Math.Min(image.Height - 1, frame.Top + 40);
+        for (var y = yStart; y <= yEnd; y++)
+        {
+            var dark = 0;
+            for (var x = x0; x <= x1; x++)
+            {
+                if (Ink(image, x, y))
+                    dark++;
+            }
+
+            if (dark <= best)
+                continue;
+            best = dark;
+            bestY = y;
+        }
+
+        // Không thấy mép khung thì giữ đúng tọa độ mẫu, tránh nhảy sang ô bên cạnh.
+        if (bestY < 0 || best < span * 0.45)
+            return default;
+
+        // Đoạn kẻ trùng giữa cạnh trên của khung. Chữ A–D và ô tô không kéo mép trái.
+        var left = frame.Left;
+        var innerLeft = frame.Left + frame.Width / 5;
+        var innerRight = frame.Left + frame.Width * 4 / 5;
+        var runStart = -1;
+        var runLength = 0;
+        var bestStart = frame.Left;
+        var bestLength = 0;
+        void ConsiderRun()
+        {
+            if (runStart < 0 || runLength <= bestLength)
+                return;
+            var runEnd = runStart + runLength - 1;
+            if (runEnd < innerLeft || runStart > innerRight)
+                return;
+            bestLength = runLength;
+            bestStart = runStart;
+        }
+
+        for (var x = x0; x <= x1; x++)
+        {
+            if (Ink(image, x, bestY))
+            {
+                if (runStart < 0)
+                    runStart = x;
+                runLength++;
+                continue;
+            }
+
+            ConsiderRun();
+            runStart = -1;
+            runLength = 0;
+        }
+
+        ConsiderRun();
+        // Đoạn kẻ bắt đầu lệch vào trong là hàng chữ A–D, không phải mép khung.
+        if (bestLength >= span * 0.35 && bestStart <= frame.Left + 12)
+            left = bestStart;
+
+        var dx = left - frame.Left;
+        var dy = bestY - frame.Top;
+        // Ảnh chụp nghiêng hoặc scan còn lề trắng có thể đẩy cột lệch hơn một hàng.
+        if (Math.Abs(dx) > 72)
+            dx = 0;
+        if (Math.Abs(dy) > 48)
+            return default;
+        return new NudgeShift(dx / (double)image.Width, dy / (double)image.Height);
+    }
+
+    private static bool Ink(SKBitmap image, int x, int y)
+    {
+        var pixel = image.GetPixel(x, y);
+        return pixel.Red * 0.299 + pixel.Green * 0.587 + pixel.Blue * 0.114 < 150;
+    }
+
+    private static NudgeShift NudgeGrid(SKBitmap image, OmrFormLayout.CodeGrid grid, double marked)
+    {
+        var best = new NudgeShift(0, 0);
+        var bestScore = Contrast(image, grid, best, marked);
+        // Chỉ dò trong nửa ô. Dò xa hơn thì cả lưới trượt sang hàng bên cạnh và đọc sai mọi chữ số.
+        var cellWidth = (grid.Area.Width * OmrFormLayout.PageWidth - grid.LabelWidth) / Math.Max(1, grid.Columns);
+        var reachY = Math.Min(0.028, grid.Cell * 0.45 / OmrFormLayout.PageHeight);
+        var reachX = Math.Min(0.016, cellWidth * 0.45 / OmrFormLayout.PageWidth);
+        for (var y = -reachY; y <= reachY + 1e-9; y += reachY / 5)
+        {
+            for (var x = -reachX; x <= reachX + 1e-9; x += reachX / 4)
+            {
+                var shift = new NudgeShift(x, y);
+                var score = Contrast(image, grid, shift, marked);
+                if (score <= bestScore)
+                    continue;
+                bestScore = score;
+                best = shift;
+            }
+        }
+
+        return best;
+    }
+
+    private static double Contrast(SKBitmap image, OmrFormLayout.CodeGrid grid, NudgeShift shift, double marked)
+    {
+        var score = 0d;
+        foreach (var column in grid.Bubbles.GroupBy(item => item.Column))
+        {
+            var ratios = column.Select(item => DarkRatio(image, new OmrBubbleConfig
+            {
+                X = item.Area.X,
+                Y = item.Area.Y,
+                Width = item.Area.Width,
+                Height = item.Area.Height
+            }, shift)).OrderByDescending(item => item).ToList();
+            if (ratios.Count == 0 || ratios[0] < marked)
+                continue;
+            var next = ratios.Count > 1 ? ratios[1] : 0;
+            score += ratios[0] - next;
+        }
+
+        return score;
+    }
+
     private static void ReadCodes(SKBitmap image, OmrTemplateConfig config, out string? studentCode, out string? examCode)
     {
         studentCode = null;
@@ -124,6 +302,7 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
                 continue;
 
             var columns = new List<OmrCodeGrid.Column>();
+            var nudge = NudgeGrid(image, grid, config.MarkedRatio);
             foreach (var column in grid.Bubbles.GroupBy(item => item.Column))
             {
                 var cells = column.Select(item => (item.Digit, Ratio: DarkRatio(image, new OmrBubbleConfig
@@ -132,7 +311,7 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
                     Y = item.Area.Y,
                     Width = item.Area.Width,
                     Height = item.Area.Height
-                }))).ToList();
+                }, nudge))).ToList();
                 columns.Add(ReadColumn(column.Key, cells, config.MarkedRatio));
             }
 
@@ -165,12 +344,13 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
         return new OmrCodeGrid.Column(column, null, true);
     }
 
-    private static double DarkRatio(SKBitmap image, OmrBubbleConfig bubble)
+    private static double DarkRatio(SKBitmap image, OmrBubbleConfig bubble, NudgeShift nudge = default)
     {
-        var left = Clamp((int)Math.Round(bubble.X * image.Width), 0, image.Width - 1);
-        var top = Clamp((int)Math.Round(bubble.Y * image.Height), 0, image.Height - 1);
-        var right = Clamp(left + Math.Max(1, (int)Math.Round(bubble.Width * image.Width)), left + 1, image.Width);
-        var bottom = Clamp(top + Math.Max(1, (int)Math.Round(bubble.Height * image.Height)), top + 1, image.Height);
+        // Lấy lòng ô, bỏ vòng in sẵn. Nudge dịch cả lưới khi ảnh lệch nửa hàng.
+        var left = Clamp((int)Math.Round((bubble.X + nudge.X + bubble.Width * 0.22) * image.Width), 0, image.Width - 1);
+        var top = Clamp((int)Math.Round((bubble.Y + nudge.Y + bubble.Height * 0.22) * image.Height), 0, image.Height - 1);
+        var right = Clamp(left + Math.Max(1, (int)Math.Round(bubble.Width * 0.56 * image.Width)), left + 1, image.Width);
+        var bottom = Clamp(top + Math.Max(1, (int)Math.Round(bubble.Height * 0.56 * image.Height)), top + 1, image.Height);
         var dark = 0;
         var total = 0;
         for (var y = top; y < bottom; y++)

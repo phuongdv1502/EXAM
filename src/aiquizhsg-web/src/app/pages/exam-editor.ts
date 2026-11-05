@@ -685,35 +685,48 @@ export class ExamEditorPage extends Page implements OnInit {
       fillStudentCode: this.fillMarkMode === 'seat' || this.fillMarkMode === 'both',
       fillExamCode: this.fillMarkMode === 'exam' || this.fillMarkMode === 'both',
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (blob) => this.openPrintDialog(blob, count),
+      next: (pages) => this.openPrintDialog(pages),
       error: (error: unknown) => {
         void this.reportSheetError(error);
       },
     });
   }
 
-  // Mở hộp thoại in của trình duyệt — tại đó chọn máy in và số bản sao.
-  private openPrintDialog(blob: Blob, count: number): void {
-    const url = URL.createObjectURL(blob);
+  // Đưa ảnh phiếu vào trang rồi mở hộp thoại in của trình duyệt.
+  private openPrintDialog(pages: string[]): void {
     document.getElementById('sheet-print')?.remove();
-    const frame = document.createElement('iframe');
-    frame.id = 'sheet-print';
-    frame.title = 'Phiếu thi';
-    frame.onload = () => {
+    if (pages.length === 0) {
+      this.fail('Không có trang phiếu để in.');
+      return;
+    }
+    const holder = document.createElement('div');
+    holder.id = 'sheet-print';
+    let pending = pages.length;
+    const ready = () => {
+      pending -= 1;
+      if (pending > 0) return;
       this.printing = false;
-      this.showOk(`Đã tạo ${count} phiếu. Trong hộp thoại in có thể chọn thêm số bản sao.`);
       this.cdr.markForCheck();
       const finish = () => {
-        frame.remove();
-        URL.revokeObjectURL(url);
+        holder.remove();
         window.removeEventListener('afterprint', finish);
       };
       window.addEventListener('afterprint', finish);
-      frame.contentWindow?.focus();
-      frame.contentWindow?.print();
+      window.print();
     };
-    frame.src = url;
-    document.body.appendChild(frame);
+    for (const page of pages) {
+      const image = document.createElement('img');
+      image.alt = 'Phiếu thi';
+      image.onload = ready;
+      image.onerror = () => {
+        holder.remove();
+        this.fail('Không mở được phiếu để in.');
+        this.cdr.markForCheck();
+      };
+      image.src = `data:image/png;base64,${page}`;
+      holder.appendChild(image);
+    }
+    document.body.appendChild(holder);
   }
 
   private async reportSheetError(error: unknown): Promise<void> {

@@ -1,9 +1,9 @@
-import { Component, ElementRef, HostListener, OnInit, ViewChild, input, output } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, OnInit, ViewChild, input, output } from '@angular/core';
 import { OmrScanResult } from '../core/models';
 import { Page } from '../core/page';
 import { UI } from '../core/ui';
 import { apiMessage } from '../core/api-error';
-import { CameraFacing, cameraDeviceId, openCameraStream } from './omr-camera';
+import { CameraFacing, cameraDeviceId, cameraFailure, openCameraStream } from './omr-camera';
 import { Point, SheetLook, SheetMiss, findSheet, orderCorners, sheetPageHeight, sheetPageWidth, warpSheet } from './omr-sheet-frame';
 
 @Component({
@@ -11,7 +11,7 @@ import { Point, SheetLook, SheetMiss, findSheet, orderCorners, sheetPageHeight, 
   imports: [...UI],
   templateUrl: './omr-scan.html',
 })
-export class OmrScanPanel extends Page implements OnInit {
+export class OmrScanPanel extends Page implements OnInit, AfterViewInit {
   readonly batchId = input<number | null>(null);
   readonly closed = output<void>();
   readonly scanned = output<void>();
@@ -31,16 +31,20 @@ export class OmrScanPanel extends Page implements OnInit {
   private previousCorners: Point[] | null = null;
   private held: Uint8ClampedArray | null = null;
   private stable = 0;
-  private busy = false;
+  busy = false;
   private waitUntil = 0;
   private scratch: HTMLCanvasElement | null = null;
   private sheetCanvas: HTMLCanvasElement | null = null;
   private audio: AudioContext | null = null;
+  private cameraTries = 0;
 
   ngOnInit(): void {
     document.body.style.overflow = 'hidden';
     this.armChime();
     this.destroyRef.onDestroy(() => this.stop());
+  }
+
+  ngAfterViewInit(): void {
     void this.startCamera();
   }
 
@@ -75,22 +79,49 @@ export class OmrScanPanel extends Page implements OnInit {
     this.cdr.markForCheck();
   }
 
+  shoot(): void {
+    if (this.busy || this.cameraError) return;
+    const video = this.preview?.nativeElement;
+    if (!video?.videoWidth) {
+      this.phase = 'Camera chưa có hình. Đợi một chút rồi chụp lại.';
+      this.cdr.markForCheck();
+      return;
+    }
+    const look = this.inspect(video);
+    if (!look.corners) {
+      this.phase = 'Chưa thấy đủ phiếu. Đưa cả tờ vào khung rồi chụp.';
+      this.cdr.markForCheck();
+      return;
+    }
+    const print = this.fingerprint(video);
+    const corners = orderCorners(look.corners, this.previousCorners?.[0] ?? null);
+    this.guide = this.trace(video, corners);
+    this.previousCorners = corners;
+    this.capture(print ?? new Uint8ClampedArray(1), corners);
+  }
+
   private async startCamera(): Promise<void> {
     if (!navigator.mediaDevices?.getUserMedia) {
       this.cameraError = 'Trình duyệt này không mở được camera.';
       this.cdr.markForCheck();
       return;
     }
-    try {
-      this.stream = await openCameraStream(this.facing, 1920, 1440);
-    } catch {
-      this.cameraError = 'Không mở được camera. Hãy cho phép quyền camera trên trình duyệt.';
+    const video = this.preview?.nativeElement;
+    if (!video) {
+      if (this.cameraTries++ < 12) {
+        requestAnimationFrame(() => void this.startCamera());
+        return;
+      }
+      this.cameraError = 'Không hiện được khung camera.';
       this.cdr.markForCheck();
       return;
     }
-    const video = this.preview?.nativeElement;
-    if (!video) {
-      this.stop();
+    this.cameraTries = 0;
+    try {
+      this.stream = await openCameraStream(this.facing, 1920, 1440);
+    } catch (error) {
+      this.cameraError = cameraFailure(error, 'Không mở được camera. Hãy cho phép quyền camera trên trình duyệt.');
+      this.cdr.markForCheck();
       return;
     }
     video.srcObject = this.stream;
@@ -102,7 +133,7 @@ export class OmrScanPanel extends Page implements OnInit {
       return;
     }
     this.phase = 'Đưa cả phiếu vào khung.';
-    this.timer = window.setInterval(() => this.sample(), 500);
+    this.timer = window.setInterval(() => this.sample(), 200);
     this.cdr.markForCheck();
   }
 
@@ -137,7 +168,7 @@ export class OmrScanPanel extends Page implements OnInit {
       return;
     }
 
-    const corners = orderCorners(look.corners, null);
+    const corners = orderCorners(look.corners, this.previousCorners?.[0] ?? null);
     this.guide = this.trace(video, corners);
     if (look.brightness < 70) {
       this.holdOff(print, corners, 'Chưa đủ sáng.');
@@ -154,7 +185,7 @@ export class OmrScanPanel extends Page implements OnInit {
     this.previous = print;
     this.stable = moved ? 1 : this.stable + 1;
     this.ready = !moved;
-    if (this.stable >= 3 && print && Date.now() >= this.waitUntil) {
+    if (this.stable >= 4 && print && Date.now() >= this.waitUntil) {
       this.capture(print, corners);
       return;
     }
@@ -213,7 +244,7 @@ export class OmrScanPanel extends Page implements OnInit {
   }
 
   private inspect(video: HTMLVideoElement): SheetLook {
-    const sampleWidth = 240;
+    const sampleWidth = 480;
     const sampleHeight = Math.max(1, Math.round((video.videoHeight * sampleWidth) / video.videoWidth));
     this.sheetCanvas ??= document.createElement('canvas');
     this.sheetCanvas.width = sampleWidth;

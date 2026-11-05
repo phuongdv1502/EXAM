@@ -18,11 +18,11 @@ export const sheetPageHeight = 1697;
 export function findSheet(pixels: Uint8ClampedArray, width: number, height: number): SheetLook {
   const gray = luma(pixels);
   const soft = boxBlur(gray, width, height);
-  const paper = paperMask(soft, width, height, otsu(soft));
+  const paper = paperMask(soft, width, height);
   const blob = largestBlob(paper, width, height);
   if (!blob) return { corners: null, problem: 'missing', brightness: 0, sharpness: 0 };
   const corners = [blob.topLeft, blob.topRight, blob.bottomRight, blob.bottomLeft];
-  if (blob.area / (width * height) < 0.28) return { corners, problem: 'far', brightness: 0, sharpness: 0 };
+  if (blob.area / (width * height) < 0.22) return { corners, problem: 'far', brightness: 0, sharpness: 0 };
   if (clipped(corners, width, height)) return { corners, problem: 'clipped', brightness: 0, sharpness: 0 };
   if (!quadFits(corners)) return { corners, problem: 'skew', brightness: 0, sharpness: 0 };
   const stats = measure(gray, width, height, corners);
@@ -179,48 +179,30 @@ function boxBlur(source: Uint8Array, width: number, height: number): Uint8Array 
   return blurred;
 }
 
-function otsu(gray: Uint8Array): number {
+function paperMask(gray: Uint8Array, width: number, height: number): Uint8Array {
   const histogram = new Uint32Array(256);
   for (const value of gray) histogram[value]++;
-  let total = 0;
-  for (let tone = 0; tone < 256; tone++) total += tone * histogram[tone];
-  let backgroundSum = 0;
-  let backgroundWeight = 0;
-  let best = 0;
-  let threshold = 128;
-  for (let tone = 0; tone < 256; tone++) {
-    backgroundWeight += histogram[tone];
-    if (!backgroundWeight) continue;
-    const foregroundWeight = gray.length - backgroundWeight;
-    if (!foregroundWeight) break;
-    backgroundSum += tone * histogram[tone];
-    const difference = backgroundSum / backgroundWeight - (total - backgroundSum) / foregroundWeight;
-    const between = backgroundWeight * foregroundWeight * difference * difference;
-    if (between > best) {
-      best = between;
-      threshold = tone;
-    }
+  let brighter = 0;
+  let strong = 180;
+  for (let tone = 255; tone >= 0; tone--) {
+    brighter += histogram[tone];
+    if (brighter < gray.length * 0.38) continue;
+    strong = Math.max(140, tone);
+    break;
   }
-  return threshold;
-}
-
-function paperMask(gray: Uint8Array, width: number, height: number, threshold: number): Uint8Array {
-  const outside = new Uint8Array(gray.length);
+  const weak = Math.max(1, strong - 36);
+  const paper = new Uint8Array(gray.length);
   const stack: number[] = [];
   const push = (x: number, y: number) => {
     if (x < 0 || y < 0 || x >= width || y >= height) return;
     const index = y * width + x;
-    if (outside[index] || gray[index] >= threshold) return;
-    outside[index] = 1;
+    if (paper[index] || gray[index] < weak) return;
+    paper[index] = 1;
     stack.push(index);
   };
-  for (let x = 0; x < width; x++) {
-    push(x, 0);
-    push(x, height - 1);
-  }
-  for (let y = 1; y < height - 1; y++) {
-    push(0, y);
-    push(width - 1, y);
+  for (let index = 0; index < gray.length; index++) {
+    if (gray[index] < strong) continue;
+    push(index % width, (index - (index % width)) / width);
   }
   while (stack.length) {
     const index = stack.pop() as number;
@@ -231,8 +213,6 @@ function paperMask(gray: Uint8Array, width: number, height: number, threshold: n
     push(x, y + 1);
     push(x, y - 1);
   }
-  const paper = new Uint8Array(gray.length);
-  for (let index = 0; index < gray.length; index++) paper[index] = outside[index] ? 0 : 1;
   return paper;
 }
 
@@ -302,10 +282,11 @@ function largestBlob(paper: Uint8Array, width: number, height: number): BlobCorn
 }
 
 function clipped(corners: Point[], width: number, height: number): boolean {
-  const touching = corners.filter(
-    (point) => point.x <= 1 || point.y <= 1 || point.x >= width - 2 || point.y >= height - 2,
-  ).length;
-  return touching >= 2;
+  const left = corners.filter((point) => point.x <= 0).length;
+  const right = corners.filter((point) => point.x >= width - 1).length;
+  const top = corners.filter((point) => point.y <= 0).length;
+  const bottom = corners.filter((point) => point.y >= height - 1).length;
+  return left >= 2 || right >= 2 || top >= 2 || bottom >= 2;
 }
 
 function quadFits(corners: Point[]): boolean {
