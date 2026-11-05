@@ -68,7 +68,7 @@ public static class DatabaseSeeder
         await SeedSchoolSampleAsync(db, unitOfWork, passwords, config, ct);
         await SeedQuestionsAsync(db, unitOfWork, config, ct);
         await SeedFormStylesAsync(db, ct);
-        await SeedOmrTemplatesAsync(unitOfWork, config, ct);
+        await SeedOmrTemplatesAsync(unitOfWork, config, logger, ct);
         await SeedTeachingSubjectsAsync(db, ct);
     }
 
@@ -98,12 +98,19 @@ public static class DatabaseSeeder
     }
 
     // Ba mẫu phiếu đang dùng. Chỉ thêm khi chưa có mã, không ghi đè tọa độ đã lưu.
-    private static async Task SeedOmrTemplatesAsync(IUnitOfWork unitOfWork, IConfiguration config, CancellationToken ct)
+    private static async Task SeedOmrTemplatesAsync(IUnitOfWork unitOfWork, IConfiguration config, ILogger logger, CancellationToken ct)
     {
-        var username = config["Seed:Username"] ?? "admin";
-        var admin = await unitOfWork.Users.FindByUsernameAsync(username, ct);
+        // Không khóa vào đúng tên admin. Production đổi tên đăng nhập thì vẫn gắn mẫu cho một quản trị.
+        var username = config["Seed:Username"]?.Trim();
+        var admin = string.IsNullOrWhiteSpace(username)
+            ? null
+            : await unitOfWork.Users.FindByUsernameAsync(username, ct);
+        admin ??= (await unitOfWork.Users.ListByRoleAsync(RoleCodes.Admin, ct)).FirstOrDefault();
         if (admin is null)
+        {
+            logger.LogWarning("Chưa có tài khoản quản trị nên chưa thêm mẫu phiếu PHIEU-KIEM-TRA, PHIEU-BO, PHIEU-TU-LUAN.");
             return;
+        }
 
         var now = DateTime.UtcNow;
         await Add(unitOfWork, admin.Id, now, "PHIEU-KIEM-TRA", () =>
@@ -114,10 +121,11 @@ public static class DatabaseSeeder
             OmrTemplateConfig.TryFromEssay([("BonDapAn", 8), ("DungSai", 4), ("DienSo", 2)], out var layout) ? layout : null, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
-        static async Task Add(IUnitOfWork unitOfWork, long userId, DateTime now, string code, Func<OmrTemplateConfig?> build, CancellationToken ct)
+        async Task Add(IUnitOfWork unitOfWork, long userId, DateTime now, string code, Func<OmrTemplateConfig?> build, CancellationToken ct)
         {
             if (await unitOfWork.Omr.TemplateCodeExistsAsync(code, 1, ct))
                 return;
+            logger.LogInformation("Thêm mẫu phiếu {Code}.", code);
             var layout = build();
             if (layout is null)
                 return;

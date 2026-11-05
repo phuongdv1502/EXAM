@@ -19,7 +19,11 @@
   <div class="split omr-review">
     <p-card header="Ảnh phiếu">
       @if (imageUrl) {
-        <img class="sheet-image" [src]="imageUrl" alt="Ảnh phiếu đã tải" />
+        @if (fileKind === 'pdf') {
+          <iframe class="sheet-frame" [src]="previewUrl" title="Phiếu PDF"></iframe>
+        } @else {
+          <img class="sheet-image" [src]="imageUrl" alt="Ảnh phiếu đã tải" />
+        }
       } @else {
         <p class="muted">Phiếu này không có ảnh để xem.</p>
       }

@@ -152,7 +152,8 @@ public class OmrController(IOmrService omr) : ControllerBase
         var result = await omr.OpenFileAsync(id, actor, ct);
         if (result.Status != Application.Common.OperationStatus.Ok || result.Value.Content is null)
             return ApiResults.From(result);
-        return File(result.Value.Content, result.Value.ContentType, result.Value.FileName);
+        // Hiện phiếu trên trang đối soát. Tên tệp gốc thường là PDF nên không ép trình duyệt tải về.
+        return File(result.Value.Content, result.Value.ContentType);
     }
 
     [HttpPut("sheets/{id:long}/review")]

@@ -26,6 +26,8 @@ public class HealthController(IUnitOfWork unitOfWork) : ControllerBase
         if (!ready)
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { status = "Unavailable", database = "Disconnected" });
 
-        return Ok(new { status = "Healthy", database = "Ready" });
+        // Số kiểu phiếu để biết migration đã bổ sung mẫu mới hay process cũ vẫn đang chạy.
+        var styles = await unitOfWork.Omr.ListFormStylesAsync(ct);
+        return Ok(new { status = "Healthy", database = "Ready", formStyles = styles.Count });
     }
 }

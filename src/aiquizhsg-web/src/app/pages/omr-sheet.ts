@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { blankToNull } from '../core/format';
@@ -19,10 +20,13 @@ interface Draft {
 })
 export class OmrSheetPage extends Page implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly sanitizer = inject(DomSanitizer);
   private objectUrl: string | null = null;
 
   sheet: OmrSheetDetail | null = null;
   imageUrl: string | null = null;
+  previewUrl: SafeResourceUrl | null = null;
+  fileKind: 'image' | 'pdf' | null = null;
   studentCode = '';
   examCode = '';
   reviewNote = '';
@@ -127,15 +131,25 @@ export class OmrSheetPage extends Page implements OnInit {
   private loadImage(): void {
     this.watch(this.api.omrSheetFile(this.sheetId()), (blob) => {
       if (blob.type.includes('json') || blob.type.includes('text')) {
-        this.imageUrl = null;
+        this.clearPreview();
         return;
       }
       this.revoke();
       this.objectUrl = URL.createObjectURL(blob);
+      // PDF không đưa vào thẻ ảnh. Mở trong khung để trình duyệt khỏi tải tệp về.
+      this.fileKind = blob.type.includes('pdf') ? 'pdf' : 'image';
+      this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
       this.imageUrl = this.objectUrl;
     }, () => {
-      this.imageUrl = null;
+      this.clearPreview();
     });
+  }
+
+  private clearPreview(): void {
+    this.revoke();
+    this.imageUrl = null;
+    this.previewUrl = null;
+    this.fileKind = null;
   }
 
   private revoke(): void {
