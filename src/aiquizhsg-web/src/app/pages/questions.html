@@ -46,7 +46,7 @@
           <th>Nội dung</th>
           <th>Phân loại</th>
           <th>Trạng thái</th>
-          <th></th>
+          <th class="q-actions"></th>
         </tr>
       </ng-template>
       <ng-template #body let-item>
@@ -61,23 +61,10 @@
             @if (item.difficultyName) { <div class="muted">{{ item.difficultyName }}</div> }
           </td>
           <td><p-tag [value]="label(labels.questionStatus, item.status)" [severity]="tagColor(item.status)" /></td>
-          <td>
-            <div class="row-actions" style="justify-content: flex-end">
-              <a pButton size="small" severity="secondary" [outlined]="true" [routerLink]="['/questions', item.id]">Sửa</a>
-              @if (item.status === 'Draft' || item.status === 'Rejected') {
-                <p-button label="Gửi duyệt" size="small" (onClick)="submit(item)" />
-              }
-              @if (item.status === 'PendingReview') {
-                <p-button label="Duyệt" size="small" (onClick)="approve(item)" />
-                <p-button label="Từ chối" size="small" severity="danger" [outlined]="true" (onClick)="rejectingId = item.id" />
-              }
-            </div>
-            @if (rejectingId === item.id) {
-              <div class="row-actions" style="margin-top: 0.5rem; justify-content: flex-end">
-                <input pInputText [(ngModel)]="rejectReason" name="rejectReason{{ item.id }}" placeholder="Lý do từ chối" />
-                <p-button label="Xác nhận" size="small" severity="danger" (onClick)="reject(item)" />
-              </div>
-            }
+          <td class="q-actions">
+            <button type="button" class="row-menu-btn" [class.open]="menuId === item.id" aria-label="Thao tác" (click)="toggleMenu(item, $event)">
+              <i class="pi pi-ellipsis-v" aria-hidden="true"></i>
+            </button>
           </td>
         </tr>
       </ng-template>
@@ -86,6 +73,29 @@
       </ng-template>
     </p-table>
     <p-paginator [first]="(page - 1) * pageSize" [rows]="pageSize" [totalRecords]="total" (onPageChange)="turn($event)" />
+    @if (menuItem; as item) {
+      <div class="row-menu-panel" role="menu" [class.down]="menuBox?.top != null" [style.top.px]="menuBox?.top" [style.bottom.px]="menuBox?.bottom" [style.right.px]="menuBox?.right" (click)="$event.stopPropagation()">
+        @if (rejectingId === item.id) {
+          <div class="row-menu-reject">
+            <label for="rejectReason">Lý do từ chối</label>
+            <input pInputText id="rejectReason" [(ngModel)]="rejectReason" name="rejectReason" placeholder="Nhập lý do" />
+            <div class="row-actions">
+              <p-button label="Huỷ" size="small" severity="secondary" [outlined]="true" (onClick)="cancelReject()" />
+              <p-button label="Xác nhận" size="small" severity="danger" (onClick)="reject(item)" />
+            </div>
+          </div>
+        } @else {
+          <a role="menuitem" [routerLink]="['/questions', item.id]" (click)="closeMenu()"><span class="menu-ico tone-edit"><i class="pi pi-pencil"></i></span><span>Sửa</span></a>
+          @if (item.status === 'Draft' || item.status === 'Rejected') {
+            <button type="button" role="menuitem" (click)="submit(item)"><span class="menu-ico tone-send"><i class="pi pi-send"></i></span><span>Gửi duyệt</span></button>
+          }
+          @if (item.status === 'PendingReview') {
+            <button type="button" role="menuitem" (click)="approve(item)"><span class="menu-ico tone-ok"><i class="pi pi-check"></i></span><span>Duyệt</span></button>
+            <button type="button" role="menuitem" class="danger" (click)="beginReject(item)"><span class="menu-ico tone-no"><i class="pi pi-times"></i></span><span>Từ chối</span></button>
+          }
+        }
+      </div>
+    }
   </div>
 </p-card>
 
@@ -105,7 +115,7 @@
       <span class="batch-form-icon" aria-hidden="true"><i class="pi pi-sparkles"></i></span>
       <div>
         <h2>Sinh câu bằng AI</h2>
-        <p>Chạy qua Ollama trên máy. Câu vào <strong>chờ duyệt</strong>, chưa đưa thẳng vào đề.</p>
+        <p>Chạy qua Ollama trên máy, từng câu một. Câu vào <strong>chờ duyệt</strong>, chưa đưa thẳng vào đề.</p>
       </div>
       <button type="button" class="drawer-close" aria-label="Đóng" [disabled]="loading" (click)="aiOpen = false">
         <i class="pi pi-times"></i>
@@ -117,11 +127,11 @@
       <div class="form-grid">
         <div class="field span-6">
           <label for="aiSubjectId">Môn</label>
-          <p-select inputId="aiSubjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="aiSubjectId" (ngModelChange)="loadAiTopics()" name="aiSubjectId" placeholder="Chọn môn" appendTo="body" [fluid]="true" />
+          <p-select inputId="aiSubjectId" [options]="subjects" optionLabel="name" optionValue="id" [(ngModel)]="aiSubjectId" (ngModelChange)="loadAiTopics()" name="aiSubjectId" placeholder="Chọn môn" appendTo="body" [fluid]="true" [disabled]="loading" />
         </div>
         <div class="field span-6">
           <label for="aiTopicId">Chuyên đề</label>
-          <p-select inputId="aiTopicId" [options]="aiTopics" optionLabel="name" optionValue="id" [(ngModel)]="aiTopicId" name="aiTopicId" placeholder="Chọn chuyên đề" appendTo="body" [fluid]="true" />
+          <p-select inputId="aiTopicId" [options]="aiTopics" optionLabel="name" optionValue="id" [(ngModel)]="aiTopicId" name="aiTopicId" placeholder="Chọn chuyên đề" appendTo="body" [fluid]="true" [disabled]="loading" />
         </div>
       </div>
     </div>
@@ -131,15 +141,15 @@
       <div class="form-grid">
         <div class="field span-4">
           <label for="aiType">Loại</label>
-          <p-select inputId="aiType" [options]="aiTypes" optionLabel="label" optionValue="value" [(ngModel)]="aiType" name="aiType" appendTo="body" [fluid]="true" />
+          <p-select inputId="aiType" [options]="aiTypes" optionLabel="label" optionValue="value" [(ngModel)]="aiType" name="aiType" appendTo="body" [fluid]="true" [disabled]="loading" />
         </div>
         <div class="field span-4">
           <label for="aiLevel">Mức</label>
-          <p-select inputId="aiLevel" [options]="choices.level" optionLabel="label" optionValue="value" [(ngModel)]="aiLevel" name="aiLevel" appendTo="body" [fluid]="true" />
+          <p-select inputId="aiLevel" [options]="choices.level" optionLabel="label" optionValue="value" [(ngModel)]="aiLevel" name="aiLevel" appendTo="body" [fluid]="true" [disabled]="loading" />
         </div>
         <div class="field span-4">
           <label for="aiCount">Số câu</label>
-          <p-inputNumber inputId="aiCount" [(ngModel)]="aiCount" name="aiCount" [min]="1" [max]="10" [showButtons]="true" [fluid]="true" />
+          <p-inputNumber inputId="aiCount" [(ngModel)]="aiCount" name="aiCount" [min]="1" [max]="10" [showButtons]="true" [fluid]="true" [disabled]="loading" />
         </div>
       </div>
     </div>
@@ -147,13 +157,25 @@
     <div class="ai-dialog-section">
       <div class="field">
         <label for="aiHint">Gợi ý thêm <span class="muted">(tuỳ chọn)</span></label>
-        <textarea pTextarea id="aiHint" name="aiHint" [(ngModel)]="aiHint" rows="3" placeholder="Ví dụ: tập trung vòng lặp for, không dùng đệ quy"></textarea>
+        <textarea pTextarea id="aiHint" name="aiHint" [(ngModel)]="aiHint" rows="3" [disabled]="loading" placeholder="Ví dụ: tập trung vòng lặp for, không dùng đệ quy"></textarea>
       </div>
     </div>
 
+    @if (loading && aiStep) {
+      <div class="ai-progress" aria-live="polite">
+        <div class="ai-progress-head">
+          <span>Đang sinh câu {{ aiStep }}/{{ aiCount }}</span>
+          <span>Đã lưu {{ aiSaved }}</span>
+        </div>
+        <div class="ai-progress-track" role="progressbar" [attr.aria-valuenow]="aiProgress()" aria-valuemin="0" aria-valuemax="100">
+          <div class="ai-progress-bar" [style.width.%]="aiProgress()"></div>
+        </div>
+      </div>
+    }
+
     <div class="ai-dialog-actions">
       <p-button label="Huỷ" severity="secondary" [outlined]="true" (onClick)="aiOpen = false" [disabled]="loading" />
-      <p-button label="Sinh câu" icon="pi pi-sparkles" (onClick)="generateAi()" [loading]="loading" />
+      <p-button [label]="loading && aiStep ? 'Đang sinh câu ' + aiStep + '/' + aiCount : 'Sinh câu'" icon="pi pi-sparkles" (onClick)="generateAi()" [loading]="loading" [disabled]="loading" />
     </div>
   </div>
 </p-dialog>

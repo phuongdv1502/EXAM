@@ -351,6 +351,35 @@ body {
   color: var(--p-text-muted-color, #6b7280);
 }
 
+.ai-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ai-progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.ai-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #e8eef3;
+  overflow: hidden;
+}
+
+.ai-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--p-primary-color, #059669);
+  transition: width 0.25s ease;
+}
+
 .ai-dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -372,6 +401,178 @@ tr.row-highlight > td {
 .preview-note {
   display: block;
   margin-top: 0.75rem;
+}
+
+.q-actions {
+  width: 3.25rem;
+  text-align: right;
+  vertical-align: middle;
+}
+
+.row-menu-btn {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.row-menu-btn .pi {
+  display: inline-block;
+  transition: transform 0.28s cubic-bezier(0.2, 0.85, 0.2, 1.25);
+}
+
+.row-menu-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #dbe3ea;
+}
+
+.row-menu-btn:hover .pi {
+  transform: scale(1.12);
+}
+
+.row-menu-btn.open {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+  box-shadow: 0 0 0 3px rgb(5 150 105 / 0.12);
+}
+
+.row-menu-btn.open .pi {
+  transform: rotate(90deg) scale(1.05);
+}
+
+.row-menu-panel {
+  position: fixed;
+  z-index: 30;
+  min-width: 11.5rem;
+  padding: 0.35rem;
+  border: 1px solid #e7ece9;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 14px 36px rgb(15 23 42 / 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  transform-origin: bottom right;
+  animation: row-menu-up 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.row-menu-panel.down {
+  transform-origin: top right;
+  animation-name: row-menu-down;
+}
+
+.row-menu-panel a,
+.row-menu-panel button[role='menuitem'] {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.4rem 0.45rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #1f2937;
+  font: inherit;
+  font-weight: 550;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  animation: row-item-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.row-menu-panel a:nth-child(2),
+.row-menu-panel button[role='menuitem']:nth-child(2) {
+  animation-delay: 0.04s;
+}
+
+.row-menu-panel button[role='menuitem']:nth-child(3) {
+  animation-delay: 0.08s;
+}
+
+.row-menu-panel a:hover,
+.row-menu-panel button[role='menuitem']:hover {
+  background: #f8fafc;
+}
+
+.menu-ico {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  transition: transform 0.22s cubic-bezier(0.2, 0.85, 0.2, 1.3);
+}
+
+.menu-ico .pi {
+  font-size: 0.86rem;
+}
+
+.tone-edit { background: #eff6ff; color: #2563eb; }
+.tone-send { background: #ecfeff; color: #0891b2; }
+.tone-ok { background: #ecfdf5; color: #059669; }
+.tone-no { background: #fef2f2; color: #dc2626; }
+
+.row-menu-panel a:hover .tone-edit,
+.row-menu-panel button:hover .tone-edit {
+  transform: rotate(-14deg) scale(1.08);
+}
+
+.row-menu-panel button:hover .tone-send {
+  transform: translate(3px, -2px) scale(1.08);
+}
+
+.row-menu-panel button:hover .tone-ok {
+  transform: scale(1.16);
+}
+
+.row-menu-panel button:hover .tone-no {
+  animation: menu-shake 0.38s ease;
+}
+
+.row-menu-panel .danger:hover {
+  background: #fef2f2;
+}
+
+@keyframes row-menu-up {
+  from { opacity: 0; transform: translateY(10px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes row-menu-down {
+  from { opacity: 0; transform: translateY(-10px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes row-item-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes menu-shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  30% { transform: translateX(-2px) rotate(-8deg); }
+  60% { transform: translateX(2px) rotate(8deg); }
+}
+
+.row-menu-reject {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 14rem;
+  padding: 0.35rem;
+}
+
+.row-menu-reject label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
 }
 
 .page-actions,

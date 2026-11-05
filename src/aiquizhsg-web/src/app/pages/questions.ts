@@ -1,6 +1,9 @@
 import { Component, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom, fromEvent } from 'rxjs';
+import { apiMessage } from '../core/api-error';
 import { saveBlob } from '../core/format';
 import { QuestionSummary, Subject, Topic } from '../core/models';
 import { Page } from '../core/page';
@@ -26,6 +29,8 @@ export class QuestionsPage extends Page implements OnInit {
   keyword = '';
   rejectingId: number | null = null;
   rejectReason = '';
+  menuId: number | null = null;
+  menuBox: { top: number | null; bottom: number | null; right: number } | null = null;
 
   aiOpen = false;
   aiSubjectId: number | null = null;
@@ -35,6 +40,9 @@ export class QuestionsPage extends Page implements OnInit {
   aiLevel = 'Medium';
   aiCount = 3;
   aiHint = '';
+  // Câu đang gọi Ollama (1-based) và số câu đã lưu trong lượt này.
+  aiStep = 0;
+  aiSaved = 0;
   // AI chưa hỗ trợ nhiều đáp án.
   readonly aiTypes = this.choices.questionType.filter((item) => item.value !== 'MultipleChoice');
 
@@ -42,6 +50,51 @@ export class QuestionsPage extends Page implements OnInit {
     this.watch(this.api.teachingSubjects(), (items) => (this.subjects = items));
     this.loadTopics();
     this.load();
+    // Bấm ra ngoài hoặc cuộn thì đóng menu thao tác.
+    fromEvent(document, 'click').pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.closeMenu());
+    fromEvent(document, 'scroll', { capture: true }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.closeMenu());
+  }
+
+  get menuItem(): QuestionSummary | undefined {
+    return this.items.find((item) => item.id === this.menuId);
+  }
+
+  toggleMenu(item: QuestionSummary, event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.menuId === item.id) {
+      this.closeMenu();
+      return;
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.rejectingId = null;
+    this.rejectReason = '';
+    this.menuId = item.id;
+    const right = Math.max(8, window.innerWidth - rect.right);
+    const menuHeight = 148;
+    // Ưu tiên xổ lên; sát mép trên thì xổ xuống để không bị cắt.
+    if (rect.top >= menuHeight) {
+      this.menuBox = { top: null, bottom: window.innerHeight - rect.top + 6, right };
+    } else {
+      this.menuBox = { top: rect.bottom + 6, bottom: null, right };
+    }
+  }
+
+  closeMenu(): void {
+    if (this.menuId === null) return;
+    this.menuId = null;
+    this.menuBox = null;
+    this.rejectingId = null;
+    this.cdr.markForCheck();
+  }
+
+  beginReject(item: QuestionSummary): void {
+    this.rejectingId = item.id;
+    this.rejectReason = '';
+  }
+
+  cancelReject(): void {
+    this.rejectingId = null;
+    this.rejectReason = '';
   }
 
   pageCount(): number {
@@ -112,6 +165,8 @@ export class QuestionsPage extends Page implements OnInit {
     this.aiLevel = 'Medium';
     this.aiCount = 3;
     this.aiHint = '';
+    this.aiStep = 0;
+    this.aiSaved = 0;
     this.loadAiTopics(this.topicId);
   }
 
@@ -130,7 +185,13 @@ export class QuestionsPage extends Page implements OnInit {
     });
   }
 
-  generateAi(): void {
+  aiProgress(): number {
+    if (!this.aiCount) return 0;
+    return Math.round((this.aiSaved / this.aiCount) * 100);
+  }
+
+  // Sinh từng câu để hiện "câu n / tổng", không chờ cả lô mới trả về.
+  async generateAi(): Promise<void> {
     if (!this.aiTopicId) {
       this.fail('Hãy chọn chuyên đề để sinh câu.');
       return;
@@ -139,29 +200,56 @@ export class QuestionsPage extends Page implements OnInit {
       this.fail('Số câu AI sinh phải từ 1 đến 10.');
       return;
     }
+
+    const total = this.aiCount;
+    const topicId = this.aiTopicId;
+    const hint = this.aiHint.trim() || null;
     this.loading = true;
-    this.watch(
-      this.api.generateAiQuestions({
-        topicId: this.aiTopicId,
-        type: this.aiType,
-        level: this.aiLevel,
-        questionCount: this.aiCount,
-        hint: this.aiHint.trim() || null,
-      }),
-      (result) => {
-        this.aiOpen = false;
-        this.status = 'PendingReview';
-        this.page = 1;
-        this.showOk(`Đã sinh ${result.created} câu (chờ duyệt).`);
-        if (result.errors.length) {
-          this.warn('Một số câu AI không hợp lệ', result.errors.join('\n'));
-        }
-        this.load();
-      },
-    );
+    this.aiStep = 0;
+    this.aiSaved = 0;
+    const errors: string[] = [];
+
+    for (let index = 1; index <= total; index++) {
+      this.aiStep = index;
+      this.cdr.markForCheck();
+      try {
+        const result = await firstValueFrom(this.api.generateAiQuestions({
+          topicId,
+          type: this.aiType,
+          level: this.aiLevel,
+          questionCount: 1,
+          hint,
+        }));
+        this.aiSaved += result.created;
+        if (result.errors.length) errors.push(...result.errors.map((item) => `Câu ${index}: ${item}`));
+        if (result.created === 0) errors.push(`Câu ${index}: không lưu được.`);
+      } catch (error: unknown) {
+        const message = apiMessage(error);
+        errors.push(`Câu ${index}: ${message}`);
+        // Mất kết nối hoặc chưa cấu hình thì dừng, không gọi tiếp các câu sau.
+        if (/Không kết nối|Chưa cấu hình|quá lâu|thất bại/i.test(message)) break;
+      }
+      this.cdr.markForCheck();
+    }
+
+    this.loading = false;
+    this.aiStep = 0;
+    if (this.aiSaved > 0) {
+      this.aiOpen = false;
+      this.status = 'PendingReview';
+      this.page = 1;
+      this.showOk(`Đã sinh ${this.aiSaved}/${total} câu (chờ duyệt).`);
+      if (errors.length) this.warn('Một số câu AI không hợp lệ', errors.join('\n'));
+      this.load();
+      return;
+    }
+
+    this.fail(errors[0] ?? 'Không sinh được câu nào.');
+    if (errors.length > 1) this.warn('Chi tiết', errors.join('\n'));
   }
 
   submit(item: QuestionSummary): void {
+    this.closeMenu();
     this.watch(this.api.submitQuestion(item.id), () => {
       this.showOk('Đã gửi duyệt.');
       this.load();
@@ -169,6 +257,7 @@ export class QuestionsPage extends Page implements OnInit {
   }
 
   approve(item: QuestionSummary): void {
+    this.closeMenu();
     this.watch(this.api.approveQuestion(item.id), () => {
       this.showOk('Đã duyệt câu hỏi.');
       this.load();
