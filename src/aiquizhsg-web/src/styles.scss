@@ -2443,22 +2443,19 @@ tr.row-highlight > td {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.is-playing .perf-area {
-  clip-path: inset(0 0 0 0);
-  transition: clip-path 2.8s linear;
+  stroke-dasharray: 4000;
+  stroke-dashoffset: 4000;
 }
 
 .perf-line {
   stroke: #4388f5;
-  stroke-width: 3;
+  stroke-width: 2.5;
   opacity: 0;
 }
 
 .perf-glow {
-  stroke: rgba(67, 136, 245, 0.28);
-  stroke-width: 8;
+  stroke: rgba(67, 136, 245, 0.55);
+  stroke-width: 5;
   opacity: 0;
 }
 
@@ -2470,15 +2467,14 @@ tr.row-highlight > td {
 .perf-point {
   fill: #fff;
   stroke: #4388f5;
-  stroke-width: 2.5;
+  stroke-width: 2;
   opacity: 0;
   transform-box: fill-box;
   transform-origin: center;
 }
 
-.is-playing .perf-point {
+.perf-dot.is-on .perf-point {
   animation: perf-point-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  animation-delay: calc(var(--i) / max(var(--last), 1) * 2.8s);
 }
 
 .perf-hit {
@@ -2500,8 +2496,8 @@ tr.row-highlight > td {
   transform-origin: center;
 }
 
-.is-playing .perf-pulse {
-  animation: perf-ring 1.15s ease-out 2.8s 2;
+.perf-dot.is-on .perf-pulse {
+  animation: perf-ring 1.2s ease-out 1;
 }
 
 .perf-tip {
@@ -2524,13 +2520,13 @@ tr.row-highlight > td {
 }
 
 @keyframes perf-point-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes perf-ring {
-  0% { opacity: 0.45; transform: scale(1); }
-  100% { opacity: 0; transform: scale(2.6); }
+  0% { opacity: 0.35; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2.2); }
 }
 
 @media (max-width: 820px) {

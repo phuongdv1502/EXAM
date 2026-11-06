@@ -4,9 +4,12 @@ import {
   Component,
   ElementRef,
   Input,
+  NgZone,
   OnChanges,
   OnDestroy,
+  QueryList,
   ViewChild,
+  ViewChildren,
   inject,
 } from '@angular/core';
 
@@ -28,6 +31,7 @@ interface AxisTick {
 })
 export class AnimatedLineChart implements OnChanges, AfterViewInit, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly zone = inject(NgZone);
   private static nextId = 0;
 
   @Input() title = 'Student Performance';
@@ -40,8 +44,12 @@ export class AnimatedLineChart implements OnChanges, AfterViewInit, OnDestroy {
   @Input() unit = '%';
 
   @ViewChild('trend') trend?: ElementRef<SVGPathElement>;
+  @ViewChild('stroke') stroke?: ElementRef<SVGPathElement>;
+  @ViewChild('fill') fill?: ElementRef<SVGPathElement>;
+  @ViewChildren('dot') dots?: QueryList<ElementRef<SVGGElement>>;
 
-  readonly fillId = `perf-fill-${AnimatedLineChart.nextId++}`;
+  readonly fillId = `perf-fill-${AnimatedLineChart.nextId}`;
+  readonly glowId = `perf-glow-${AnimatedLineChart.nextId++}`;
   readonly width = 720;
   readonly height = 280;
   readonly pad = { l: 48, r: 20, t: 20, b: 44 };
@@ -59,7 +67,7 @@ export class AnimatedLineChart implements OnChanges, AfterViewInit, OnDestroy {
 
   private viewReady = false;
   private signature = '';
-  private drawTimer = 0;
+  private frame = 0;
 
   ngOnChanges(): void {
     this.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -76,7 +84,7 @@ export class AnimatedLineChart implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    window.clearInterval(this.drawTimer);
+    cancelAnimationFrame(this.frame);
   }
 
   average(): string {
@@ -100,29 +108,60 @@ export class AnimatedLineChart implements OnChanges, AfterViewInit, OnDestroy {
 
   // Vẽ lại từ đầu khi dữ liệu đổi hoặc người dùng bấm phát lại.
   restart(): void {
-    window.clearInterval(this.drawTimer);
+    cancelAnimationFrame(this.frame);
     const path = this.trend?.nativeElement;
     const length = path && this.points.length > 1 ? path.getTotalLength() : 0;
     this.length = length;
     this.ready = true;
-    // Giấu nét và tắt class để chấm chạy lại từ đầu.
     this.playing = false;
-    this.offset = this.reduceMotion || length === 0 ? 0 : length;
+    this.dots?.forEach((dot) => dot.nativeElement.classList.remove('is-on'));
+    // Giấu nét trước, rồi vẽ theo từng khung hình để không giật.
+    this.paint(this.reduceMotion || length === 0 ? 0 : length, this.reduceMotion || length === 0 ? 1 : 0);
     this.cdr.detectChanges();
-    setTimeout(() => {
+    if (this.reduceMotion || length === 0) {
       this.playing = true;
+      this.markDots(1);
       this.cdr.detectChanges();
-    }, 30);
-    if (this.reduceMotion || length === 0) return;
-    const duration = 2800;
-    const start = performance.now();
-    // Kéo nét từ trái sang phải theo thời gian, cùng nhịp với từng chấm.
-    this.drawTimer = window.setInterval(() => {
-      const progress = Math.min(1, (performance.now() - start) / duration);
-      this.offset = length * (1 - progress);
-      this.cdr.detectChanges();
-      if (progress >= 1) window.clearInterval(this.drawTimer);
-    }, 16);
+      return;
+    }
+    this.zone.runOutsideAngular(() => {
+      const duration = 3200;
+      const start = performance.now();
+      const step = (now: number) => {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = easeInOut(t);
+        this.paint(length * (1 - eased), eased);
+        if (t < 1) this.frame = requestAnimationFrame(step);
+      };
+      this.frame = requestAnimationFrame(() => {
+        this.playing = true;
+        this.cdr.detectChanges();
+        this.frame = requestAnimationFrame(step);
+      });
+    });
+  }
+
+  // Ghi nét, vùng tô và chấm thẳng lên SVG, không chạy lại cả trang mỗi khung hình.
+  private paint(offset: number, progress: number): void {
+    this.offset = offset;
+    const dash = `${this.length || 1}px`;
+    const hidden = `${offset}px`;
+    for (const path of [this.trend?.nativeElement, this.stroke?.nativeElement]) {
+      if (!path) continue;
+      path.style.strokeDasharray = dash;
+      path.style.strokeDashoffset = hidden;
+    }
+    const fill = this.fill?.nativeElement;
+    if (fill) fill.style.clipPath = `inset(0 ${(1 - progress) * 100}% 0 0)`;
+    this.markDots(progress);
+  }
+
+  private markDots(progress: number): void {
+    const last = this.points.length - 1;
+    this.dots?.forEach((dot, index) => {
+      const reached = last <= 0 || progress >= index / last;
+      dot.nativeElement.classList.toggle('is-on', reached);
+    });
   }
 
   show(index: number): void {
@@ -195,21 +234,41 @@ export class AnimatedLineChart implements OnChanges, AfterViewInit, OnDestroy {
   }
 }
 
-// Nối các điểm bằng đoạn cong, không gãy tại từng mốc.
+// Nối các điểm bằng đường cong đơn điệu: đi qua đúng từng mốc, không gãy khúc và không móc ngược.
 function curve(points: PlotPoint[]): string {
   if (points.length === 0) return '';
   if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  const slopes = points.slice(0, -1).map((point, index) => {
+    const next = points[index + 1];
+    return (next.y - point.y) / (next.x - point.x || 1);
+  });
+  const tangents = points.map((_, index) => {
+    if (index === 0) return slopes[0];
+    if (index === points.length - 1) return slopes[slopes.length - 1];
+    if (slopes[index - 1] * slopes[index] <= 0) return 0;
+    const average = (slopes[index - 1] + slopes[index]) / 2;
+    const limit = 3 * Math.min(Math.abs(slopes[index - 1]), Math.abs(slopes[index]));
+    return Math.abs(average) > limit ? Math.sign(average) * limit : average;
+  });
   let path = `M ${points[0].x} ${points[0].y}`;
   for (let index = 0; index < points.length - 1; index++) {
-    const previous = points[index - 1] ?? points[index];
     const current = points[index];
     const next = points[index + 1];
-    const after = points[index + 2] ?? next;
-    const control1x = current.x + (next.x - previous.x) / 6;
-    const control1y = current.y + (next.y - previous.y) / 6;
-    const control2x = next.x - (after.x - current.x) / 6;
-    const control2y = next.y - (after.y - current.y) / 6;
-    path += ` C ${control1x} ${control1y}, ${control2x} ${control2y}, ${next.x} ${next.y}`;
+    const span = next.x - current.x;
+    const control1x = current.x + span / 3;
+    const control1y = current.y + (tangents[index] * span) / 3;
+    const control2x = next.x - span / 3;
+    const control2y = next.y - (tangents[index + 1] * span) / 3;
+    path += ` C ${round(control1x)} ${round(control1y)}, ${round(control2x)} ${round(control2y)}, ${round(next.x)} ${round(next.y)}`;
   }
   return path;
+}
+
+function round(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+// Chậm ở hai đầu, đều ở giữa, để nét chạy nhìn liền chứ không giật.
+function easeInOut(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
 }

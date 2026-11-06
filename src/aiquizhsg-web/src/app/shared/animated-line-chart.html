@@ -45,26 +45,29 @@
       >
         <defs>
           <linearGradient [attr.id]="fillId" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#4388F5" stop-opacity="0.32" />
+            <stop offset="0%" stop-color="#4388F5" stop-opacity="0.22" />
+            <stop offset="62%" stop-color="#4388F5" stop-opacity="0.06" />
             <stop offset="100%" stop-color="#4388F5" stop-opacity="0" />
           </linearGradient>
+          <filter [attr.id]="glowId" x="-8%" y="-40%" width="116%" height="180%">
+            <feGaussianBlur stdDeviation="4.5" />
+          </filter>
         </defs>
         @for (tick of ticks; track tick.label) {
           <line class="perf-grid" x1="48" [attr.x2]="width - 20" [attr.y1]="tick.y" [attr.y2]="tick.y" />
           <text class="perf-axis" x="40" [attr.y]="tick.y + 4" text-anchor="end">{{ tick.label }}</text>
         }
-        <path class="perf-area" [attr.d]="area" [attr.fill]="'url(#' + fillId + ')'" />
-        <path class="perf-glow" #trend [attr.d]="line" [style.stroke-dasharray.px]="length || 1" [style.stroke-dashoffset.px]="offset" />
-        <path class="perf-line" [attr.d]="line" [style.stroke-dasharray.px]="length || 1" [style.stroke-dashoffset.px]="offset" />
+        <path class="perf-area" #fill [attr.d]="area" [attr.fill]="'url(#' + fillId + ')'" />
+        <path class="perf-glow" #trend [attr.d]="line" [attr.filter]="'url(#' + glowId + ')'" />
+        <path class="perf-line" #stroke [attr.d]="line" />
         @for (point of points; track point.label + point.x; let index = $index; let last = $last) {
           @if (showLabel(index)) {
             <text class="perf-axis perf-xlabel" [attr.x]="point.x" [attr.y]="height - 12" text-anchor="middle">{{ short(point.label) }}</text>
           }
           <g
+            #dot
             class="perf-dot"
             [class.is-last]="last"
-            [style.--i]="index"
-            [style.--last]="points.length - 1"
             (mouseenter)="show(index)"
             (mouseleave)="hide()"
             (focus)="show(index)"
@@ -73,7 +76,7 @@
             @if (last) {
               <circle class="perf-pulse" [attr.cx]="point.x" [attr.cy]="point.y" r="5" />
             }
-            <circle class="perf-point" [attr.cx]="point.x" [attr.cy]="point.y" r="4.5" />
+            <circle class="perf-point" [attr.cx]="point.x" [attr.cy]="point.y" r="4" />
             <circle class="perf-hit" [attr.cx]="point.x" [attr.cy]="point.y" r="14" tabindex="0" />
           </g>
         }
