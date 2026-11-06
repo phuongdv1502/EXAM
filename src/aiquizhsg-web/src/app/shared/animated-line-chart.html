@@ -1,0 +1,89 @@
+<section class="perf-chart" [class.is-ready]="ready" [class.is-playing]="playing" [class.is-still]="reduceMotion">
+  <header class="perf-head">
+    <div>
+      <div class="perf-title-row">
+        <h2>{{ title }}</h2>
+        @if (badge) {
+          <span class="perf-badge">{{ badge }}</span>
+        }
+      </div>
+      @if (subtitle) {
+        <p>{{ subtitle }}</p>
+      }
+    </div>
+    <button type="button" class="perf-replay" (click)="restart()">Phát lại</button>
+  </header>
+
+  <div class="perf-kpis">
+    <div>
+      <span>Average Score</span>
+      <strong>{{ average() }}</strong>
+    </div>
+    <div>
+      <span>Improvement</span>
+      <strong>{{ improvement() }}</strong>
+    </div>
+    <div>
+      <span>Highest Score</span>
+      <strong>{{ highest() }}</strong>
+    </div>
+    <div>
+      <span>Total Assessments</span>
+      <strong>{{ points.length }}</strong>
+    </div>
+  </div>
+
+  @if (!points.length) {
+    <p class="muted perf-empty">Chưa có điểm các lần kiểm tra.</p>
+  } @else {
+    <div class="perf-stage">
+      <svg
+        class="perf-svg"
+        [attr.viewBox]="'0 0 ' + width + ' ' + height"
+        role="img"
+        [attr.aria-label]="title + '. ' + points.length + ' lần kiểm tra.'"
+      >
+        <defs>
+          <linearGradient [attr.id]="fillId" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#4388F5" stop-opacity="0.32" />
+            <stop offset="100%" stop-color="#4388F5" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+        @for (tick of ticks; track tick.label) {
+          <line class="perf-grid" x1="48" [attr.x2]="width - 20" [attr.y1]="tick.y" [attr.y2]="tick.y" />
+          <text class="perf-axis" x="40" [attr.y]="tick.y + 4" text-anchor="end">{{ tick.label }}</text>
+        }
+        <path class="perf-area" [attr.d]="area" [attr.fill]="'url(#' + fillId + ')'" />
+        <path class="perf-glow" #trend [attr.d]="line" [style.stroke-dasharray.px]="length || 1" [style.stroke-dashoffset.px]="offset" />
+        <path class="perf-line" [attr.d]="line" [style.stroke-dasharray.px]="length || 1" [style.stroke-dashoffset.px]="offset" />
+        @for (point of points; track point.label + point.x; let index = $index; let last = $last) {
+          @if (showLabel(index)) {
+            <text class="perf-axis perf-xlabel" [attr.x]="point.x" [attr.y]="height - 12" text-anchor="middle">{{ short(point.label) }}</text>
+          }
+          <g
+            class="perf-dot"
+            [class.is-last]="last"
+            [style.--i]="index"
+            [style.--last]="points.length - 1"
+            (mouseenter)="show(index)"
+            (mouseleave)="hide()"
+            (focus)="show(index)"
+            (blur)="hide()"
+          >
+            @if (last) {
+              <circle class="perf-pulse" [attr.cx]="point.x" [attr.cy]="point.y" r="5" />
+            }
+            <circle class="perf-point" [attr.cx]="point.x" [attr.cy]="point.y" r="4.5" />
+            <circle class="perf-hit" [attr.cx]="point.x" [attr.cy]="point.y" r="14" tabindex="0" />
+          </g>
+        }
+      </svg>
+      @if (active !== null) {
+        <div class="perf-tip" [style.left]="tipStyle(points[active])['left']" [style.top]="tipStyle(points[active])['top']" [style.transform]="tipStyle(points[active])['transform']">
+          <strong>{{ points[active].label }}</strong>
+          <span>{{ points[active].value }}{{ unit }}</span>
+        </div>
+      }
+    </div>
+  }
+</section>

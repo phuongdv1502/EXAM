@@ -1,0 +1,8 @@
+{
+  "name": "aged-art-0f41",
+  "compatibility_date": "2026-11-06",
+  "assets": {
+    "directory": "./dist/aiquizhsg-web/browser",
+    "not_found_handling": "single-page-application"
+  }
+}

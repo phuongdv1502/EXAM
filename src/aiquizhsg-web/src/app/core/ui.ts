@@ -17,6 +17,7 @@ import { Tag } from 'primeng/tag';
 import { Textarea } from 'primeng/textarea';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { PageCrumbs } from '../layout/page-crumbs';
+import { AnimatedLineChart } from '../shared/animated-line-chart';
 
 export const UI = [
   Accordion,
@@ -42,4 +43,5 @@ export const UI = [
   Textarea,
   ToggleSwitch,
   PageCrumbs,
+  AnimatedLineChart,
 ];

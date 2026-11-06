@@ -70,6 +70,71 @@ public static class DatabaseSeeder
         await SeedFormStylesAsync(db, ct);
         await SeedOmrTemplatesAsync(unitOfWork, config, logger, ct);
         await SeedTeachingSubjectsAsync(db, ct);
+        await SeedChartSeriesAsync(db, ct);
+    }
+
+    // Tám lần kiểm tra đã chấm, điểm tăng dần, để đường biểu đồ trên tổng quan có dữ liệu.
+    private static async Task SeedChartSeriesAsync(AiQuizDbContext db, CancellationToken ct)
+    {
+        if (await db.Exams.AnyAsync(exam => exam.Title.StartsWith("Lần kiểm tra "), ct))
+            return;
+
+        var subject = await db.Subjects.FirstOrDefaultAsync(item => item.Code == "TIN", ct)
+            ?? await db.Subjects.OrderBy(item => item.Id).FirstOrDefaultAsync(ct);
+        var author = await db.Users.OrderBy(item => item.Id).Select(item => (long?)item.Id).FirstOrDefaultAsync(ct);
+        var students = await db.UserRoles
+            .Where(link => link.Role.Code == RoleCodes.Student)
+            .Select(link => link.UserId)
+            .Distinct()
+            .OrderBy(id => id)
+            .Take(2)
+            .ToListAsync(ct);
+        if (subject is null || author is null || students.Count == 0)
+            return;
+
+        var averages = new decimal[] { 42, 51, 57, 64, 60, 71, 79, 88 };
+        var now = DateTime.UtcNow;
+        for (var index = 0; index < averages.Length; index++)
+        {
+            var when = now.AddDays(-7 * (averages.Length - index));
+            var exam = new Exam
+            {
+                Title = $"Lần kiểm tra {index + 1}",
+                Description = "Dữ liệu mẫu để xem đường điểm trên tổng quan.",
+                SubjectId = subject.Id,
+                DurationMinutes = 45,
+                MaxAttempts = 1,
+                ShuffleQuestions = false,
+                ShuffleOptions = false,
+                PublishResults = true,
+                Status = ExamStatus.Closed,
+                CreatedById = author.Value,
+                CreatedAtUtc = when,
+                PublishedAtUtc = when
+            };
+            db.Exams.Add(exam);
+            await db.SaveChangesAsync(ct);
+
+            for (var studentIndex = 0; studentIndex < students.Count; studentIndex++)
+            {
+                var delta = studentIndex == 0 ? -4m : 4m;
+                var score = Math.Clamp(averages[index] + delta, 0, 100);
+                db.ExamAttempts.Add(new ExamAttempt
+                {
+                    ExamId = exam.Id,
+                    UserId = students[studentIndex],
+                    AttemptNumber = 1,
+                    StartedAtUtc = when,
+                    DueAtUtc = when.AddMinutes(45),
+                    SubmittedAtUtc = when.AddMinutes(40),
+                    Status = AttemptStatus.Graded,
+                    Score = score,
+                    MaxScore = 100
+                });
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     // Bổ sung kiểu phiếu còn thiếu. Không ghi đè kiểu đã có.

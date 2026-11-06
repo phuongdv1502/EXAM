@@ -2,9 +2,16 @@ export type CameraFacing = 'user' | 'environment';
 
 // Ưu tiên đúng mặt camera. Máy không có mặt đó thì mở camera đang có.
 export async function openCameraStream(facing: CameraFacing, width: number, height: number): Promise<MediaStream> {
+  // Chỉ điện thoại cầm dọc mới xin khung dọc. Máy tính vẫn xin khung ngang như cũ.
+  const phone = window.matchMedia('(max-width: 820px) and (pointer: coarse)').matches;
+  const portrait = phone && window.innerHeight > window.innerWidth;
+  const longSide = Math.max(width, height);
+  const shortSide = Math.min(width, height);
+  const idealWidth = portrait ? shortSide : longSide;
+  const idealHeight = portrait ? longSide : shortSide;
   const attempts: MediaTrackConstraints[] = [
-    { facingMode: { exact: facing }, width: { ideal: width }, height: { ideal: height } },
-    { facingMode: { ideal: facing }, width: { ideal: width }, height: { ideal: height } },
+    { facingMode: { exact: facing }, width: { ideal: idealWidth }, height: { ideal: idealHeight } },
+    { facingMode: { ideal: facing }, width: { ideal: idealWidth }, height: { ideal: idealHeight } },
   ];
   let last: unknown;
   for (const video of attempts) {

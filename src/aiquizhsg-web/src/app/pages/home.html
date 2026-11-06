@@ -15,6 +15,16 @@
       <div class="kpi"><span>Học sinh</span><strong>{{ report.studentCount }}</strong></div>
       <div class="kpi"><span>Phiếu OMR</span><strong>{{ report.omrSheetCount }}</strong></div>
     </div>
+    <app-animated-line-chart
+      title="Student Performance"
+      subtitle="Theo dõi kết quả học tập qua các lần kiểm tra."
+      badge="Analytics"
+      [labels]="performanceLabels"
+      [series]="performanceSeries"
+      [yAxisMin]="0"
+      [yAxisMax]="100"
+      unit="%"
+    />
     <div class="chart-grid">
       <p-card header="Câu hỏi theo trạng thái">
         @if (hasCount(report.questionStatus)) {

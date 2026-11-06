@@ -25,6 +25,8 @@ export class HomePage extends Page implements OnInit {
   readonly horizontalBarOptions = horizontalBarOptions;
   readonly hasCount = hasCount;
   report: DashboardReport | null = null;
+  performanceLabels: string[] = [];
+  performanceSeries: number[] = [];
 
   private readonly cards: Card[] = [
     { title: 'Ngân hàng câu hỏi', text: 'Soạn, gửi duyệt và phê duyệt câu trắc nghiệm.', link: '/questions', roles: ['ADMIN', 'TEACHER'] },
@@ -53,6 +55,10 @@ export class HomePage extends Page implements OnInit {
     this.loading = true;
     this.watch(this.api.dashboard(), (report) => {
       this.report = report;
+      // Đề mới trả về trước. Đảo lại để đường điểm chạy từ lần kiểm tra cũ sang lần mới.
+      const scored = report.exams.filter((item) => item.averagePercent !== null).slice(0, 12).reverse();
+      this.performanceLabels = scored.map((item) => item.title);
+      this.performanceSeries = scored.map((item) => item.averagePercent ?? 0);
       this.loading = false;
     });
   }
