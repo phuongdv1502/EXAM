@@ -33,22 +33,42 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
         ReadCodes(page, config, out var bubbledStudent, out var bubbledExam);
         // Ảnh chụp tay lệch so với mẫu. Số báo danh đã tự canh. Cột đáp án bám mép khung của chính cột đó.
         var answerShift = AlignAnswers(page, config);
-        var bubbles = new List<OmrBubbleReading>(config.Bubbles.Count);
+        var measured = new List<(OmrBubbleConfig Bubble, double Ratio)>(config.Bubbles.Count);
         foreach (var bubble in config.Bubbles)
         {
             answerShift.TryGetValue(bubble.QuestionNumber, out var nudge);
-            var ratio = DarkRatio(page, bubble, nudge);
-            var status = ratio >= config.MarkedRatio
-                ? nameof(OmrMarkStatus.Marked)
-                : ratio <= config.BlankRatio ? nameof(OmrMarkStatus.Blank) : nameof(OmrMarkStatus.Ambiguous);
-            bubbles.Add(new OmrBubbleReading
-            {
-                QuestionNumber = bubble.QuestionNumber,
-                ChoiceIndex = bubble.ChoiceIndex,
-                Ratio = ratio,
-                Status = status
-            });
+            measured.Add((bubble, DarkRatio(page, bubble, nudge)));
         }
+
+        // So các ô trong cùng một câu. Ô trội hơn hẳn thì nhận, hai ô cùng đậm thì không đoán.
+        var bubbles = new List<OmrBubbleReading>(measured.Count);
+        foreach (var group in measured.GroupBy(item => GroupKey(config, item.Bubble)))
+        {
+            var cells = group.ToList();
+            var decision = OmrMarkChoice.Choose(cells.Select(item => item.Ratio).ToList(), config.MarkedRatio, config.BlankRatio);
+            for (var index = 0; index < cells.Count; index++)
+            {
+                var chosen = decision.Status == OmrMarkStatus.Marked && decision.Index == index;
+                var status = chosen
+                    ? nameof(OmrMarkStatus.Marked)
+                    : decision.Status == OmrMarkStatus.Ambiguous && cells[index].Ratio >= config.BlankRatio
+                        ? nameof(OmrMarkStatus.Ambiguous)
+                        : nameof(OmrMarkStatus.Blank);
+                bubbles.Add(new OmrBubbleReading
+                {
+                    QuestionNumber = cells[index].Bubble.QuestionNumber,
+                    ChoiceIndex = cells[index].Bubble.ChoiceIndex,
+                    Ratio = cells[index].Ratio,
+                    Status = status
+                });
+            }
+        }
+
+        bubbles.Sort((left, right) =>
+        {
+            var byQuestion = left.QuestionNumber.CompareTo(right.QuestionNumber);
+            return byQuestion != 0 ? byQuestion : left.ChoiceIndex.CompareTo(right.ChoiceIndex);
+        });
 
         return new OmrRecognitionResult
         {
@@ -329,28 +349,35 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
     {
         if (cells.Count == 0)
             return new OmrCodeGrid.Column(column, null, true);
-        var ordered = cells.OrderByDescending(item => item.Ratio).ToList();
-        var top = ordered[0];
-        var next = ordered.Count > 1 ? ordered[1].Ratio : 0;
-        if (top.Ratio >= marked && next >= marked)
-            return new OmrCodeGrid.Column(column, null, true);
-        if (top.Ratio >= marked && top.Ratio - next >= 0.25)
-            return new OmrCodeGrid.Column(column, top.Digit, false);
-        if (top.Ratio >= marked)
-            return new OmrCodeGrid.Column(column, null, true);
-        // Cột không có ô tô đậm, các vòng in sẵn đều nhau, thì coi là bỏ trống.
-        if (top.Ratio - next < 0.12)
+        var decision = OmrMarkChoice.Choose(cells.Select(item => item.Ratio).ToList(), marked);
+        if (decision.Status == OmrMarkStatus.Marked && decision.Index is int index)
+            return new OmrCodeGrid.Column(column, cells[index].Digit, false);
+        if (decision.Status == OmrMarkStatus.Blank)
             return new OmrCodeGrid.Column(column, null, false);
         return new OmrCodeGrid.Column(column, null, true);
+    }
+
+    // Điền số thì so trong từng cột chữ số. Câu trắc nghiệm so các lựa chọn của câu đó.
+    private static string GroupKey(OmrTemplateConfig config, OmrBubbleConfig bubble)
+    {
+        if (config.KindOf(bubble.QuestionNumber) == OmrSectionKinds.DienSo)
+            return $"d{bubble.QuestionNumber}:{bubble.ChoiceIndex / OmrDigitGrid.Rows}";
+        return $"q{bubble.QuestionNumber}";
     }
 
     private static double DarkRatio(SKBitmap image, OmrBubbleConfig bubble, NudgeShift nudge = default)
     {
         // Lấy lòng ô, bỏ vòng in sẵn. Nudge dịch cả lưới khi ảnh lệch nửa hàng.
+        var boxLeft = Clamp((int)Math.Round((bubble.X + nudge.X) * image.Width), 0, image.Width - 1);
+        var boxTop = Clamp((int)Math.Round((bubble.Y + nudge.Y) * image.Height), 0, image.Height - 1);
+        var boxRight = Clamp(boxLeft + Math.Max(1, (int)Math.Round(bubble.Width * image.Width)), boxLeft + 1, image.Width);
+        var boxBottom = Clamp(boxTop + Math.Max(1, (int)Math.Round(bubble.Height * image.Height)), boxTop + 1, image.Height);
         var left = Clamp((int)Math.Round((bubble.X + nudge.X + bubble.Width * 0.22) * image.Width), 0, image.Width - 1);
         var top = Clamp((int)Math.Round((bubble.Y + nudge.Y + bubble.Height * 0.22) * image.Height), 0, image.Height - 1);
         var right = Clamp(left + Math.Max(1, (int)Math.Round(bubble.Width * 0.56 * image.Width)), left + 1, image.Width);
         var bottom = Clamp(top + Math.Max(1, (int)Math.Round(bubble.Height * 0.56 * image.Height)), top + 1, image.Height);
+        // Nền giấy quanh ô quyết định thế nào là mực. Ảnh tối hoặc bút chì nhạt không bị một ngưỡng cố định làm sai.
+        var limit = InkLimit(PaperLevel(image, boxLeft, boxTop, boxRight, boxBottom));
         var dark = 0;
         var total = 0;
         for (var y = top; y < bottom; y++)
@@ -358,15 +385,61 @@ public sealed class OmrRecognitionService : IOmrRecognitionService
             for (var x = left; x < right; x++)
             {
                 total++;
-                var pixel = image.GetPixel(x, y);
-                var luminance = pixel.Red * 0.299 + pixel.Green * 0.587 + pixel.Blue * 0.114;
-                if (luminance < 140)
+                if (Luma(image.GetPixel(x, y)) < limit)
                     dark++;
             }
         }
 
         return total == 0 ? 0 : (double)dark / total;
     }
+
+    // Phần sáng quanh ô là giấy. Vòng in sẵn và ô bên cạnh đậm không được kéo ngưỡng xuống.
+    private static double PaperLevel(SKBitmap image, int left, int top, int right, int bottom)
+    {
+        var padX = Math.Max(2, (right - left) / 3);
+        var padY = Math.Max(2, (bottom - top) / 3);
+        var x0 = Clamp(left - padX, 0, image.Width - 1);
+        var y0 = Clamp(top - padY, 0, image.Height - 1);
+        var x1 = Clamp(right + padX, x0 + 1, image.Width);
+        var y1 = Clamp(bottom + padY, y0 + 1, image.Height);
+        var levels = new List<int>();
+        for (var y = y0; y < y1; y++)
+        {
+            for (var x = x0; x < x1; x++)
+            {
+                if (x >= left && x < right && y >= top && y < bottom)
+                    continue;
+                levels.Add(Luma(image.GetPixel(x, y)));
+            }
+        }
+
+        if (levels.Count < 8)
+            return 220;
+        // Chỉ lấy các điểm sáng sát mức sáng nhất. Ô tô bên cạnh không được coi là giấy.
+        var peak = 0;
+        foreach (var level in levels)
+        {
+            if (level > peak)
+                peak = level;
+        }
+
+        var sum = 0;
+        var count = 0;
+        foreach (var level in levels)
+        {
+            if (level < peak - 25)
+                continue;
+            sum += level;
+            count++;
+        }
+
+        return count == 0 ? peak : sum / (double)count;
+    }
+
+    // Giấy sáng giữ ngưỡng cũ. Giấy tối thì hạ ngưỡng để nền xám không bị tính là mực.
+    private static double InkLimit(double paper) => paper >= 170 ? 140 : Math.Clamp(paper * 0.72, 90, 140);
+
+    private static int Luma(SKColor pixel) => (pixel.Red * 299 + pixel.Green * 587 + pixel.Blue * 114) / 1000;
 
     // Đọc mã QR trước, để biết phiếu thuộc đề nào rồi mới chọn mẫu.
     public string? ReadQr(ReadOnlyMemory<byte> image)

@@ -1167,20 +1167,17 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
                     long? optionId = bubble.ChoiceIndex >= 0 && bubble.ChoiceIndex < options.Count ? options[bubble.ChoiceIndex].Id : null;
                     return new { bubble.ChoiceIndex, bubble.Ratio, bubble.Status, optionId };
                 }).ToList();
-                var ordered = choiceMarks.OrderByDescending(item => item.Ratio).ToList();
-                var top = ordered.FirstOrDefault();
-                var nextRatio = ordered.Count > 1 ? ordered[1].Ratio : 0;
-                var strong = choiceMarks.Where(item => item.Ratio >= config.MarkedRatio).ToList();
-                // Một ô đậm hơn hẳn các ô còn lại thì lấy ô đó. Vệt mờ cạnh chỗ tô không làm cả câu thành bỏ trống.
-                if (strong.Count > 1 || (strong.Count == 1 && top!.Ratio - nextRatio < 0.25))
+                var decision = OmrMarkChoice.Choose(choiceMarks.Select(item => item.Ratio).ToList(), config.MarkedRatio, config.BlankRatio);
+                // Ô trội hơn các ô cùng câu thì lấy. Hai ô cùng đậm thì để xem lại, không gán nhầm đáp án.
+                if (decision.Status == OmrMarkStatus.Marked && decision.Index is int picked && choiceMarks[picked].optionId is long optionId)
+                {
+                    status = OmrMarkStatus.Marked;
+                    recognized = optionId;
+                }
+                else if (decision.Status == OmrMarkStatus.Ambiguous || (decision.Status == OmrMarkStatus.Marked && recognized is null))
                 {
                     status = OmrMarkStatus.Ambiguous;
                     needsReview = true;
-                }
-                else if (strong.Count == 1)
-                {
-                    status = OmrMarkStatus.Marked;
-                    recognized = strong[0].optionId;
                 }
                 else
                 {
@@ -1189,7 +1186,7 @@ public sealed class OmrService : TimedOrganizationService, IOmrService
 
                 confidence = status switch
                 {
-                    OmrMarkStatus.Marked => (decimal)strong[0].Ratio,
+                    OmrMarkStatus.Marked => (decimal)choiceMarks[decision.Index ?? 0].Ratio,
                     OmrMarkStatus.Blank => (decimal)(1 - choiceMarks.Select(item => item.Ratio).DefaultIfEmpty(0).Max()),
                     _ => 0.4m
                 };

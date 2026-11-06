@@ -33,6 +33,24 @@ public class OmrTests
     }
 
     [Fact]
+    public void MarkChoice_TakesTheBubbleThatStandsOut()
+    {
+        var clear = OmrMarkChoice.Choose([0.62, 0.40, 0.14, 0.12]);
+        var light = OmrMarkChoice.Choose([0.36, 0.12, 0.11, 0.10]);
+        var both = OmrMarkChoice.Choose([0.70, 0.64, 0.11, 0.10]);
+        var empty = OmrMarkChoice.Choose([0.22, 0.18, 0.16, 0.15]);
+        var close = OmrMarkChoice.Choose([0.50, 0.42, 0.12, 0.11]);
+
+        Assert.Equal(OmrMarkStatus.Marked, clear.Status);
+        Assert.Equal(0, clear.Index);
+        Assert.Equal(OmrMarkStatus.Marked, light.Status);
+        Assert.Equal(0, light.Index);
+        Assert.Equal(OmrMarkStatus.Ambiguous, both.Status);
+        Assert.Equal(OmrMarkStatus.Blank, empty.Status);
+        Assert.Equal(OmrMarkStatus.Ambiguous, close.Status);
+    }
+
+    [Fact]
     public void Grade_GivesPointsOnlyWhenTheChosenSetMatches()
     {
         var questions = new List<ExamQuestion>
@@ -264,7 +282,7 @@ public class OmrTests
     {
         Assert.True(OmrTemplateConfig.TryFromCheck([("BonDapAn", 10)], out var config));
         var plan = OmrFormLayout.For(config);
-        var png = OmrFormImage.Png(plan, null, "26001", null, "101", null);
+        var png = OmrFormImage.Png(plan, null, "26001", null, "101", null, fillExamCode: true);
         using var bitmap = SKBitmap.Decode(png);
         using var canvas = new SKCanvas(bitmap);
         var qr = OmrFormLayout.Pixels(plan.Qr);
